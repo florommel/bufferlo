@@ -1,5 +1,5 @@
 ;;; bufferlo.el --- Manage frame/tab-local buffer lists -*- lexical-binding: t -*-
-;; Copyright (C) 2021, Florian Rommel
+;; Copyright (C) 2021-2022, Florian Rommel
 
 ;; Author: Florian Rommel <mail@florommel.de>
 ;; Maintainer: Florian Rommel <mail@florommel.de>
@@ -242,7 +242,7 @@ Ignore buffers that are not able to be persisted in the desktop file."
     (apply oldfn args)))
 
 (defun bufferlo-clear (&optional frame)
-  "Clear the frame's buffer list, except for the current buffer.
+  "Clear the frame/tab's buffer list, except for the current buffer.
 If FRAME is nil, use the current frame."
   (interactive)
   (set-frame-parameter frame 'buffer-list
@@ -252,7 +252,7 @@ If FRAME is nil, use the current frame."
                                (current-buffer)))))
 
 (defun bufferlo-remove (buffer)
-  "Remove BUFFER from the frame's buffer list."
+  "Remove BUFFER from the frame/tab's buffer list."
   (interactive
    (list
     (let ((lbs (mapcar (lambda (b) (buffer-name b))
