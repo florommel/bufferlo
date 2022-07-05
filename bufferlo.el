@@ -101,6 +101,12 @@ in order to take effect."
   :group 'bufferlo
   :type 'boolean)
 
+(defcustom bufferlo-include-buried-buffers t
+  "Include buried buffers in the local list (`bufferlo-buffer-list').
+Use `bufferlo-bury' to remove and bury a buffer if this is set to `t'."
+  :group 'bufferlo
+  :type 'boolean)
+
 (defcustom bufferlo-include-buffer-filters nil
   "Buffers that should always get included in a new tab or frame.
 This is a list of regular expressions that match buffer names.
@@ -167,7 +173,7 @@ This is a list of regular expressions that match buffer names."
 
 (defun bufferlo-local-buffer-p (buffer)
   "Return whether BUFFER is in the list of local buffers."
-  (memq buffer (frame-parameter nil 'buffer-list)))
+  (memq buffer (bufferlo--current-buffers nil)))
 
 (defun bufferlo--set-buffer-predicate (frame)
   "Set the buffer predicate of FRAME to `bufferlo-local-buffer-p'."
@@ -190,7 +196,7 @@ This is a list of regular expressions that match buffer names."
                    (append '("a^") bufferlo-include-buffer-filters)))
          (exclude (bufferlo--merge-regexp-list
                    (append '("a^") bufferlo-exclude-buffer-filters)))
-         (buffers (frame-parameter frame 'buffer-list))
+         (buffers (bufferlo--current-buffers frame))
          (buffers (seq-filter (lambda (b)
                                 (not (string-match-p exclude (buffer-name b))))
                               buffers))
@@ -198,6 +204,8 @@ This is a list of regular expressions that match buffer names."
                                      (string-match-p include (buffer-name b)))
                                    (buffer-list frame)))
          (buffers (delete-dups (append buffers incl-buffers))))
+    ;; FIXME: Currently all the included buffers are put into the 'buffer-list,
+    ;;        even if they were in the 'buried-buffer-list before.
     (set-frame-parameter frame 'buffer-list buffers)))
 
 (defun bufferlo--tab-include-exclude-buffers (ignore)
@@ -205,10 +213,22 @@ This is a list of regular expressions that match buffer names."
   (ignore ignore)
   (bufferlo--include-exclude-buffers nil))
 
+(defun bufferlo--current-buffers (frame)
+  "Get the buffers of the current tab in frame"
+  (if bufferlo-include-buried-buffers
+      (append
+       (frame-parameter frame 'buffer-list)
+       (frame-parameter frame 'buried-buffer-list))
+    (frame-parameter frame 'buffer-list)))
+
 (defun bufferlo--get-tab-buffers (tab)
   "Extract buffers from the given tab structure"
   (or
-   (cdr (assq 'wc-bl tab))
+   (if bufferlo-include-buried-buffers
+       (append
+        (cdr (assq 'wc-bl tab))
+        (cdr (assq 'wc-bbl tab)))
+     (cdr (assq 'wc-bl tab)))
    ;; fallback to bufferlo-buffer-list, managed by bufferlo--window-state-*
    (mapcar 'get-buffer
            (car (cdr (assq 'bufferlo-buffer-list (assq 'ws tab)))))))
@@ -222,9 +242,9 @@ a tab index in the given frame."
          (if tabnum
              (let ((tab (nth tabnum (frame-parameter frame 'tabs))))
                (if (eq 'current-tab (car tab))
-                   (frame-parameter frame 'buffer-list)
+                   (bufferlo--current-buffers frame)
                  (bufferlo--get-tab-buffers tab)))
-           (frame-parameter frame 'buffer-list))))
+           (bufferlo--current-buffers frame))))
     (seq-filter #'buffer-live-p list)))
 
 (defun bufferlo--window-state-get (oldfn &optional window writable)
@@ -238,7 +258,7 @@ Ignore buffers that are not able to be persisted in the desktop file."
                    (desktop-save-buffer-p (buffer-file-name b)
                                           (buffer-name b)
                                           (with-current-buffer b major-mode)))
-                 (frame-parameter (window-frame window) 'buffer-list)))
+                 (bufferlo--current-buffers (window-frame window))))
                (names (mapcar #'buffer-name buffers)))
           (if names (append ws (list (list 'bufferlo-buffer-list names))) ws))
       ws)))
@@ -247,9 +267,12 @@ Ignore buffers that are not able to be persisted in the desktop file."
   "Restore the frame's buffer-list from the window state."
   (ignore ignore)
   (when bufferlo--desktop-advice-active
+    ;; FIXME: Currently there is no distinction between buffers and
+    ;;        buried buffers for dektop.el.
     (when-let (bl (car (cdr (assq 'bufferlo-buffer-list state))))
       (set-frame-parameter (window-frame window) 'buffer-list
-                           (mapcar #'get-buffer bl)))))
+                           (mapcar #'get-buffer bl))
+      (set-frame-parameter (window-frame window) 'buried-buffer-list nil))))
 
 (defun bufferlo--activate (oldfn &rest args)
   "Activate the advice for bufferlo--window-state-{get,put}."
@@ -264,7 +287,8 @@ If FRAME is nil, use the current frame."
                        (list (if frame
                                  (with-selected-frame frame
                                    (current-buffer))
-                               (current-buffer)))))
+                               (current-buffer))))
+  (set-frame-parameter frame 'buried-buffer-list nil))
 
 (defun bufferlo-remove (buffer)
   "Remove BUFFER from the frame/tab's buffer list."
@@ -274,14 +298,32 @@ If FRAME is nil, use the current frame."
                        (bufferlo-buffer-list))))
       (read-buffer "Remove buffer: " nil t
                    (lambda (b) (member (car b) lbs))))))
-  (delete (get-buffer buffer) (frame-parameter nil 'buffer-list)))
+  (let ((bl (frame-parameter nil 'buffer-list))
+        (bbl (frame-parameter nil 'buried-buffer-list))
+        (buffer (get-buffer buffer)))
+    (set-frame-parameter nil 'buffer-list (delq buffer bl))
+    (set-frame-parameter nil 'buried-buffer-list (delq buffer bbl))
+    ;; Adapted from bury-buffer:
+    (cond
+     ((or (not (eq buffer (window-buffer)))
+          ;; Don't try to delete the minibuffer window, undedicate it
+          ;; or switch to a previous buffer in it.
+          (window-minibuffer-p)))
+     ((window--delete nil t))
+     (t
+      ;; Switch to another buffer in window.
+      (set-window-dedicated-p nil nil)
+      (switch-to-prev-buffer nil 'bury)))
+    nil))
 
 (defun bufferlo-bury (&optional buffer-or-name)
-  "Bury and remove the buffer specified by BUFFER-OR-NAME from the local list."
+  "Bury and remove the buffer specified by BUFFER-OR-NAME from the local list.
+If `bufferlo-include-buried-buffers' is set to `nil' then this has the same
+effect as a simple `bury-buffer'."
   (interactive)
-  (let ((buffer (or buffer-or-name (current-buffer))))
-    (delete (get-buffer buffer) (frame-parameter nil 'buffer-list))
-    (bury-buffer buffer-or-name)))
+  (let ((buffer (window-normalize-buffer buffer-or-name)))
+    (bury-buffer-internal buffer)
+    (bufferlo-remove buffer)))
 
 (defun bufferlo--get-captured-buffers (&optional exclude-frame)
   "Get all buffers that are in a local list of at least one frame or tab.
@@ -298,7 +340,7 @@ If EXCLUDE-FRAME is a frame, exclude the local buffer list of this frame."
                                         (mapcar
                                          (lambda (f)
                                            (unless (eq f exclude-frame)
-                                             (frame-parameter f 'buffer-list)))
+                                             (bufferlo--current-buffers f)))
                                          (frame-list))))))
     (seq-uniq
      (funcall flatten
@@ -316,7 +358,7 @@ If EXCLUDE-FRAME is a frame, exclude the local buffer list of this frame."
   "Get all buffers that are exclusive for this frame and tab.
 If frame is nil, use the current frame."
   (let ((other-bufs (bufferlo--get-captured-buffers (or frame (selected-frame))))
-        (this-bufs (frame-parameter frame 'buffer-list)))
+        (this-bufs (bufferlo--current-buffers frame)))
     (seq-filter (lambda (b)
                   (not (memq b other-bufs)))
                 this-bufs)))
@@ -332,7 +374,7 @@ If FRAME is nil, use the current frame."
   (let ((exclude (bufferlo--merge-regexp-list
                   (append '("a^") bufferlo-kill-buffers-exclude-filters)))
         (kill-list (if killall
-                       (frame-parameter frame 'buffer-list)
+                       (bufferlo--current-buffers frame)
                      (bufferlo--get-exclusive-buffers frame))))
     (dolist (buffer kill-list)
       (unless (string-match-p exclude (buffer-name buffer))
