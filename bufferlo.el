@@ -115,6 +115,13 @@ This gets overridden by `bufferlo-include-buffer-filters.'"
   :group 'bufferlo
   :type '(repeat string))
 
+(defcustom bufferlo-kill-buffers-exclude-filters
+  '(" .*" "\\*Messages\\*" "\\*scratch\\*")
+  "Buffers that should not be killed by `bufferlo-kill-buffers'.
+This is a list of regular expressions that match buffer names."
+  :group 'bufferlo
+  :type '(repeat string))
+
 (defvar bufferlo--desktop-advice-active nil)
 
 ;;;###autoload
@@ -171,15 +178,18 @@ This gets overridden by `bufferlo-include-buffer-filters.'"
   (when (eq (frame-parameter frame 'buffer-predicate) #'bufferlo-local-buffer-p)
     (set-frame-parameter frame 'buffer-predicate nil)))
 
+(defun bufferlo--merge-regexp-list (regexp-list)
+  "Merge a list of regular expressions."
+  (mapconcat (lambda (x)
+               (concat "\\(?:^" x "$\\)"))
+             regexp-list "\\|"))
+
 (defun bufferlo--include-exclude-buffers (frame)
   "Include and exclude buffers into the buffer list of FRAME."
-  (let* ((merge-regexp-list (lambda (li)
-                              (mapconcat (lambda (x) (concat "\\(?:" x "\\)"))
-                                         li "\\|")))
-         (include (funcall merge-regexp-list
-                           (append '("a^") bufferlo-include-buffer-filters)))
-         (exclude (funcall merge-regexp-list
-                           (append '("a^") bufferlo-exclude-buffer-filters)))
+  (let* ((include (bufferlo--merge-regexp-list
+                   (append '("a^") bufferlo-include-buffer-filters)))
+         (exclude (bufferlo--merge-regexp-list
+                   (append '("a^") bufferlo-exclude-buffer-filters)))
          (buffers (frame-parameter frame 'buffer-list))
          (buffers (seq-filter (lambda (b)
                                 (not (string-match-p exclude (buffer-name b))))
@@ -195,6 +205,14 @@ This gets overridden by `bufferlo-include-buffer-filters.'"
   (ignore ignore)
   (bufferlo--include-exclude-buffers nil))
 
+(defun bufferlo--get-tab-buffers (tab)
+  "Extract buffers from the given tab structure"
+  (or
+   (cdr (assq 'wc-bl tab))
+   ;; fallback to bufferlo-buffer-list, managed by bufferlo--window-state-*
+   (mapcar 'get-buffer
+           (car (cdr (assq 'bufferlo-buffer-list (assq 'ws tab)))))))
+
 (defun bufferlo-buffer-list (&optional frame tabnum)
   "Return a list of all live buffers associated with the current frame and tab.
 A non-nil value of FRAME selects a specific frame instead of the current one.
@@ -205,10 +223,7 @@ a tab index in the given frame."
              (let ((tab (nth tabnum (frame-parameter frame 'tabs))))
                (if (eq 'current-tab (car tab))
                    (frame-parameter frame 'buffer-list)
-                 (or
-                  (cdr (assq 'wc-bl tab))
-                  (mapcar 'get-buffer
-                          (car (cdr (assq #'bufferlo-buffer-list (assq 'ws tab))))))))
+                 (bufferlo--get-tab-buffers tab)))
            (frame-parameter frame 'buffer-list))))
     (seq-filter #'buffer-live-p list)))
 
@@ -267,6 +282,86 @@ If FRAME is nil, use the current frame."
   (let ((buffer (or buffer-or-name (current-buffer))))
     (delete (get-buffer buffer) (frame-parameter nil 'buffer-list))
     (bury-buffer buffer-or-name)))
+
+(defun bufferlo--get-captured-buffers (&optional exclude-frame)
+  "Get all buffers that are in a local list of at least one frame or tab.
+If EXCLUDE-FRAME is a frame, exclude the local buffer list of this frame."
+  (let* ((flatten (lambda (list)
+                    (apply #'append (append list '(nil)))))
+         (get-inactive-tabs-buffers (lambda (f)
+                                      (funcall flatten
+                                               (mapcar
+                                                #'bufferlo--get-tab-buffers
+                                                (frame-parameter f 'tabs)))))
+         (get-frames-buffers (lambda ()
+                               (funcall flatten
+                                        (mapcar
+                                         (lambda (f)
+                                           (unless (eq f exclude-frame)
+                                             (frame-parameter f 'buffer-list)))
+                                         (frame-list))))))
+    (seq-uniq
+     (funcall flatten
+              (list
+               (funcall flatten (mapcar get-inactive-tabs-buffers (frame-list)))
+               (funcall get-frames-buffers))))))
+
+(defun bufferlo--get-orphan-buffers ()
+  "Get all buffers that are not in any local list of a frame or tab."
+  (seq-filter (lambda (b)
+                (not (memq b (bufferlo--get-captured-buffers))))
+              (buffer-list)))
+
+(defun bufferlo--get-exclusive-buffers (&optional frame)
+  "Get all buffers that are exclusive for this frame and tab.
+If frame is nil, use the current frame."
+  (let ((other-bufs (bufferlo--get-captured-buffers (or frame (selected-frame))))
+        (this-bufs (frame-parameter frame 'buffer-list)))
+    (seq-filter (lambda (b)
+                  (not (memq b other-bufs)))
+                this-bufs)))
+
+(defun bufferlo-kill-buffers (&optional killall frame)
+  "Kill the buffers of the frame/tab-local buffer list.
+By default, this will only kill buffers that are exclusive to the frame/tab.
+If KILLALL (prefix argument) is given then buffers that are also present in the
+local lists of other frames and tabs are killed too.
+Buffers matching `bufferlo-kill-buffers-exclude-filters' are never killed.
+If FRAME is nil, use the current frame."
+  (interactive "P")
+  (let ((exclude (bufferlo--merge-regexp-list
+                  (append '("a^") bufferlo-kill-buffers-exclude-filters)))
+        (kill-list (if killall
+                       (frame-parameter frame 'buffer-list)
+                     (bufferlo--get-exclusive-buffers frame))))
+    (dolist (buffer kill-list)
+      (unless (string-match-p exclude (buffer-name buffer))
+        (kill-buffer buffer)))))
+
+(defun bufferlo-kill-orphan-buffers ()
+  "Kill all buffers that are not in any local list of a frame or tab.
+Buffers matching `bufferlo-kill-buffers-exclude-filters' are never killed."
+  (interactive)
+  (let ((exclude (bufferlo--merge-regexp-list
+                  (append '("a^") bufferlo-kill-buffers-exclude-filters))))
+    (dolist (buffer (bufferlo--get-orphan-buffers))
+      (unless (string-match-p exclude (buffer-name buffer))
+        (kill-buffer buffer)))))
+
+(defun bufferlo-delete-frame-kill-buffers (&optional frame)
+  "Delete a frame and kill all the local buffers according to
+`bufferlo-kill-buffers'.
+If FRAME is nil, kill the current frame."
+  (interactive)
+  (bufferlo-kill-buffers frame)
+  (delete-frame))
+
+(defun bufferlo-tab-close-kill-buffers (&optional killall)
+  "Close the current tab and kill all the local buffers according to
+  `bufferlo-kill-buffers'."
+  (interactive "P")
+  (bufferlo-kill-buffers killall)
+  (tab-bar-close-tab))
 
 (defun bufferlo-switch-to-buffer (buffer &optional norecord force-same-window)
   "Display the local buffer BUFFER in the selected window.
