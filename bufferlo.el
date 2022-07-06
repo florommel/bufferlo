@@ -206,7 +206,14 @@ This is a list of regular expressions that match buffer names."
          (buffers (delete-dups (append buffers incl-buffers))))
     ;; FIXME: Currently all the included buffers are put into the 'buffer-list,
     ;;        even if they were in the 'buried-buffer-list before.
-    (set-frame-parameter frame 'buffer-list buffers)))
+    (set-frame-parameter frame 'buffer-list
+                         ;; The current buffer must be always on the list,
+                         ;; otherwise the buffer list gets replaced later.
+                         (push (if frame
+                                   (with-selected-frame frame (current-buffer))
+                                 (current-buffer))
+                               buffers))
+    (set-frame-parameter frame 'buried-buffer-list nil)))
 
 (defun bufferlo--tab-include-exclude-buffers (ignore)
   "Include and exclude buffers into buffer-list of the current tab's FRAME."
