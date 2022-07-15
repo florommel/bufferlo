@@ -53,14 +53,16 @@
 
 ;;;; Usage:
 
-;; Use the bufferlo buffer-list commands an alternative to the respective
-;; global commands.
+;; Use the bufferlo buffer-list commands as an alternative to the
+;; respective global commands.
 ;;
-;; Use bufferlo-{clear,remove,bury} to manage the frame/tab-local list.
-;; A buffer is added to the local buffer list if it is shown in the frame/tab.
+;; Use bufferlo-{clear,remove,bury} to manage the frame/tab-local
+;; list.  A buffer is added to the local buffer list if it is shown in
+;; the frame/tab (e.g. by opening a file in the tab or by selecting it
+;; from the global buffer list).
 ;;
 ;; It is recommended to combine bufferlo with a completion framework.
-;; This is an example source for consult-buffer:
+;; This is an example for consult-buffer:
 ;;   (defvar my-consult--source-local-buffer
 ;;       `(:name "Local Buffers"
 ;;               :narrow   ?l  ;; toggle local buffers with <l>
@@ -83,7 +85,7 @@
 (require 'desktop)
 
 (defgroup bufferlo nil
-  "Manage frame/tab local buffer"
+  "Manage frame/tab local buffers"
   :group 'convenience)
 
 (defcustom bufferlo-desktop-support t
@@ -221,7 +223,7 @@ This is a list of regular expressions that match buffer names."
   (bufferlo--include-exclude-buffers nil))
 
 (defun bufferlo--current-buffers (frame)
-  "Get the buffers of the current tab in frame"
+  "Get the buffers of the current tab in FRAME"
   (if bufferlo-include-buried-buffers
       (append
        (frame-parameter frame 'buffer-list)
