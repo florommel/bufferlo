@@ -24,61 +24,30 @@
 
 ;;; Commentary:
 
-;; Bufferlo manages buffer lists that are local to the frame or (tab-bar)
-;; tab.  It uses the existing buffer-list frame parameter and provides
-;; commands to manipulate this list.
-;;
-;; Bufferlo does not touch the global buffer list or any existing
-;; buffer-management facilities (buffer-menu, ibuffer, switch-to-buffer).
-;; Use the equivalent bufferlo variants to work with the frame/tab local
-;; buffer list.
-;;
-;; This is similar to the now unmaintained frame-bufs package but is
-;; compatible with (tab-bar) tabs and supports desktop.el.
+;; This gives you separate buffer lists per frame and per (tab-bar) tab.
+
+;; You may also have a look at more powerful workspace solutions like
+;; bufler (automatic rule-based workspace management and buffer
+;; grouping) or perspective (comprehensive workspace isolation,
+;; workspace merging, workspace persistence) if you need the advanced
+;; features.
+;; https://github.com/alphapapa/bufler.el
+;; https://github.com/nex3/perspective-el
+
+;; Bufferlo is a lightweight wrapper around Emacs' buffer-list frame
+;; parameter.
+
+;; A buffer is added to the local buffer list when it is displayed in
+;; the frame/tab (e.g. by opening a new file in the tab or by
+;; switching to the buffer from the global buffer list).  In addition,
+;; bufferlo provides functions that allow the manipulation of the
+;; local buffer list.  Bufferlo does not touch the global buffer list
+;; or the existing buffer-management facilities. Use the equivalent
+;; bufferlo variants to work with the frame/tab local buffer list.
+
+;; Bufferlo provides similar functionality to the now unmaintained
+;; frame-bufs package with additional tab-bar and desktop.el support.
 ;; https://github.com/alpaker/frame-bufs
-
-;;;; Installation:
-
-;; Put this file in your load path and require it in your init file:
-;;   (require 'bufferlo)
-;;
-;; Enable bufferlo-mode in your init file order to enable the configuration
-;; and desktop support
-;;   (bufferlo-mode 1)
-;;
-;; Or use use-package:
-;;   (use-package bufferlo
-;;    :config
-;;    (bufferlo-mode 1))
-
-;;;; Usage:
-
-;; Use the bufferlo buffer-list commands as an alternative to the
-;; respective global commands.
-;;
-;; Use bufferlo-{clear,remove,bury} to manage the frame/tab-local
-;; list.  A buffer is added to the local buffer list if it is shown in
-;; the frame/tab (e.g. by opening a file in the tab or by selecting it
-;; from the global buffer list).
-;;
-;; It is recommended to combine bufferlo with a completion framework.
-;; This is an example for consult-buffer:
-;;   (defvar my-consult--source-local-buffer
-;;       `(:name "Local Buffers"
-;;               :narrow   ?l  ;; toggle local buffers with <l>
-;;               :hidden   t   ;; set to nil to always show the local buffers
-;;                             ;; (For this being effective, you should also
-;;                             ;;  define a hidden global buffer source)
-;;               :category buffer
-;;               :face     consult-buffer
-;;               :history  buffer-name-history
-;;               :state    ,#'consult--buffer-state
-;;               :default  nil
-;;               :items ,(lambda () (consult--buffer-query
-;;                                   :predicate #'bufferlo-local-buffer-p
-;;                                   :sort 'visibility
-;;                                   :as #'buffer-name)))
-;; Add my-consult--source-local-buffer to your consult-buffer-sources list.
 
 ;;; Code:
 
