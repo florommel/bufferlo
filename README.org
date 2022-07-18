@@ -50,7 +50,7 @@ Use the bufferlo buffer-list commands as an alternative to the
 respective global commands:
 - ~bufferlo-switch-to-buffer~:
   The ~switch-to-buffer~ command filtered for local buffers.
-  Call it with the prefix argument to get the lobal list (all buffers).
+  Call it with the prefix argument to get the global list (all buffers).
 - ~bufferlo-ibuffer~:
   ~ibuffer~ filtered for local buffers.
 
@@ -112,7 +112,7 @@ This is an example configuration:
 #+end_src
 
 [[./img/consult1.svg]]
-Fig1: All buffers are shown; the local buffers are grouped separately.
+Fig.1: All buffers are shown; the local buffers are grouped separately.
 
 You can also configure consult-buffer to hide the non-local buffers by default:
 #+begin_src emacs-lisp
@@ -158,15 +158,18 @@ Fig.2: By entering 'a'+<space>, the global buffer list is shown ("All Buffers").
 
 #+begin_src emacs-lisp
   (defun ivy-bufferlo-switch-buffer ()
-    "Switch to another local buffer."
-    (interactive)
-    (ivy-read "Switch to local buffer: " #'internal-complete-buffer
-              :predicate (lambda (b) (bufferlo-local-buffer-p (cdr b)))
-              :keymap ivy-switch-buffer-map
-              :preselect (buffer-name (other-buffer (current-buffer)))
-              :action #'ivy--switch-buffer-action
-              :matcher #'ivy--switch-buffer-matcher
-              :caller 'ivy-switch-buffer))
+    "Switch to another local buffer.
+  If the prefix arument is given, include all buffers."
+      (interactive)
+      (if current-prefix-arg
+          (ivy-switch-buffer)
+        (ivy-read "Switch to local buffer: " #'internal-complete-buffer
+                  :predicate (lambda (b) (bufferlo-local-buffer-p (cdr b)))
+                  :keymap ivy-switch-buffer-map
+                  :preselect (buffer-name (other-buffer (current-buffer)))
+                  :action #'ivy--switch-buffer-action
+                  :matcher #'ivy--switch-buffer-matcher
+                  :caller 'ivy-switch-buffer)))
 #+end_src
 
 
