@@ -390,15 +390,19 @@ If FRAME is nil, kill the current frame."
   (tab-bar-close-tab))
 
 (defun bufferlo-switch-to-buffer (buffer &optional norecord force-same-window)
-  "Display the local buffer BUFFER in the selected window.
+  "Display the BUFFER in the selected window.
+Completion includes only local buffers.
 This is the frame/tab-local equivilant to `switch-to-buffer'.
-The arguments NORECORD and FORCE-SAME-WINDOW are passed to `switch-to-buffer'."
+The arguments NORECORD and FORCE-SAME-WINDOW are passed to `switch-to-buffer'.
+If the prefix arument is given, include all buffers."
   (interactive
    (list
-    (let ((lbs (mapcar #'buffer-name (bufferlo-buffer-list))))
-      (read-buffer
-       "Switch to local buffer: " lbs nil
-       (lambda (b) (member (if (stringp b) b (car b)) lbs))))))
+    (if current-prefix-arg
+        (read-buffer "Switch to buffer: " (other-buffer (current-buffer)) nil)
+      (let ((lbs (mapcar #'buffer-name (bufferlo-buffer-list))))
+        (read-buffer
+         "Switch to local buffer: " (other-buffer (current-buffer)) nil
+         (lambda (b) (member (if (stringp b) b (car b)) lbs)))))))
   (switch-to-buffer buffer norecord force-same-window))
 
 (defun bufferlo-ibuffer ()

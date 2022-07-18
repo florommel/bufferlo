@@ -50,6 +50,7 @@ Use the bufferlo buffer-list commands as an alternative to the
 respective global commands:
 - ~bufferlo-switch-to-buffer~:
   The ~switch-to-buffer~ command filtered for local buffers.
+  Call it with the prefix argument to get the lobal list (all buffers).
 - ~bufferlo-ibuffer~:
   ~ibuffer~ filtered for local buffers.
 
