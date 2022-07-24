@@ -147,15 +147,19 @@ This is a list of regular expressions that match buffer names."
     (advice-remove #'tab-bar-select-tab #'bufferlo--activate)
     (advice-remove #'tab-bar--tab #'bufferlo--activate)))
 
-(defun bufferlo-local-buffer-p (buffer &optional frame)
+(defun bufferlo-local-buffer-p (buffer &optional frame tabnum)
   "Return whether BUFFER is in the list of local buffers.
-If FRAME is non-nil check if the buffer is local to the given frame."
-  (memq buffer (bufferlo--current-buffers frame)))
+A non-nil value of FRAME selects a specific frame instead of the current one.
+If TABNUM is nil, the current tab is used.  If it is non-nil, it specifies
+a tab index in the given frame."
+  (memq buffer (bufferlo-buffer-list frame tabnum)))
 
-(defun bufferlo-non-local-buffer-p (buffer &optional frame)
+(defun bufferlo-non-local-buffer-p (buffer &optional frame tabnum)
   "Return whether BUFFER is not in the list of local buffers.
-If FRAME is non-nil check if the buffer is not local to the given frame."
-  (not (bufferlo-local-buffer-p buffer frame)))
+A non-nil value of FRAME selects a specific frame instead of the current one.
+If TABNUM is nil, the current tab is used.  If it is non-nil, it specifies
+a tab index in the given frame."
+  (not (bufferlo-local-buffer-p buffer frame tabnum)))
 
 (defun bufferlo--set-buffer-predicate (frame)
   "Set the buffer predicate of FRAME to `bufferlo-local-buffer-p'."
