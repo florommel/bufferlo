@@ -53,6 +53,7 @@ respective global commands:
   Call it with the prefix argument to get the global list (all buffers).
 - ~bufferlo-ibuffer~:
   ~ibuffer~ filtered for local buffers.
+  Alternatively, use "/ l" in ibuffer.
 
 Bufferlo provides functions to manage the local buffer lists:
 - ~bufferlo-clear~:

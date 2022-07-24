@@ -99,6 +99,11 @@ This is a list of regular expressions that match buffer names."
   :group 'bufferlo
   :type '(repeat string))
 
+(defcustom bufferlo-ibuffer-bind-local-buffer-filter t
+  "If this is true bind the local buffer filter to \"/ l\" in ibuffer."
+  :group 'bufferlo
+  :type '(repeat string))
+
 (defvar bufferlo--desktop-advice-active nil)
 
 ;;;###autoload
@@ -405,16 +410,31 @@ If the prefix arument is given, include all buffers."
          (lambda (b) (member (if (stringp b) b (car b)) lbs)))))))
   (switch-to-buffer buffer norecord force-same-window))
 
-(defun bufferlo-ibuffer ()
-  "Invoke `ibuffer' filtered for local buffers."
+(with-eval-after-load 'ibuf-ext
+  (define-ibuffer-filter bufferlo-local-buffers
+      "Limit current view to local buffers."
+    (:description "local buffers" :reader nil)
+    (bufferlo-local-buffer-p buf)))
+
+(with-eval-after-load 'ibuffer
+  (when bufferlo-ibuffer-bind-local-buffer-filter
+    (require 'ibuf-ext)
+    (define-key ibuffer--filter-map (kbd "l")
+                #'ibuffer-filter-by-bufferlo-local-buffers)))
+
+(defun bufferlo-ibuffer (&optional other-window-p noselect shrink)
+  "Invoke `ibuffer' filtered for local buffers.
+Every frame/tab gets its own local bufferlo ibuffer buffer.
+The parameters OTHER-WINDOW-P NOSELECT SHRINK are passed to `ibuffer'."
   (interactive)
-  (require 'ibuffer)
-  (defvar ibuffer-maybe-show-predicates)
-  (let ((ibuffer-maybe-show-predicates
-         (append ibuffer-maybe-show-predicates
-                 (list (lambda (b)
-                         (not (memq b (bufferlo-buffer-list))))))))
-    (ibuffer)))
+  (let ((name (or
+               (seq-find (lambda (b)
+                           (string-match-p "\*Bufferlo Ibuffer\*.*"
+                                           (buffer-name b)))
+                         (bufferlo-buffer-list))
+               (generate-new-buffer-name "*Bufferlo Ibuffer*"))))
+    (ibuffer other-window-p name '((bufferlo-local-buffers . nil))
+             noselect shrink)))
 
 (provide 'bufferlo)
 
