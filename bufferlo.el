@@ -453,8 +453,9 @@ The parameters OTHER-WINDOW-P NOSELECT SHRINK are passed to `ibuffer'."
   (interactive)
   (let ((name (or
                (seq-find (lambda (b)
-                           (string-match-p "\*Bufferlo Ibuffer\*.*"
-                                           (buffer-name b)))
+                           (string-match-p
+                            "\\`\\*Bufferlo Ibuffer\\*\\(<[0-9]*>\\)?\\'"
+                            (buffer-name b)))
                          (bufferlo-buffer-list))
                (generate-new-buffer-name "*Bufferlo Ibuffer*"))))
     (ibuffer other-window-p name '((bufferlo-local-buffers . nil))
