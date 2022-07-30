@@ -112,6 +112,8 @@ This is a list of regular expressions that match buffer names."
 
 (defvar bufferlo--desktop-advice-active nil)
 
+(defvar bufferlo--clear-buffer-lists-active nil)
+
 ;;;###autoload
 (define-minor-mode bufferlo-mode
   "Manage frame/tab-local buffers."
@@ -137,7 +139,10 @@ This is a list of regular expressions that match buffer names."
         (advice-add #'frameset--restore-frame :around #'bufferlo--activate)
         (advice-add #'frameset-save :around #'bufferlo--activate)
         (advice-add #'tab-bar-select-tab :around #'bufferlo--activate)
-        (advice-add #'tab-bar--tab :around #'bufferlo--activate))
+        (advice-add #'tab-bar--tab :around #'bufferlo--activate)
+        ;; Switch-tab workaround
+        (advice-add #'tab-bar-select-tab :around #'bufferlo--clear-buffer-lists-activate)
+        (advice-add #'tab-bar--tab :after #'bufferlo--clear-buffer-lists))
     ;; Prefer local buffers
     (dolist (frame (frame-list))
       (bufferlo--reset-buffer-predicate frame))
@@ -151,7 +156,10 @@ This is a list of regular expressions that match buffer names."
     (advice-remove #'frameset--restore-frame #'bufferlo--activate)
     (advice-remove #'frameset-save #'bufferlo--activate)
     (advice-remove #'tab-bar-select-tab #'bufferlo--activate)
-    (advice-remove #'tab-bar--tab #'bufferlo--activate)))
+    (advice-remove #'tab-bar--tab #'bufferlo--activate)
+    ;; Switch-tab workaround
+    (advice-remove #'tab-bar-select-tab #'bufferlo--clear-buffer-lists-activate)
+    (advice-remove #'tab-bar--tab #'bufferlo--clear-buffer-lists)))
 
 (defun bufferlo-local-buffer-p (buffer &optional frame tabnum include-hidden)
   "Return whether BUFFER is in the list of local buffers.
@@ -168,6 +176,22 @@ If TABNUM is nil, the current tab is used.  If it is non-nil, it specifies
 a tab index in the given frame.  If INCLUDE-HIDDEN is set, include hidden
 buffers, see `bufferlo-hidden-buffers'."
   (not (bufferlo-local-buffer-p buffer frame tabnum include-hidden)))
+
+(defun bufferlo--clear-buffer-lists (&optional frame)
+  "This is a workaround advice function to fix tab-bar's tab switching behavior.
+On `tab-bar-select-tab', when wc-bl or wc-bbl is nil, the corresponding
+buffer-list / buried-buffer-list parameter is not set.
+As a result the previous tab's value is used.
+This functions clears buffer-list and buried-buffer-list.  It should be called
+after `tab-bar--tab' but only when it is called from `tab-bar-select-tab'."
+  (when bufferlo--clear-buffer-lists-active
+    (set-frame-parameter frame 'buffer-list nil)
+    (set-frame-parameter frame 'buried-buffer-list nil)))
+
+(defun bufferlo--clear-buffer-lists-activate (oldfn &rest args)
+  "See `bufferlo--clear-buffer-lists'."
+  (let ((bufferlo--clear-buffer-lists-active t))
+    (apply oldfn args)))
 
 (defun bufferlo--buffer-predicate (buffer)
   (bufferlo-local-buffer-p buffer nil nil t))
