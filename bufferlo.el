@@ -88,12 +88,12 @@ This overrides buffers excluded by `bufferlo-exclude-buffer-filters.'"
 (defcustom bufferlo-exclude-buffer-filters '(".*")
   "Buffers that should always get excluded in a new tab or frame.
 This is a list of regular expressions that match buffer names.
-This gets overridden by `bufferlo-include-buffer-filters.'"
+Buffers included by `bufferlo-include-buffer-filters' take precedence."
   :group 'bufferlo
   :type '(repeat string))
 
 (defcustom bufferlo-kill-buffers-exclude-filters
-  '(" .*" "\\*Messages\\*" "\\*scratch\\*")
+  '("\\` " "\\`\\*Messages\\*\\'" "\\`\\*scratch\\*\\'")
   "Buffers that should not be killed by `bufferlo-kill-buffers'.
 This is a list of regular expressions that match buffer names."
   :group 'bufferlo
@@ -173,7 +173,7 @@ a tab index in the given frame."
 (defun bufferlo--merge-regexp-list (regexp-list)
   "Merge a list of regular expressions."
   (mapconcat (lambda (x)
-               (concat "\\(?:^" x "$\\)"))
+               (concat "\\(?:" x "\\)"))
              regexp-list "\\|"))
 
 (defun bufferlo--include-exclude-buffers (frame)
