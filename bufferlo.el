@@ -92,6 +92,12 @@ Buffers included by `bufferlo-include-buffer-filters' take precedence."
   :group 'bufferlo
   :type '(repeat string))
 
+(defcustom bufferlo-hidden-buffers nil
+  "Buffers that should be hidden in the local buffer lists,
+even if they are displayed in the current frame or tab."
+  :group 'bufferlo
+  :type '(repeat string))
+
 (defcustom bufferlo-kill-buffers-exclude-filters
   '("\\` " "\\`\\*Messages\\*\\'" "\\`\\*scratch\\*\\'")
   "Buffers that should not be killed by `bufferlo-kill-buffers'.
@@ -147,27 +153,32 @@ This is a list of regular expressions that match buffer names."
     (advice-remove #'tab-bar-select-tab #'bufferlo--activate)
     (advice-remove #'tab-bar--tab #'bufferlo--activate)))
 
-(defun bufferlo-local-buffer-p (buffer &optional frame tabnum)
+(defun bufferlo-local-buffer-p (buffer &optional frame tabnum include-hidden)
   "Return whether BUFFER is in the list of local buffers.
 A non-nil value of FRAME selects a specific frame instead of the current one.
 If TABNUM is nil, the current tab is used.  If it is non-nil, it specifies
-a tab index in the given frame."
-  (memq buffer (bufferlo-buffer-list frame tabnum)))
+a tab index in the given frame.  If INCLUDE-HIDDEN is set, include hidden
+buffers, see `bufferlo-hidden-buffers'."
+  (memq buffer (bufferlo-buffer-list frame tabnum include-hidden)))
 
-(defun bufferlo-non-local-buffer-p (buffer &optional frame tabnum)
+(defun bufferlo-non-local-buffer-p (buffer &optional frame tabnum include-hidden)
   "Return whether BUFFER is not in the list of local buffers.
 A non-nil value of FRAME selects a specific frame instead of the current one.
 If TABNUM is nil, the current tab is used.  If it is non-nil, it specifies
-a tab index in the given frame."
-  (not (bufferlo-local-buffer-p buffer frame tabnum)))
+a tab index in the given frame.  If INCLUDE-HIDDEN is set, include hidden
+buffers, see `bufferlo-hidden-buffers'."
+  (not (bufferlo-local-buffer-p buffer frame tabnum include-hidden)))
+
+(defun bufferlo--buffer-predicate (buffer)
+  (bufferlo-local-buffer-p buffer nil nil t))
 
 (defun bufferlo--set-buffer-predicate (frame)
-  "Set the buffer predicate of FRAME to `bufferlo-local-buffer-p'."
-  (set-frame-parameter frame 'buffer-predicate #'bufferlo-local-buffer-p))
+  "Set the buffer predicate of FRAME to `bufferlo--buffer-predicate'."
+  (set-frame-parameter frame 'buffer-predicate #'bufferlo--buffer-predicate))
 
 (defun bufferlo--reset-buffer-predicate (frame)
-  "Reset the buffer predicate of FRAME if it is `bufferlo-local-buffer-p'."
-  (when (eq (frame-parameter frame 'buffer-predicate) #'bufferlo-local-buffer-p)
+  "Reset the buffer predicate of FRAME if it is `bufferlo--buffer-predicate'."
+  (when (eq (frame-parameter frame 'buffer-predicate) #'bufferlo--buffer-predicate)
     (set-frame-parameter frame 'buffer-predicate nil)))
 
 (defun bufferlo--merge-regexp-list (regexp-list)
@@ -226,11 +237,12 @@ a tab index in the given frame."
    (mapcar 'get-buffer
            (car (cdr (assq 'bufferlo-buffer-list (assq 'ws tab)))))))
 
-(defun bufferlo-buffer-list (&optional frame tabnum)
+(defun bufferlo-buffer-list (&optional frame tabnum include-hidden)
   "Return a list of all live buffers associated with the current frame and tab.
 A non-nil value of FRAME selects a specific frame instead of the current one.
 If TABNUM is nil, the current tab is used.  If it is non-nil, it specifies
-a tab index in the given frame."
+a tab index in the given frame.  If INCLUDE-HIDDEN is set, include hidden
+buffers, see `bufferlo-hidden-buffers'."
   (let ((list
          (if tabnum
              (let ((tab (nth tabnum (frame-parameter frame 'tabs))))
@@ -238,7 +250,15 @@ a tab index in the given frame."
                    (bufferlo--current-buffers frame)
                  (bufferlo--get-tab-buffers tab)))
            (bufferlo--current-buffers frame))))
-    (seq-filter #'buffer-live-p list)))
+    (if include-hidden
+        (seq-filter #'buffer-live-p list)
+      (seq-filter (lambda (buffer)
+                    (let ((hidden (bufferlo--merge-regexp-list
+                                   (append '("a^") bufferlo-hidden-buffers))))
+                      (and
+                       (buffer-live-p buffer)
+                       (not (string-match-p hidden (buffer-name buffer))))))
+                  list))))
 
 (defun bufferlo--window-state-get (oldfn &optional window writable)
   "Save the frame's buffer-list to the window state.
