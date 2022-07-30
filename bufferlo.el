@@ -306,10 +306,14 @@ Ignore buffers that are not able to be persisted in the desktop file."
   (when bufferlo--desktop-advice-active
     ;; FIXME: Currently there is no distinction between buffers and
     ;;        buried buffers for dektop.el.
-    (when-let (bl (car (cdr (assq 'bufferlo-buffer-list state))))
+    (let ((bl (car (cdr (assq 'bufferlo-buffer-list state)))))
       (set-frame-parameter (window-frame window) 'buffer-list
-                           (mapcar #'get-buffer bl))
-      (set-frame-parameter (window-frame window) 'buried-buffer-list nil))))
+                           ;; The current buffer must be always on the list,
+                           ;; otherwise the buffer list gets replaced later.
+                           (cons (window-buffer window)
+                                 (mapcar #'get-buffer bl)))
+      (set-frame-parameter (window-frame window) 'buried-buffer-list
+                           (list (window-buffer window))))))
 
 (defun bufferlo--activate (oldfn &rest args)
   "Activate the advice for bufferlo--window-state-{get,put}."
