@@ -60,6 +60,8 @@ Bufferlo provides functions to manage the local buffer lists:
   Clear the frame/tab's buffer list.
 - ~bufferlo-remove~:
   Remove a buffer from the frame/tab's buffer list.
+- ~bufferlo-remove-non-exclusive-buffers~
+  Remove all buffers from the local list that are not exclusive to this frame/tab.
 - ~bufferlo-bury~:
   Bury and remove the current buffer from the frame/tab's buffer list.
 - ~bufferlo-kill-buffers~:

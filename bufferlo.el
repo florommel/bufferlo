@@ -357,6 +357,13 @@ If FRAME is nil, use the current frame."
       (switch-to-prev-buffer nil 'bury)))
     nil))
 
+(defun bufferlo-remove-non-exclusive-buffers ()
+  "Remove all buffers from the frame/tab's buffer list that are not exclusively
+attached to this frame/tab."
+  (interactive)
+  (dolist (buffer (bufferlo--get-exclusive-buffers nil t))
+    (bufferlo-remove buffer)))
+
 (defun bufferlo-bury (&optional buffer-or-name)
   "Bury and remove the buffer specified by BUFFER-OR-NAME from the local list.
 If `bufferlo-include-buried-buffers' is set to `nil' then this has the same
@@ -395,13 +402,15 @@ If EXCLUDE-FRAME is a frame, exclude the local buffer list of this frame."
                 (not (memq b (bufferlo--get-captured-buffers))))
               (buffer-list)))
 
-(defun bufferlo--get-exclusive-buffers (&optional frame)
+(defun bufferlo--get-exclusive-buffers (&optional frame invert)
   "Get all buffers that are exclusive for this frame and tab.
-If frame is nil, use the current frame."
+If FRAME is nil, use the current frame.
+If INVERT is non-nil, return the non-exclusive buffer instead."
   (let ((other-bufs (bufferlo--get-captured-buffers (or frame (selected-frame))))
         (this-bufs (bufferlo--current-buffers frame)))
-    (seq-filter (lambda (b)
-                  (not (memq b other-bufs)))
+    (seq-filter (if invert
+                    (lambda (b) (memq b other-bufs))
+                  (lambda (b) (not (memq b other-bufs))))
                 this-bufs)))
 
 (defun bufferlo-kill-buffers (&optional killall frame)
