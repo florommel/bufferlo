@@ -190,8 +190,21 @@ after `tab-bar--tab' but only when it is called from `tab-bar-select-tab'."
 
 (defun bufferlo--clear-buffer-lists-activate (oldfn &rest args)
   "See `bufferlo--clear-buffer-lists'."
-  (let ((bufferlo--clear-buffer-lists-active t))
-    (apply oldfn args)))
+  (let* ((bufferlo--clear-buffer-lists-active t)
+         (result (apply oldfn args)))
+
+    ;; FIXME: Occasionally it happens that a non-local buffer is shown in the tab,
+    ;; after switching frames, primarily with empty tabs.
+    ;; This workaround selects a buffer that is in the local list in such a case.
+    (unless (bufferlo-local-buffer-p (current-buffer) nil nil t)
+      (let ((buffer (or
+                     (cl-find-if-not #'minibufferp
+                                     (frame-parameter nil 'buffer-list))
+                     (cl-find-if-not #'minibufferp
+                                     (frame-parameter nil 'buried-buffer-list)))))
+        (switch-to-buffer buffer t t)))
+
+    result))
 
 (defun bufferlo--buffer-predicate (buffer)
   (bufferlo-local-buffer-p buffer nil nil t))
