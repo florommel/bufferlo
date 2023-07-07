@@ -316,7 +316,11 @@ Ignore buffers that are not able to be persisted in the desktop file."
 (defun bufferlo--window-state-put (state &optional window ignore)
   "Restore the frame's buffer-list from the window state."
   (ignore ignore)
-  (when bufferlo--desktop-advice-active
+  ;; We have to make sure that the window is live at this point.
+  ;; `frameset-restore' may pass a window with a non-existing buffer
+  ;; to `window-state-put', which in turn will delete that window
+  ;; before the advice calls us.
+  (when (and bufferlo--desktop-advice-active (window-live-p window))
     ;; FIXME: Currently there is no distinction between buffers and
     ;;        buried buffers for dektop.el.
     (let ((bl (car (cdr (assq 'bufferlo-buffer-list state)))))
