@@ -9,11 +9,13 @@ You may also have a look at more powerful workspace solutions like
 or [[https://github.com/nex3/perspective-el][perspective]] (comprehensive workspace isolation, workspace
 merging, workspace persistence) if you need the advanced features.
 
-Bufferlo is a lightweight wrapper around Emacs' buffer-list frame
-parameter.
+Bufferlo is a lightweight wrapper around Emacs's buffer-list frame
+parameter.  It integrates seamlessly with all standard frame and tab
+management facilities, including tab groups, undeletion of frame and
+tabs, and persisting sessions (via desktop.el).
 
 A buffer is added to the local buffer list when it is displayed in the
-frame/tab (e.g. by opening a new file in the tab or by switching to
+frame/tab (e.g., by opening a new file in the tab or by switching to
 the buffer from the global buffer list).  In addition, bufferlo
 provides functions that allow the manipulation of the local buffer
 list.  Bufferlo does not touch the global buffer list or the existing
@@ -39,6 +41,7 @@ Enable ~bufferlo-mode~ in your init file:
 Or use use-package:
 #+BEGIN_SRC emacs-lisp
 (use-package bufferlo
+ :load-path "path/bufferlo"
  :config
  (bufferlo-mode 1))
 #+END_SRC

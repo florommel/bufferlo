@@ -1,5 +1,5 @@
 ;;; bufferlo.el --- Manage frame/tab-local buffer lists -*- lexical-binding: t -*-
-;; Copyright (C) 2021-2022, Florian Rommel
+;; Copyright (C) 2021-2023, Florian Rommel
 
 ;; Author: Florian Rommel <mail@florommel.de>
 ;; Maintainer: Florian Rommel <mail@florommel.de>
@@ -42,7 +42,7 @@
 ;; switching to the buffer from the global buffer list).  In addition,
 ;; bufferlo provides functions that allow the manipulation of the
 ;; local buffer list.  Bufferlo does not touch the global buffer list
-;; or the existing buffer-management facilities. Use the equivalent
+;; or the existing buffer-management facilities.  Use the equivalent
 ;; bufferlo variants to work with the frame/tab local buffer list.
 
 ;; Bufferlo provides similar functionality to the now unmaintained
@@ -54,7 +54,7 @@
 (require 'desktop)
 
 (defgroup bufferlo nil
-  "Manage frame/tab local buffers"
+  "Manage frame/tab local buffers."
   :group 'convenience)
 
 (defcustom bufferlo-desktop-support t
@@ -65,7 +65,7 @@ Save and restore the frame/tab local buffer lists."
 
 (defcustom bufferlo-prefer-local-buffers t
   "Use a frame predicate to prefer local buffers over global ones.
-This means that a local buffer will be prefered to be displayed
+This means that a local buffer will be preferred to be displayed
 when the current buffer disappears (buried or killed).
 This must be set before enabling command `bufferlo-mode'
 in order to take effect."
@@ -74,7 +74,7 @@ in order to take effect."
 
 (defcustom bufferlo-include-buried-buffers t
   "Include buried buffers in the local list (`bufferlo-buffer-list').
-Use `bufferlo-bury' to remove and bury a buffer if this is set to `t'."
+Use `bufferlo-bury' to remove and bury a buffer if this is set to t."
   :group 'bufferlo
   :type 'boolean)
 
@@ -94,7 +94,8 @@ Buffers included by `bufferlo-include-buffer-filters' take precedence."
 
 (defcustom bufferlo-hidden-buffers nil
   "Buffers that should be hidden in the local buffer lists,
-even if they are displayed in the current frame or tab."
+even if they are displayed in the current frame or tab.
+This is a list of regular expressions that match buffer names."
   :group 'bufferlo
   :type '(repeat string))
 
@@ -179,21 +180,27 @@ buffers, see `bufferlo-hidden-buffers'."
 
 (defun bufferlo--clear-buffer-lists (&optional frame)
   "This is a workaround advice function to fix tab-bar's tab switching behavior.
-On `tab-bar-select-tab', when wc-bl or wc-bbl is nil, the corresponding
-buffer-list / buried-buffer-list parameter is not set.
-As a result the previous tab's value is used.
-This functions clears buffer-list and buried-buffer-list.  It should be called
-after `tab-bar--tab' but only when it is called from `tab-bar-select-tab'."
+On `tab-bar-select-tab', when `wc-bl' or `wc-bbl' is nil, the function does not
+set the correspoinding `buffer-list' / `buried-buffer-list' frame parameters.
+As a result the previous tab's values remain active.
+
+To mitigate this, this functions clears `buffer-list' and `buried-buffer-list'.
+It should be set up as an advice after `tab-bar--tab' and takes its FRAME
+parameter.  In addition, `bufferlo--clear-buffer-lists-activate' must be
+set up as a advice around `tab-bar-select-tab' to activate this function
+when `tab-bar--tab' is called from `tab-bar-select-tab."
   (when bufferlo--clear-buffer-lists-active
     (set-frame-parameter frame 'buffer-list nil)
     (set-frame-parameter frame 'buried-buffer-list nil)))
 
 (defun bufferlo--clear-buffer-lists-activate (oldfn &rest args)
-  "See `bufferlo--clear-buffer-lists'."
+  "This should be set up as a device around `tab-bar-select-tab'.
+It actiavtes clearing the buffer lists for `tab-bar--tab'
+before calling OLDFN with ARGS.  See `bufferlo--clear-buffer-lists'."
   (let* ((bufferlo--clear-buffer-lists-active t)
          (result (apply oldfn args)))
 
-    ;; FIXME: Occasionally it happens that a non-local buffer is shown in the tab,
+    ;; Occasionally it happens that a non-local buffer is shown in the tab,
     ;; after switching frames, primarily with empty tabs.
     ;; This workaround selects a buffer that is in the local list in such a case.
     (unless (bufferlo-local-buffer-p (current-buffer) nil nil t)
@@ -206,20 +213,17 @@ after `tab-bar--tab' but only when it is called from `tab-bar-select-tab'."
 
     result))
 
-(defun bufferlo--buffer-predicate (buffer)
-  (bufferlo-local-buffer-p buffer nil nil t))
-
 (defun bufferlo--set-buffer-predicate (frame)
-  "Set the buffer predicate of FRAME to `bufferlo--buffer-predicate'."
-  (set-frame-parameter frame 'buffer-predicate #'bufferlo--buffer-predicate))
+  "Set the buffer predicate of FRAME to `bufferlo-local-buffer-p'."
+  (set-frame-parameter frame 'buffer-predicate #'bufferlo-local-buffer-p))
 
 (defun bufferlo--reset-buffer-predicate (frame)
-  "Reset the buffer predicate of FRAME if it is `bufferlo--buffer-predicate'."
-  (when (eq (frame-parameter frame 'buffer-predicate) #'bufferlo--buffer-predicate)
+  "Reset the buffer predicate of FRAME if it is `bufferlo-local-buffer-p'."
+  (when (eq (frame-parameter frame 'buffer-predicate) #'bufferlo-local-buffer-p)
     (set-frame-parameter frame 'buffer-predicate nil)))
 
 (defun bufferlo--merge-regexp-list (regexp-list)
-  "Merge a list of regular expressions."
+  "Merge a list of regular expressions REGEXP-LIST."
   (mapconcat (lambda (x)
                (concat "\\(?:" x "\\)"))
              regexp-list "\\|"))
@@ -250,12 +254,12 @@ after `tab-bar--tab' but only when it is called from `tab-bar-select-tab'."
     (set-frame-parameter frame 'buried-buffer-list nil)))
 
 (defun bufferlo--tab-include-exclude-buffers (ignore)
-  "Include and exclude buffers into buffer-list of the current tab's FRAME."
+  "Include and exclude buffers into buffer-list of the current tab's frame."
   (ignore ignore)
   (bufferlo--include-exclude-buffers nil))
 
 (defun bufferlo--current-buffers (frame)
-  "Get the buffers of the current tab in FRAME"
+  "Get the buffers of the current tab in FRAME."
   (if bufferlo-include-buried-buffers
       (append
        (frame-parameter frame 'buffer-list)
@@ -263,7 +267,7 @@ after `tab-bar--tab' but only when it is called from `tab-bar-select-tab'."
     (frame-parameter frame 'buffer-list)))
 
 (defun bufferlo--get-tab-buffers (tab)
-  "Extract buffers from the given tab structure"
+  "Extract buffers from the given TAB structure."
   (or
    (if bufferlo-include-buried-buffers
        (append
@@ -333,7 +337,7 @@ Ignore buffers that are not able to be persisted in the desktop file."
                            (list (window-buffer window))))))
 
 (defun bufferlo--activate (oldfn &rest args)
-  "Activate the advice for bufferlo--window-state-{get,put}."
+  "Activate the advice for `bufferlo--window-state-{get,put}'."
   (let ((bufferlo--desktop-advice-active bufferlo-desktop-support))
     (apply oldfn args)))
 
@@ -375,15 +379,15 @@ If FRAME is nil, use the current frame."
     nil))
 
 (defun bufferlo-remove-non-exclusive-buffers ()
-  "Remove all buffers from the frame/tab's buffer list that are not exclusively
-attached to this frame/tab."
+  "Remove all buffers from the frame/tab's buffer list that are not
+exclusively attached to this frame/tab."
   (interactive)
   (dolist (buffer (bufferlo--get-exclusive-buffers nil t))
     (bufferlo-remove buffer)))
 
 (defun bufferlo-bury (&optional buffer-or-name)
   "Bury and remove the buffer specified by BUFFER-OR-NAME from the local list.
-If `bufferlo-include-buried-buffers' is set to `nil' then this has the same
+If `bufferlo-include-buried-buffers' is set to nil then this has the same
 effect as a simple `bury-buffer'."
   (interactive)
   (let ((buffer (window-normalize-buffer buffer-or-name)))
@@ -467,7 +471,8 @@ If FRAME is nil, kill the current frame."
 
 (defun bufferlo-tab-close-kill-buffers (&optional killall)
   "Close the current tab and kill all the local buffers according to
-  `bufferlo-kill-buffers'."
+`bufferlo-kill-buffers'.
+The optional parameter KILLALL is passed to `bufferlo-kill-buffers'"
   (interactive "P")
   (bufferlo-kill-buffers killall)
   (tab-bar-close-tab))
