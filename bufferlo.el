@@ -213,13 +213,18 @@ before calling OLDFN with ARGS.  See `bufferlo--clear-buffer-lists'."
 
     result))
 
+(defun bufferlo--buffer-predicate (buffer)
+  "Return whether BUFFER is local to the current fram/tab.
+Includes hidden buffers."
+  (bufferlo-local-buffer-p buffer nil nil t))
+
 (defun bufferlo--set-buffer-predicate (frame)
-  "Set the buffer predicate of FRAME to `bufferlo-local-buffer-p'."
-  (set-frame-parameter frame 'buffer-predicate #'bufferlo-local-buffer-p))
+  "Set the buffer predicate of FRAME to `bufferlo--buffer-predicate'."
+  (set-frame-parameter frame 'buffer-predicate #'bufferlo--buffer-predicate))
 
 (defun bufferlo--reset-buffer-predicate (frame)
-  "Reset the buffer predicate of FRAME if it is `bufferlo-local-buffer-p'."
-  (when (eq (frame-parameter frame 'buffer-predicate) #'bufferlo-local-buffer-p)
+  "Reset the buffer predicate of FRAME if it is `bufferlo--buffer-predicate'."
+  (when (eq (frame-parameter frame 'buffer-predicate) #'bufferlo--buffer-predicate)
     (set-frame-parameter frame 'buffer-predicate nil)))
 
 (defun bufferlo--merge-regexp-list (regexp-list)
