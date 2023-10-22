@@ -57,12 +57,6 @@
   "Manage frame/tab local buffers."
   :group 'convenience)
 
-(defcustom bufferlo-desktop-support t
-  "Enable support for desktop.el.
-Save and restore the frame/tab local buffer lists."
-  :group 'bufferlo
-  :type 'boolean)
-
 (defcustom bufferlo-prefer-local-buffers t
   "Use a frame predicate to prefer local buffers over global ones.
 This means that a local buffer will be preferred to be displayed
@@ -112,6 +106,7 @@ This is a list of regular expressions that match buffer names."
   :type '(repeat string))
 
 (defvar bufferlo--desktop-advice-active nil)
+(defvar bufferlo--desktop-advice-active-force nil)
 
 (defvar bufferlo--clear-buffer-lists-active nil)
 
@@ -134,12 +129,12 @@ This is a list of regular expressions that match buffer names."
         ;; Include/exclude buffers
         (add-hook 'after-make-frame-functions #'bufferlo--include-exclude-buffers)
         (add-hook 'tab-bar-tab-post-open-functions #'bufferlo--tab-include-exclude-buffers)
-        ;; Desktop support
+        ;; Desktop support & duplicate/move tabs
         (advice-add #'window-state-get :around #'bufferlo--window-state-get)
         (advice-add #'window-state-put :after #'bufferlo--window-state-put)
         (advice-add #'frameset--restore-frame :around #'bufferlo--activate)
         (advice-add #'frameset-save :around #'bufferlo--activate)
-        (advice-add #'tab-bar-select-tab :around #'bufferlo--activate)
+        (advice-add #'tab-bar-select-tab :around #'bufferlo--activate-force)
         (advice-add #'tab-bar--tab :around #'bufferlo--activate)
         ;; Switch-tab workaround
         (advice-add #'tab-bar-select-tab :around #'bufferlo--clear-buffer-lists-activate)
@@ -151,12 +146,12 @@ This is a list of regular expressions that match buffer names."
     ;; Include/exclude buffers
     (remove-hook 'after-make-frame-functions #'bufferlo--include-exclude-buffers)
     (remove-hook 'tab-bar-tab-post-open-functions #'bufferlo--tab-include-exclude-buffers)
-    ;; Desktop support
+    ;; Desktop support & duplicate/move tabs
     (advice-remove #'window-state-get #'bufferlo--window-state-get)
     (advice-remove #'window-state-put #'bufferlo--window-state-put)
     (advice-remove #'frameset--restore-frame #'bufferlo--activate)
     (advice-remove #'frameset-save #'bufferlo--activate)
-    (advice-remove #'tab-bar-select-tab #'bufferlo--activate)
+    (advice-remove #'tab-bar-select-tab #'bufferlo--activate-force)
     (advice-remove #'tab-bar--tab #'bufferlo--activate)
     ;; Switch-tab workaround
     (advice-remove #'tab-bar-select-tab #'bufferlo--clear-buffer-lists-activate)
@@ -261,7 +256,9 @@ Includes hidden buffers."
 (defun bufferlo--tab-include-exclude-buffers (ignore)
   "Include and exclude buffers into buffer-list of the current tab's frame."
   (ignore ignore)
-  (bufferlo--include-exclude-buffers nil))
+  ;; Reset the local buffer list unless we clone the tab (tab-duplicate).
+  (unless (eq tab-bar-new-tab-choice 'clone)
+    (bufferlo--include-exclude-buffers nil)))
 
 (defun bufferlo--current-buffers (frame)
   "Get the buffers of the current tab in FRAME."
@@ -311,13 +308,7 @@ buffers, see `bufferlo-hidden-buffers'."
 Ignore buffers that are not able to be persisted in the desktop file."
   (let ((ws (apply oldfn (list window writable))))
     (if bufferlo--desktop-advice-active
-        (let* ((buffers
-                (seq-filter
-                 (lambda (b)
-                   (desktop-save-buffer-p (buffer-file-name b)
-                                          (buffer-name b)
-                                          (with-current-buffer b major-mode)))
-                 (bufferlo--current-buffers (window-frame window))))
+        (let* ((buffers (bufferlo--current-buffers (window-frame window)))
                (names (mapcar #'buffer-name buffers)))
           (if names (append ws (list (list 'bufferlo-buffer-list names))) ws))
       ws)))
@@ -329,7 +320,9 @@ Ignore buffers that are not able to be persisted in the desktop file."
   ;; `frameset-restore' may pass a window with a non-existing buffer
   ;; to `window-state-put', which in turn will delete that window
   ;; before the advice calls us.
-  (when (and bufferlo--desktop-advice-active (window-live-p window))
+  ;; This is not the case when we are called from `tab-bar-select-tab'.
+  (when (or bufferlo--desktop-advice-active-force
+            (and bufferlo--desktop-advice-active (window-live-p window)))
     ;; FIXME: Currently there is no distinction between buffers and
     ;;        buried buffers for dektop.el.
     (let ((bl (car (cdr (assq 'bufferlo-buffer-list state)))))
@@ -343,7 +336,13 @@ Ignore buffers that are not able to be persisted in the desktop file."
 
 (defun bufferlo--activate (oldfn &rest args)
   "Activate the advice for `bufferlo--window-state-{get,put}'."
-  (let ((bufferlo--desktop-advice-active bufferlo-desktop-support))
+  (let ((bufferlo--desktop-advice-active t))
+    (apply oldfn args)))
+
+(defun bufferlo--activate-force (oldfn &rest args)
+  "Activate the advice for `bufferlo--window-state-{get,put}'."
+  (let ((bufferlo--desktop-advice-active t)
+        (bufferlo--desktop-advice-active-force t))
     (apply oldfn args)))
 
 (defun bufferlo-clear (&optional frame)
