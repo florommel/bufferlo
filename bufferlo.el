@@ -506,6 +506,12 @@ If the prefix arument is given, include all buffers."
          (lambda (b) (member (if (stringp b) b (car b)) lbs)))))))
   (switch-to-buffer buffer norecord force-same-window))
 
+(defun bufferlo-list-buffers ()
+  "Display a list of local buffers in the \"*Buffer List*\" buffer."
+  (interactive)
+  (display-buffer
+   (list-buffers-noselect nil #'bufferlo-buffer-list)))
+
 (with-eval-after-load 'ibuf-ext
   (define-ibuffer-filter bufferlo-local-buffers
       "Limit current view to local buffers."
