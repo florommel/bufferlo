@@ -26,28 +26,32 @@
 
 ;; This gives you separate buffer lists per frame and per (tab-bar) tab.
 
-;; You may also have a look at more powerful workspace solutions like
-;; bufler (automatic rule-based workspace management and buffer
-;; grouping) or perspective (comprehensive workspace isolation,
-;; workspace merging, workspace persistence) if you need the advanced
-;; features.
-;; https://github.com/alphapapa/bufler.el
-;; https://github.com/nex3/perspective-el
-
-;; Bufferlo is a lightweight wrapper around Emacs' buffer-list frame
-;; parameter.
+;; Bufferlo is a lightweight wrapper around Emacs's buffer-list frame
+;; parameter.  In contrast to similar solutions, it integrates
+;; seamlessly with the standard frame and tab management facilities,
+;; including undeletion of frame and tabs, tab duplication and moving,
+;; frame cloning, and persisting sessions (via desktop.el).
 
 ;; A buffer is added to the local buffer list when it is displayed in
-;; the frame/tab (e.g. by opening a new file in the tab or by
+;; the frame/tab (e.g., by opening a new file in the tab or by
 ;; switching to the buffer from the global buffer list).  In addition,
 ;; bufferlo provides functions that allow the manipulation of the
 ;; local buffer list.  Bufferlo does not touch the global buffer list
 ;; or the existing buffer-management facilities.  Use the equivalent
 ;; bufferlo variants to work with the frame/tab local buffer list.
 
-;; Bufferlo provides similar functionality to the now unmaintained
-;; frame-bufs package with additional tab-bar and desktop.el support.
+;; The packages frame-bufs (unmaintained) and beframe provide similar
+;; functionality, but only at the frame level, without support for
+;; tabs and desktop.el.
 ;; https://github.com/alpaker/frame-bufs
+;; https://protesilaos.com/emacs/beframe
+
+;; You may also have a look at full workspace solutions like bufler
+;; (automatic rule-based workspace management and buffer grouping) or
+;; perspective (comprehensive workspace isolation, workspace merging,
+;; workspace persistence).  They work quite differently than bufferlo.
+;; https://github.com/alphapapa/bufler.el
+;; https://github.com/nex3/perspective-el
 
 ;;; Code:
 
@@ -61,8 +65,10 @@
   "Use a frame predicate to prefer local buffers over global ones.
 This means that a local buffer will be preferred to be displayed
 when the current buffer disappears (buried or killed).
-This must be set before enabling command `bufferlo-mode'
-in order to take effect."
+This is also required to make `next-buffer' and `previous-buffer'
+work as expected.
+Changes to this variable must be made before enabling
+`bufferlo-mode' in order to take effect."
   :group 'bufferlo
   :type 'boolean)
 
