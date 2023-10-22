@@ -1,11 +1,11 @@
 ;;; bufferlo.el --- Manage frame/tab-local buffer lists -*- lexical-binding: t -*-
-;; Copyright (C) 2021-2023, Florian Rommel
+;; Copyright (C) 2021-2023 Free Software Foundation, Inc.
 
 ;; Author: Florian Rommel <mail@florommel.de>
 ;; Maintainer: Florian Rommel <mail@florommel.de>
 ;; Url: https://github.com/florommel/bufferlo
 ;; Created: 2021-09-15
-;; Version: 0.1
+;; Version: 0.2
 ;; Package-Requires: ((emacs "27.1"))
 ;; Keywords: buffer frame tabs local
 
