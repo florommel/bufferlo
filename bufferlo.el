@@ -269,7 +269,9 @@ Includes hidden buffers."
   "Include and exclude buffers into buffer-list of the current tab's frame."
   (ignore ignore)
   ;; Reset the local buffer list unless we clone the tab (tab-duplicate).
-  (unless (eq tab-bar-new-tab-choice 'clone)
+  (unless (or (eq tab-bar-new-tab-choice 'clone)
+              (and (< emacs-major-version 29)
+                   (not tab-bar-new-tab-choice)))
     (bufferlo--include-exclude-buffers nil)))
 
 (defun bufferlo--current-buffers (frame)
