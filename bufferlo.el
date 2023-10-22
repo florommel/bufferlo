@@ -129,15 +129,16 @@ This is a list of regular expressions that match buffer names."
         ;; Include/exclude buffers
         (add-hook 'after-make-frame-functions #'bufferlo--include-exclude-buffers)
         (add-hook 'tab-bar-tab-post-open-functions #'bufferlo--tab-include-exclude-buffers)
-        ;; Desktop support & duplicate/move tabs
+        ;; Save/restore local buffer list
         (advice-add #'window-state-get :around #'bufferlo--window-state-get)
         (advice-add #'window-state-put :after #'bufferlo--window-state-put)
+        ;; Desktop support
         (advice-add #'frameset--restore-frame :around #'bufferlo--activate)
-        (advice-add #'frameset-save :around #'bufferlo--activate)
+        ;; Duplicate/move tabs
         (advice-add #'tab-bar-select-tab :around #'bufferlo--activate-force)
-        (advice-add #'tab-bar--tab :around #'bufferlo--activate)
-        ;; Clone frame
+        ;; Clone & undelete frame
         (advice-add #'clone-frame :around #'bufferlo--activate-force)
+        (advice-add #'undelete-frame :around #'bufferlo--activate-force)
         ;; Switch-tab workaround
         (advice-add #'tab-bar-select-tab :around #'bufferlo--clear-buffer-lists-activate)
         (advice-add #'tab-bar--tab :after #'bufferlo--clear-buffer-lists))
@@ -148,15 +149,16 @@ This is a list of regular expressions that match buffer names."
     ;; Include/exclude buffers
     (remove-hook 'after-make-frame-functions #'bufferlo--include-exclude-buffers)
     (remove-hook 'tab-bar-tab-post-open-functions #'bufferlo--tab-include-exclude-buffers)
-    ;; Desktop support & duplicate/move tabs
+    ;; Save/restore local buffer list
     (advice-remove #'window-state-get #'bufferlo--window-state-get)
     (advice-remove #'window-state-put #'bufferlo--window-state-put)
+    ;; Desktop support
     (advice-remove #'frameset--restore-frame #'bufferlo--activate)
-    (advice-remove #'frameset-save #'bufferlo--activate)
+    ;; Duplicate/move tabs
     (advice-remove #'tab-bar-select-tab #'bufferlo--activate-force)
-    (advice-remove #'tab-bar--tab #'bufferlo--activate)
-    ;; Clone frame
+    ;; Clone & undelete frame
     (advice-remove #'clone-frame #'bufferlo--activate-force)
+    (advice-remove #'undelete-frame #'bufferlo--activate-force)
     ;; Switch-tab workaround
     (advice-remove #'tab-bar-select-tab #'bufferlo--clear-buffer-lists-activate)
     (advice-remove #'tab-bar--tab #'bufferlo--clear-buffer-lists)))
@@ -308,14 +310,11 @@ buffers, see `bufferlo-hidden-buffers'."
                   list))))
 
 (defun bufferlo--window-state-get (oldfn &optional window writable)
-  "Save the frame's buffer-list to the window state.
-Ignore buffers that are not able to be persisted in the desktop file."
+  "Save the frame's buffer-list to the window state."
   (let ((ws (apply oldfn (list window writable))))
-    (if bufferlo--desktop-advice-active
-        (let* ((buffers (bufferlo--current-buffers (window-frame window)))
-               (names (mapcar #'buffer-name buffers)))
-          (if names (append ws (list (list 'bufferlo-buffer-list names))) ws))
-      ws)))
+    (let* ((buffers (bufferlo--current-buffers (window-frame window)))
+           (names (mapcar #'buffer-name buffers)))
+      (if names (append ws (list (list 'bufferlo-buffer-list names))) ws))))
 
 (defun bufferlo--window-state-put (state &optional window ignore)
   "Restore the frame's buffer-list from the window state."
