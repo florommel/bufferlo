@@ -136,6 +136,8 @@ This is a list of regular expressions that match buffer names."
         (advice-add #'frameset-save :around #'bufferlo--activate)
         (advice-add #'tab-bar-select-tab :around #'bufferlo--activate-force)
         (advice-add #'tab-bar--tab :around #'bufferlo--activate)
+        ;; Clone frame
+        (advice-add #'clone-frame :around #'bufferlo--activate-force)
         ;; Switch-tab workaround
         (advice-add #'tab-bar-select-tab :around #'bufferlo--clear-buffer-lists-activate)
         (advice-add #'tab-bar--tab :after #'bufferlo--clear-buffer-lists))
@@ -153,6 +155,8 @@ This is a list of regular expressions that match buffer names."
     (advice-remove #'frameset-save #'bufferlo--activate)
     (advice-remove #'tab-bar-select-tab #'bufferlo--activate-force)
     (advice-remove #'tab-bar--tab #'bufferlo--activate)
+    ;; Clone frame
+    (advice-remove #'clone-frame #'bufferlo--activate-force)
     ;; Switch-tab workaround
     (advice-remove #'tab-bar-select-tab #'bufferlo--clear-buffer-lists-activate)
     (advice-remove #'tab-bar--tab #'bufferlo--clear-buffer-lists)))
