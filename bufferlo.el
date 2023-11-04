@@ -136,8 +136,10 @@ This is a list of regular expressions that match buffer names."
         ;; Duplicate/move tabs
         (advice-add #'tab-bar-select-tab :around #'bufferlo--activate-force)
         ;; Clone & undelete frame
-        (advice-add #'clone-frame :around #'bufferlo--activate-force)
-        (advice-add #'undelete-frame :around #'bufferlo--activate-force)
+        (when (>= emacs-major-version 28)
+          (advice-add #'clone-frame :around #'bufferlo--activate-force))
+        (when (>= emacs-major-version 29)
+          (advice-add #'undelete-frame :around #'bufferlo--activate-force))
         ;; Switch-tab workaround
         (advice-add #'tab-bar-select-tab :around #'bufferlo--clear-buffer-lists-activate)
         (advice-add #'tab-bar--tab :after #'bufferlo--clear-buffer-lists))
@@ -156,8 +158,10 @@ This is a list of regular expressions that match buffer names."
     ;; Duplicate/move tabs
     (advice-remove #'tab-bar-select-tab #'bufferlo--activate-force)
     ;; Clone & undelete frame
-    (advice-remove #'clone-frame #'bufferlo--activate-force)
-    (advice-remove #'undelete-frame #'bufferlo--activate-force)
+    (when (>= emacs-major-version 28)
+      (advice-remove #'clone-frame #'bufferlo--activate-force))
+    (when (>= emacs-major-version 29)
+      (advice-remove #'undelete-frame #'bufferlo--activate-force))
     ;; Switch-tab workaround
     (advice-remove #'tab-bar-select-tab #'bufferlo--clear-buffer-lists-activate)
     (advice-remove #'tab-bar--tab #'bufferlo--clear-buffer-lists)))
