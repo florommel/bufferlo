@@ -1,4 +1,5 @@
 ;;; bufferlo.el --- Manage frame/tab-local buffer lists -*- lexical-binding: t -*-
+
 ;; Copyright (C) 2021-2023 Free Software Foundation, Inc.
 
 ;; Author: Florian Rommel <mail@florommel.de>
@@ -69,46 +70,39 @@ This is also required to make `next-buffer' and `previous-buffer'
 work as expected.
 Changes to this variable must be made before enabling
 `bufferlo-mode' in order to take effect."
-  :group 'bufferlo
   :type 'boolean)
 
 (defcustom bufferlo-include-buried-buffers t
   "Include buried buffers in the local list (`bufferlo-buffer-list').
 Use `bufferlo-bury' to remove and bury a buffer if this is set to t."
-  :group 'bufferlo
   :type 'boolean)
 
 (defcustom bufferlo-include-buffer-filters nil
   "Buffers that should always get included in a new tab or frame.
 This is a list of regular expressions that match buffer names.
 This overrides buffers excluded by `bufferlo-exclude-buffer-filters.'"
-  :group 'bufferlo
   :type '(repeat string))
 
 (defcustom bufferlo-exclude-buffer-filters '(".*")
   "Buffers that should always get excluded in a new tab or frame.
 This is a list of regular expressions that match buffer names.
 Buffers included by `bufferlo-include-buffer-filters' take precedence."
-  :group 'bufferlo
   :type '(repeat string))
 
 (defcustom bufferlo-hidden-buffers nil
-  "Buffers that should be hidden in the local buffer lists,
-even if they are displayed in the current frame or tab.
-This is a list of regular expressions that match buffer names."
-  :group 'bufferlo
+  "List of regexps matching names of buffers to hide in the local buffer lists.
+They are hidden even if they are displayed in the current frame
+or tab."
   :type '(repeat string))
 
 (defcustom bufferlo-kill-buffers-exclude-filters
   '("\\` " "\\`\\*Messages\\*\\'" "\\`\\*scratch\\*\\'")
   "Buffers that should not be killed by `bufferlo-kill-buffers'.
 This is a list of regular expressions that match buffer names."
-  :group 'bufferlo
   :type '(repeat string))
 
 (defcustom bufferlo-ibuffer-bind-local-buffer-filter t
   "If this is true bind the local buffer filter to \"/ l\" in ibuffer."
-  :group 'bufferlo
   :type '(repeat string))
 
 (defvar bufferlo--desktop-advice-active nil)
@@ -120,7 +114,6 @@ This is a list of regular expressions that match buffer names."
 (define-minor-mode bufferlo-mode
   "Manage frame/tab-local buffers."
   :global t
-  :group 'bufferlo
   :require 'bufferlo
   :init-value nil
   :lighter nil
