@@ -259,7 +259,8 @@ Includes hidden buffers."
     (set-frame-parameter frame 'buried-buffer-list nil)))
 
 (defun bufferlo--tab-include-exclude-buffers (ignore)
-  "Include and exclude buffers into buffer-list of the current tab's frame."
+  "Include and exclude buffers into the buffer list of the current tab's frame.
+Argument IGNORE is for compatibility with `tab-bar-tab-post-open-functions'."
   (ignore ignore)
   ;; Reset the local buffer list unless we clone the tab (tab-duplicate).
   (unless (or (eq tab-bar-new-tab-choice 'clone)
@@ -311,14 +312,19 @@ buffers, see `bufferlo-hidden-buffers'."
                   list))))
 
 (defun bufferlo--window-state-get (oldfn &optional window writable)
-  "Save the frame's buffer-list to the window state."
+  "Save the frame's buffer list to the window state.
+Used as advice around `window-state-get'.  OLDFN is the original
+function.  WINDOW and WRITABLE are passed to the function."
   (let ((ws (apply oldfn (list window writable))))
     (let* ((buffers (bufferlo--current-buffers (window-frame window)))
            (names (mapcar #'buffer-name buffers)))
       (if names (append ws (list (list 'bufferlo-buffer-list names))) ws))))
 
 (defun bufferlo--window-state-put (state &optional window ignore)
-  "Restore the frame's buffer-list from the window state."
+  "Restore the frame's buffer list from the window state.
+Used as advice after `window-state-put'.  STATE is the window state.
+WINDOW is the window in question.  IGNORE is not used and exists for
+compatibility with the adviced function."
   (ignore ignore)
   ;; We have to make sure that the window is live at this point.
   ;; `frameset-restore' may pass a window with a non-existing buffer
@@ -339,12 +345,16 @@ buffers, see `bufferlo-hidden-buffers'."
                            (list (window-buffer window))))))
 
 (defun bufferlo--activate (oldfn &rest args)
-  "Activate the advice for `bufferlo--window-state-{get,put}'."
+  "Activate the advice for `bufferlo--window-state-{get,put}'.
+OLDFN is the original function.  ARGS is for compatibility with
+the adviced functions."
   (let ((bufferlo--desktop-advice-active t))
     (apply oldfn args)))
 
 (defun bufferlo--activate-force (oldfn &rest args)
-  "Activate the advice for `bufferlo--window-state-{get,put}'."
+  "Activate the advice for `bufferlo--window-state-{get,put}'.
+OLDFN is the original function.  ARGS is for compatibility with
+the adviced functions."
   (let ((bufferlo--desktop-advice-active t)
         (bufferlo--desktop-advice-active-force t))
     (apply oldfn args)))
@@ -387,8 +397,7 @@ If FRAME is nil, use the current frame."
     nil))
 
 (defun bufferlo-remove-non-exclusive-buffers ()
-  "Remove all buffers from the frame/tab's buffer list that are not
-exclusively attached to this frame/tab."
+  "Remove all buffers from the local buffer list that are not exclusive to it."
   (interactive)
   (dolist (buffer (bufferlo--get-exclusive-buffers nil t))
     (bufferlo-remove buffer)))
@@ -470,16 +479,14 @@ Buffers matching `bufferlo-kill-buffers-exclude-filters' are never killed."
         (kill-buffer buffer)))))
 
 (defun bufferlo-delete-frame-kill-buffers (&optional frame)
-  "Delete a frame and kill all the local buffers according to
-`bufferlo-kill-buffers'.
+  "Delete a frame and kill the local buffers.
 If FRAME is nil, kill the current frame."
   (interactive)
   (bufferlo-kill-buffers frame)
   (delete-frame))
 
 (defun bufferlo-tab-close-kill-buffers (&optional killall)
-  "Close the current tab and kill all the local buffers according to
-`bufferlo-kill-buffers'.
+  "Close the current tab and kill the local buffers.
 The optional parameter KILLALL is passed to `bufferlo-kill-buffers'"
   (interactive "P")
   (bufferlo-kill-buffers killall)
