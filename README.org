@@ -30,20 +30,16 @@ workspace persistence).  They work quite differently than bufferlo.
 
 * Installation
 
-Put ~bufferlo.el~ in your load path and require it in your init file:
-#+BEGIN_SRC emacs-lisp
-(require 'bufferlo)
-#+END_SRC
-
-Enable ~bufferlo-mode~ in your init file:
+Bufferlo is available in [[https://elpa.gnu.org/packages/bufferlo.html][GNU ELPA]].
+Install it via ~package-install~ and enable ~bufferlo-mode~:
 #+BEGIN_SRC emacs-lisp
 (bufferlo-mode 1)
 #+END_SRC
 
-Or use use-package:
+Or use ~use-package~:
 #+BEGIN_SRC emacs-lisp
 (use-package bufferlo
- :load-path "path/bufferlo"
+ :ensure t
  :config
  (bufferlo-mode 1))
 #+END_SRC
