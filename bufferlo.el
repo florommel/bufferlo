@@ -59,7 +59,7 @@
 (require 'desktop)
 
 (defgroup bufferlo nil
-  "Manage frame/tab local buffers."
+  "Manage frame/tab-local buffer lists."
   :group 'convenience)
 
 (defcustom bufferlo-prefer-local-buffers t
@@ -80,19 +80,23 @@ Use `bufferlo-bury' to remove and bury a buffer if this is set to t."
 (defcustom bufferlo-include-buffer-filters nil
   "Buffers that should always get included in a new tab or frame.
 This is a list of regular expressions that match buffer names.
+This is applied on frame and tab creation.  Included buffers can be
+explicitly removed later.
 This overrides buffers excluded by `bufferlo-exclude-buffer-filters.'"
   :type '(repeat string))
 
 (defcustom bufferlo-exclude-buffer-filters '(".*")
   "Buffers that should always get excluded in a new tab or frame.
 This is a list of regular expressions that match buffer names.
+This is applied on frame and tab creation.  Excluded buffers can be
+added explicitly later.  Use `bufferlo-hidden-buffers' to permanently
+hide buffers from the local list.
 Buffers included by `bufferlo-include-buffer-filters' take precedence."
   :type '(repeat string))
 
 (defcustom bufferlo-hidden-buffers nil
   "List of regexps matching names of buffers to hide in the local buffer lists.
-They are hidden even if they are displayed in the current frame
-or tab."
+Matching buffers are hidden even if displayed in the current frame or tab."
   :type '(repeat string))
 
 (defcustom bufferlo-kill-buffers-exclude-filters
@@ -102,7 +106,7 @@ This is a list of regular expressions that match buffer names."
   :type '(repeat string))
 
 (defcustom bufferlo-ibuffer-bind-local-buffer-filter t
-  "If this is true bind the local buffer filter to \"/ l\" in ibuffer."
+  "If non-nil, the local buffer filter is bound to \"/ l\" in ibuffer."
   :type '(repeat string))
 
 (defvar bufferlo--desktop-advice-active nil)
@@ -167,7 +171,7 @@ This is a list of regular expressions that match buffer names."
     (advice-remove #'tab-bar--tab #'bufferlo--clear-buffer-lists)))
 
 (defun bufferlo-local-buffer-p (buffer &optional frame tabnum include-hidden)
-  "Return whether BUFFER is in the list of local buffers.
+  "Return non-nil if BUFFER is in the list of local buffers.
 A non-nil value of FRAME selects a specific frame instead of the current one.
 If TABNUM is nil, the current tab is used.  If it is non-nil, it specifies
 a tab index in the given frame.  If INCLUDE-HIDDEN is set, include hidden
@@ -175,7 +179,7 @@ buffers, see `bufferlo-hidden-buffers'."
   (memq buffer (bufferlo-buffer-list frame tabnum include-hidden)))
 
 (defun bufferlo-non-local-buffer-p (buffer &optional frame tabnum include-hidden)
-  "Return whether BUFFER is not in the list of local buffers.
+  "Return non-nil if BUFFER is not in the list of local buffers.
 A non-nil value of FRAME selects a specific frame instead of the current one.
 If TABNUM is nil, the current tab is used.  If it is non-nil, it specifies
 a tab index in the given frame.  If INCLUDE-HIDDEN is set, include hidden
@@ -198,7 +202,7 @@ when `tab-bar--tab' is called from `tab-bar-select-tab."
     (set-frame-parameter frame 'buried-buffer-list nil)))
 
 (defun bufferlo--clear-buffer-lists-activate (oldfn &rest args)
-  "This should be set up as a device around `tab-bar-select-tab'.
+  "This should be set up as a advice around `tab-bar-select-tab'.
 It actiavtes clearing the buffer lists for `tab-bar--tab'
 before calling OLDFN with ARGS.  See `bufferlo--clear-buffer-lists'."
   (let* ((bufferlo--clear-buffer-lists-active t)
@@ -238,7 +242,7 @@ Includes hidden buffers."
              regexp-list "\\|"))
 
 (defun bufferlo--include-exclude-buffers (frame)
-  "Include and exclude buffers into the buffer list of FRAME."
+  "Include and exclude buffers from the local buffer list of FRAME."
   (let* ((include (bufferlo--merge-regexp-list
                    (append '("a^") bufferlo-include-buffer-filters)))
          (exclude (bufferlo--merge-regexp-list
@@ -263,7 +267,7 @@ Includes hidden buffers."
     (set-frame-parameter frame 'buried-buffer-list nil)))
 
 (defun bufferlo--tab-include-exclude-buffers (ignore)
-  "Include and exclude buffers into the buffer list of the current tab's frame.
+  "Include and exclude buffers from the buffer list of the current tab's frame.
 Argument IGNORE is for compatibility with `tab-bar-tab-post-open-functions'."
   (ignore ignore)
   ;; Reset the local buffer list unless we clone the tab (tab-duplicate).
@@ -445,9 +449,9 @@ If EXCLUDE-FRAME is a frame, exclude the local buffer list of this frame."
               (buffer-list)))
 
 (defun bufferlo--get-exclusive-buffers (&optional frame invert)
-  "Get all buffers that are exclusive for this frame and tab.
+  "Get all buffers that are exclusive to this frame and tab.
 If FRAME is nil, use the current frame.
-If INVERT is non-nil, return the non-exclusive buffer instead."
+If INVERT is non-nil, return the non-exclusive buffers instead."
   (let ((other-bufs (bufferlo--get-captured-buffers (or frame (selected-frame))))
         (this-bufs (bufferlo--current-buffers frame)))
     (seq-filter (if invert
