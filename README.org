@@ -75,6 +75,8 @@ Bufferlo provides functions to manage the local buffer lists:
   Delete the frame and kill all its local buffers.
 - ~bufferlo-tab-close-kill-buffers~:
   Close the tab and kill all its local buffers.
+- ~bufferlo-isolate-project~:
+  Isolate a project in the frame or tab.
 
 
 ** Consult Integration

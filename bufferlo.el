@@ -500,6 +500,25 @@ The optional parameter KILLALL is passed to `bufferlo-kill-buffers'"
   (bufferlo-kill-buffers killall)
   (tab-bar-close-tab))
 
+(defun bufferlo-isolate-project (&optional file-buffers-only)
+  "Isolate a project in the frame or tab.
+Remove all buffers that do not belong to the current project from
+the local buffer list.  When FILE-BUFFERS-ONLY is non-nil or the
+prefix argument is given, remove only buffers that visit a file.
+Buffers matching `bufferlo-include-buffer-filters' are not removed."
+  (interactive "P")
+  (let ((curr-project (project-current))
+        (include (bufferlo--merge-regexp-list
+                  (append '("a^") bufferlo-include-buffer-filters))))
+    (if curr-project
+        (dolist (buffer (bufferlo-buffer-list))
+          (when (and (not (string-match-p include (buffer-name buffer)))
+                     (not (equal curr-project
+                                 (with-current-buffer buffer (project-current))))
+                     (or (not file-buffers-only) (buffer-file-name buffer)))
+            (bufferlo-remove buffer)))
+      (message "Current buffer is not part of a project"))))
+
 (defun bufferlo-switch-to-buffer (buffer &optional norecord force-same-window)
   "Display the BUFFER in the selected window.
 Completion includes only local buffers.
