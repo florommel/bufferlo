@@ -516,11 +516,35 @@ If the prefix arument is given, include all buffers."
          (lambda (b) (member (if (stringp b) b (car b)) lbs)))))))
   (switch-to-buffer buffer norecord force-same-window))
 
+(defvar-local bufferlo--buffer-menu-this-frame nil)
+
+(defun bufferlo--local-buffer-list-this-frame ()
+  "Return the local buffer list of the buffer's frame."
+  (bufferlo-buffer-list bufferlo--buffer-menu-this-frame))
+
 (defun bufferlo-list-buffers ()
-  "Display a list of local buffers in the \"*Buffer List*\" buffer."
+  "Display a list of local buffers."
   (interactive)
   (display-buffer
-   (list-buffers-noselect nil #'bufferlo-buffer-list)))
+   (let* ((old-buffer (current-buffer))
+          (name (or
+                 (seq-find (lambda (b)
+                             (string-match-p
+                              "\\`\\*Local Buffer List\\*\\(<[0-9]*>\\)?\\'"
+                              (buffer-name b)))
+                           (bufferlo-buffer-list))
+                 (generate-new-buffer-name "*Local Buffer List*")))
+	  (buffer (get-buffer-create name)))
+     (with-current-buffer buffer
+       (Buffer-menu-mode)
+       (setq bufferlo--buffer-menu-this-frame (selected-frame))
+       (setq Buffer-menu-files-only nil)
+       (setq Buffer-menu-buffer-list #'bufferlo--local-buffer-list-this-frame)
+       (setq Buffer-menu-filter-predicate nil)
+       (list-buffers--refresh #'bufferlo--local-buffer-list-this-frame old-buffer)
+       (tabulated-list-print)
+       (revert-buffer))
+     buffer)))
 
 (with-eval-after-load 'ibuf-ext
   (define-ibuffer-filter bufferlo-local-buffers

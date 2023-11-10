@@ -56,7 +56,7 @@ respective global commands:
   ~ibuffer~ filtered for local buffers.
   Alternatively, use "/ l" in ibuffer.
 - ~bufferlo-list-buffers~:
-  Display a list of local buffers in the "*Buffer List"* buffer.
+  Display a list of local buffers in a buffer-menu buffer.
 
 Bufferlo provides functions to manage the local buffer lists:
 - ~bufferlo-clear~:
