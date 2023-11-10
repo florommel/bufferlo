@@ -161,8 +161,15 @@ You can also configure consult-buffer to hide the non-local buffers by default:
 [[./img/consult2.svg]]
 Fig.2: By entering 'a'+<space>, the global buffer list is shown ("All Buffers").
 
+A good alternative is to bind space to "All Buffers" (via ~:narrow 32~).
+By default, space is used for hidden buffers (~consult--source-hidden-buffer~).
+If you still need the hidden buffer list, you can make a new source for it,
+for example, with period as the narrowing key (~:narrow ?.~).
+
 
 ** Ivy Integration
+
+You can also integrate bufferlo with ivy.
 
 #+begin_src emacs-lisp
   (defun ivy-bufferlo-switch-buffer ()
