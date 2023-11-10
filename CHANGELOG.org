@@ -1,0 +1,11 @@
+* Version 0.3 (2023-11-10)
+- Improve ~bufferlo-list-buffers~:
+  Spawn a local-buffer-list buffer per frame/tab
+- Add ~bufferlo-isolate-project~
+
+* Version 0.2 (2023-10-22)
+- Stable release
+- Submission to GNU ELPA
+
+* Version 0.1 (2021-09-15)
+- First release
