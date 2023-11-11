@@ -113,8 +113,8 @@ This is an example configuration:
       "Local buffer candidate source for `consult-buffer'.")
 
   (setq consult-buffer-sources '(consult--source-hidden-buffer
-                                 my-consult--source-buffer
                                  my-consult--source-local-buffer
+                                 my-consult--source-buffer
                                  ;; ... other sources ...
                                  ))
 #+end_src
