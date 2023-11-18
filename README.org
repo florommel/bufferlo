@@ -77,6 +77,11 @@ Bufferlo provides functions to manage the local buffer lists:
   Close the tab and kill all its local buffers.
 - ~bufferlo-isolate-project~:
   Isolate a project in the frame or tab.
+- ~bufferlo-find-buffer~:
+  Switch to (one of) the frame/tab that contains the buffer in its local list.
+- ~bufferlo-find-buffer-switch~:
+  Switch to (one of) the frame/tab that contains the buffer in its local list,
+  and select the buffer.
 
 
 ** Consult Integration

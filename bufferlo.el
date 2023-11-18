@@ -519,6 +519,80 @@ Buffers matching `bufferlo-include-buffer-filters' are not removed."
             (bufferlo-remove buffer)))
       (message "Current buffer is not part of a project"))))
 
+(defun bufferlo-find-buffer (buffer-or-name)
+  "Switch to the frame/tab containing BUFFER-OR-NAME in its local list.
+If multiple frame or tabs contain the buffer, interactively prompt
+for the to-be-selected frame and tab.
+This does not select the buffer -- just the containing frame and tab."
+  (interactive "b")
+  (let* ((buffer (get-buffer buffer-or-name))
+         (flatten (lambda (list)
+                    (apply #'append (append list '()))))
+         (search-tabs (lambda (f)
+                        (let ((i 0))
+                          (mapcar
+                           (lambda (tab)
+                             (setq i (1+ i))
+                             (when (bufferlo-local-buffer-p buffer f (1- i) t)
+                               (list f (frame-parameter f 'name)
+                                     (eq f (selected-frame))
+                                     i (cdr (assq 'name tab)))))
+                           (frame-parameter f 'tabs)))))
+         (search-frames (lambda (f)
+                          (unless (frame-parameter f 'no-accept-focus)
+                            (if (frame-parameter f 'tabs)
+                                ;; has tabs
+                                (funcall search-tabs f)
+                              ;; has no tabs
+                              (when (bufferlo-local-buffer-p buffer f nil t)
+                                (list (list f (frame-parameter f 'name)
+                                            (eq f (selected-frame))
+                                            nil nil)))))))
+         (candidates (seq-filter 'identity
+                                 (funcall flatten
+                                          (mapcar
+                                           (lambda (f)
+                                             (funcall search-frames f))
+                                           (frame-list)))))
+         (candidates (mapcar
+                      (lambda (c)
+                        (let ((sel (if (nth 2 c) " [this]" ""))
+                              (frame-name (nth 1 c))
+                              (frame-obj  (nth 0 c))
+                              (tab-index  (nth 3 c))
+                              (tab-name   (nth 4 c)))
+                          (if tab-index
+                              (cons (format "Frame: %s (%s)%s  Tab %s: %s"
+                                            frame-name frame-obj sel
+                                            tab-index tab-name)
+                                    c)
+                            (cons (format "Frame: %s (%s)%s"
+                                          frame-name frame-obj sel)
+                                  c))))
+                      candidates))
+         (selected (if (cdr candidates)
+                       (completing-read
+                        "Select frame/tab: "
+                        candidates
+                        nil t)
+                     (caar candidates)))
+         (selected (assoc selected candidates)))
+    (if (not selected)
+        (message "Orphan: No frame/tab contains buffer '%s'" (buffer-name buffer))
+      (let ((frame (nth 1 selected))
+            (tab-index (nth 4 selected)))
+        (select-frame-set-input-focus frame)
+        (when tab-index
+          (tab-bar-select-tab tab-index))
+        frame))))
+
+(defun bufferlo-find-buffer-switch (buffer-or-name)
+  "Switch to the frame/tab containig BUFFER-OR-NAME and select the buffer.
+This is like `bufferlo-find-buffer' but additionally selects the buffer."
+  (interactive "b")
+  (when (bufferlo-find-buffer buffer-or-name)
+    (switch-to-buffer buffer-or-name)))
+
 (defun bufferlo-switch-to-buffer (buffer &optional norecord force-same-window)
   "Display the BUFFER in the selected window.
 Completion includes only local buffers.
