@@ -55,8 +55,16 @@ respective global commands:
 - ~bufferlo-ibuffer~:
   ~ibuffer~ filtered for local buffers.
   Alternatively, use "/ l" in ibuffer.
+- ~bufferlo-ibuffer-orphans~:
+  ~ibuffer~ filtered for orphan buffers.
+  Orphan buffers are buffers that are not in any frame/tab's local
+  buffer list.  Alternatively, use "/ L" in ibuffer.
 - ~bufferlo-list-buffers~:
   Display a list of local buffers in a buffer-menu buffer.
+- ~bufferlo-list-orphan-buffers~:
+  Display a list of orphan buffers in a buffer-menu buffer.
+  Orphan buffers are buffers that are not in any frame/tab's local
+  buffer list.
 
 Bufferlo provides functions to manage the local buffer lists:
 - ~bufferlo-clear~:

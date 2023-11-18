@@ -639,17 +639,41 @@ If the prefix arument is given, include all buffers."
        (revert-buffer))
      buffer)))
 
+(defun bufferlo-list-orphan-buffers ()
+  "Display a list of orphan buffers."
+  (interactive)
+  (display-buffer
+   (let* ((old-buffer (current-buffer))
+          (name "*Orphan Buffer List*")
+	  (buffer (get-buffer-create name)))
+     (with-current-buffer buffer
+       (Buffer-menu-mode)
+       (setq bufferlo--buffer-menu-this-frame (selected-frame))
+       (setq Buffer-menu-files-only nil)
+       (setq Buffer-menu-buffer-list #'bufferlo--get-orphan-buffers)
+       (setq Buffer-menu-filter-predicate nil)
+       (list-buffers--refresh #'bufferlo--get-orphan-buffers old-buffer)
+       (tabulated-list-print)
+       (revert-buffer))
+     buffer)))
+
 (with-eval-after-load 'ibuf-ext
   (define-ibuffer-filter bufferlo-local-buffers
       "Limit current view to local buffers."
     (:description "local buffers" :reader nil)
-    (bufferlo-local-buffer-p buf)))
+    (bufferlo-local-buffer-p buf))
+  (define-ibuffer-filter bufferlo-orphan-buffers
+      "Limit current view to orphan buffers."
+    (:description "orphan buffers" :reader nil)
+    (not (memq buf (bufferlo--get-captured-buffers)))))
 
 (with-eval-after-load 'ibuffer
   (when bufferlo-ibuffer-bind-local-buffer-filter
     (require 'ibuf-ext)
     (define-key ibuffer--filter-map (kbd "l")
-                #'ibuffer-filter-by-bufferlo-local-buffers)))
+                #'ibuffer-filter-by-bufferlo-local-buffers)
+    (define-key ibuffer--filter-map (kbd "L")
+                #'ibuffer-filter-by-bufferlo-orphan-buffers)))
 
 (defun bufferlo-ibuffer (&optional other-window-p noselect shrink)
   "Invoke `ibuffer' filtered for local buffers.
@@ -664,6 +688,14 @@ The parameters OTHER-WINDOW-P NOSELECT SHRINK are passed to `ibuffer'."
                          (bufferlo-buffer-list))
                (generate-new-buffer-name "*Bufferlo Ibuffer*"))))
     (ibuffer other-window-p name '((bufferlo-local-buffers . nil))
+             noselect shrink)))
+
+(defun bufferlo-ibuffer-orphans (&optional other-window-p noselect shrink)
+  "Invoke `ibuffer' filtered for orphan buffers.
+The parameters OTHER-WINDOW-P NOSELECT SHRINK are passed to `ibuffer'."
+  (interactive)
+  (let ((name "*Bufferlo Orphans Ibuffer*"))
+    (ibuffer other-window-p name '((bufferlo-orphan-buffers . nil))
              noselect shrink)))
 
 (provide 'bufferlo)
