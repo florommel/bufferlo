@@ -1,3 +1,15 @@
+* Version 0.4 (2023-11-19)
+- Add ~bufferlo-find-buffer~ and ~bufferlo-find-buffer-switch~
+- Add ~bufferlo-list-orphan-buffers~, ~bufferlo-ibuffer-orphans,~
+  and an ibuffer filter for orphans
+- Optional support for local scratch buffers
+  (Custom Variable: ~bufferlo-local-scratch-buffer-name~,
+  Functions: ~bufferlo-create-local-scratch-buffer~,
+  ~bufferlo-get-local-scratch-buffer~,
+  ~bufferlo-switch-to-scratch-buffer~,
+  ~bufferlo-switch-to-local-scratch-buffer~,
+  and ~bufferlo-toggle-local-scratch-buffer~)
+
 * Version 0.3 (2023-11-10)
 - Improve ~bufferlo-list-buffers~:
   Spawn a local-buffer-list buffer per frame/tab
