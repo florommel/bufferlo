@@ -109,6 +109,25 @@ This is a list of regular expressions that match buffer names."
   "If non-nil, the local buffer filter is bound to \"/ l\" in ibuffer."
   :type '(repeat string))
 
+(defcustom bufferlo-local-scratch-buffer-name "*local scratch*"
+  "Base name of the local scratch buffer.
+Multiple frame/tabs will use `generate-new-buffer-name' (which
+appends \"<N>\" to the name) in order to get a unique buffer.
+
+Local scratch buffers are optional and not used by default.
+Use the following functions to create and work with them:
+`bufferlo-create-local-scratch-buffer',
+`bufferlo-get-local-scratch-buffer',
+`bufferlo-switch-to-local-scratch-buffer',
+and `bufferlo-toggle-local-scratch-buffer'.
+For example, create a dedicated local scratch buffer for all tabs and frames:
+  (setq \\='tab-bar-new-tab-choice #\\='bufferlo-create-local-scratch-buffer)
+  (add-hook \\='after-make-frame-functions
+             #\\='bufferlo-switch-to-local-scratch-buffer)
+
+You can set this to \"*scratch*\"."
+  :type 'string)
+
 (defvar bufferlo--desktop-advice-active nil)
 (defvar bufferlo--desktop-advice-active-force nil)
 
@@ -592,6 +611,53 @@ This is like `bufferlo-find-buffer' but additionally selects the buffer."
   (interactive "b")
   (when (bufferlo-find-buffer buffer-or-name)
     (switch-to-buffer buffer-or-name)))
+
+(defun bufferlo-get-local-scratch-buffer ()
+  "Get the local scratch buffer or create it if not already existent and return it."
+  (let ((buffer (seq-find (lambda (b)
+                            (string-match-p
+                             (concat
+                              "^"
+                              (regexp-quote bufferlo-local-scratch-buffer-name)
+                              "\\(<[0-9]*>\\)?$")
+                             (buffer-name b)))
+                          (bufferlo-buffer-list nil nil t))))
+    (or buffer
+        (get-buffer-create
+         (generate-new-buffer-name bufferlo-local-scratch-buffer-name)))))
+
+(defun bufferlo-create-local-scratch-buffer ()
+  "Create a local scratch buffer and return it."
+  (get-buffer-create (generate-new-buffer-name bufferlo-local-scratch-buffer-name)))
+
+(defun bufferlo-switch-to-scratch-buffer (&optional frame)
+  "Switch to the scratch buffer.
+When FRAME is non-nil, switch to the scratch buffer in the specified frame
+instead of the current one."
+  (interactive)
+  (if frame
+      (with-selected-frame frame
+        (switch-to-buffer "*scratch*"))
+    (switch-to-buffer "*scratch*")))
+
+(defun bufferlo-switch-to-local-scratch-buffer (&optional frame)
+  "Switch to the local scratch buffer.
+When FRAME is non-nil, switch to the local scratch buffer in the specified frame
+instead of the current one."
+  (interactive)
+  (if frame
+      (with-selected-frame frame
+        (switch-to-buffer (bufferlo-get-local-scratch-buffer)))
+    (switch-to-buffer (bufferlo-get-local-scratch-buffer))))
+
+(defun bufferlo-toggle-local-scratch-buffer ()
+  "Switch to the local scratch buffer or bury it if it is already selected.
+Creates a new local scratch buffer if none exists for this frame/tab."
+  (interactive)
+  (let ((buffer (bufferlo-get-local-scratch-buffer)))
+    (if (eq buffer (current-buffer))
+        (bury-buffer)
+      (switch-to-buffer buffer))))
 
 (defun bufferlo-switch-to-buffer (buffer &optional norecord force-same-window)
   "Display the BUFFER in the selected window.

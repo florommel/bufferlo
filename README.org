@@ -201,7 +201,7 @@ You can also integrate bufferlo with ivy.
 #+end_src
 
 
-** Tips
+** Initial Buffer
 
 By default, the currently active buffer is shown in a newly created tab, so
 this buffer inevitably ends up in the new tab's local list.
@@ -211,10 +211,28 @@ You can change the initial buffer by customizing ~tab-bar-new-tab-choice~:
 #+end_src
 This lets new tabs always start with the scratch buffer.
 
-To get the same behavior for frames:
+You can also create a local scratch buffer for each tab:
+#+BEGIN_SRC emacs-lisp
+  (setq tab-bar-new-tab-choice #'bufferlo-create-local-scratch-buffer)
+#+END_SRC
+You can customize the name of the local scratch buffers by setting
+~bufferlo-local-scratch-buffer-name~ accordingly.
+
+The same can be achieved for new frames.
+Use this to set the scratch buffer as the initial buffer for new frames:
 #+begin_src emacs-lisp
-  (defun my-set-scratch-buffer (frame)
-    (with-selected-frame frame
-      (switch-to-buffer "*scratch*")))
-  (add-hook 'after-make-frame-functions #'my-set-scratch-buffer)
+  (add-hook 'after-make-frame-functions #'bufferlo-switch-to-scratch-buffer)
 #+end_src
+
+Alternatively, create a new local scratch buffer for new frames:
+#+BEGIN_SRC emacs-lisp
+  (add-hook 'after-make-frame-functions #'bufferlo-switch-to-local-scratch-buffer)
+#+END_SRC
+
+Of course, you can also set an arbitrary buffer as the initial frame buffer:
+#+BEGIN_SRC emacs-lisp
+  (defun my-set-initial-frame-buffer (frame)
+    (with-selected-frame frame
+      (switch-to-buffer "<BUFFER_NAME>")))
+  (add-hook 'after-make-frame-functions #'my-set-initial-frame-buffer)
+#+END_SRC
