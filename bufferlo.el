@@ -106,8 +106,9 @@ This is a list of regular expressions that match buffer names."
   :type '(repeat string))
 
 (defcustom bufferlo-ibuffer-bind-local-buffer-filter t
-  "If non-nil, the local buffer filter is bound to \"/ l\" in ibuffer."
-  :type '(repeat string))
+  "If non-nil, bind the local buffer filter and the orphan filter in ibuffer.
+The local buffer filter is bound to \"/ l\" and the orphan filter to \"/ L\"."
+  :type 'boolean)
 
 (defcustom bufferlo-local-scratch-buffer-name "*local scratch*"
   "Base name of the local scratch buffer.
