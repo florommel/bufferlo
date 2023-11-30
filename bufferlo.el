@@ -129,6 +129,11 @@ For example, create a dedicated local scratch buffer for all tabs and frames:
 You can set this to \"*scratch*\"."
   :type 'string)
 
+(defcustom bufferlo-local-scratch-buffer-initial-major-mode nil
+  "The initial major mode for local scratch buffers.
+If nil, the local scratch buffers' major mode is set to `initial-major-mode'."
+  :type 'function)
+
 (defvar bufferlo--desktop-advice-active nil)
 (defvar bufferlo--desktop-advice-active-force nil)
 
@@ -623,9 +628,15 @@ This is like `bufferlo-find-buffer' but additionally selects the buffer."
                               "\\(<[0-9]*>\\)?$")
                              (buffer-name b)))
                           (bufferlo-buffer-list nil nil t))))
-    (or buffer
-        (get-buffer-create
-         (generate-new-buffer-name bufferlo-local-scratch-buffer-name)))))
+    (unless buffer
+      (setq buffer (get-buffer-create
+                    (generate-new-buffer-name bufferlo-local-scratch-buffer-name)))
+      (with-current-buffer buffer
+        (when (eq major-mode 'fundamental-mode)
+	  (funcall (or bufferlo-local-scratch-buffer-initial-major-mode
+                       initial-major-mode
+                       #'ignore)))))
+    buffer))
 
 (defun bufferlo-create-local-scratch-buffer ()
   "Create a local scratch buffer and return it."
