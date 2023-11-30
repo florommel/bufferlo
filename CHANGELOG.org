@@ -1,3 +1,8 @@
+* Version 0.5 (2023-11-30)
+- Initialize local scratch buffers with or ~initial-major-mode~ or
+  ~bufferlo-local-scratch-buffer-initial-major-mode~
+- Fix ~defcuston~ type for ~bufferlo-ibuffer-bind-local-buffer-filter~
+
 * Version 0.4 (2023-11-19)
 - Add ~bufferlo-find-buffer~ and ~bufferlo-find-buffer-switch~
 - Add ~bufferlo-list-orphan-buffers~, ~bufferlo-ibuffer-orphans,~
