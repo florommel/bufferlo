@@ -1,3 +1,7 @@
+* Version 0.6 (2024-01-05)
+- Add "bufferlo anywhere"
+- Bugfixes
+
 * Version 0.5 (2023-11-30)
 - Initialize local scratch buffers with or ~initial-major-mode~ or
   ~bufferlo-local-scratch-buffer-initial-major-mode~
