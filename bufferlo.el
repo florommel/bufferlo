@@ -1,6 +1,6 @@
 ;;; bufferlo.el --- Manage frame/tab-local buffer lists -*- lexical-binding: t -*-
 
-;; Copyright (C) 2021-2023 Free Software Foundation, Inc.
+;; Copyright (C) 2021-2024 Free Software Foundation, Inc.
 
 ;; Author: Florian Rommel <mail@florommel.de>
 ;; Maintainer: Florian Rommel <mail@florommel.de>
@@ -133,6 +133,26 @@ You can set this to \"*scratch*\"."
   "The initial major mode for local scratch buffers.
 If nil, the local scratch buffers' major mode is set to `initial-major-mode'."
   :type 'function)
+
+(defcustom bufferlo-anywhere-filter '(switch-to-buffer bufferlo-switch-to-buffer)
+  "The functions that use the local buffer list in `bufferlo-anywhere-mode'.
+If `bufferlo-anywhere-filter-type' is set to `exclude', this is an exclude
+filter (i.e., determines the functions that do not use the local buffer list).
+If `bufferlo-anywhere-filter-type' is set to `include' (or any other value),
+this is an include filter.
+The value can either be a list of functions, or t (for all functions),
+or a custom filter function that takes a function symbol as its argument and
+returns whether the probed function should be filtered (non-nil) or
+not-filtered (nil)."
+  :type '(choice (repeat   :tag "Filter specific functions" function)
+                 (const    :tag "All functions" t)
+                 (function :tag "Custom filter function")))
+
+(defcustom bufferlo-anywhere-filter-type 'exclude
+  "Determines whether `bufferlo-anywhere-filter' is an include or exclude filter.
+Set this to `include' or `exclude'."
+  :type '(radio (const :tag "Include filter" include)
+                (const :tag "Exclude filter" exclude)))
 
 (defvar bufferlo--desktop-advice-active nil)
 (defvar bufferlo--desktop-advice-active-force nil)
@@ -775,6 +795,120 @@ The parameters OTHER-WINDOW-P NOSELECT SHRINK are passed to `ibuffer'."
   (let ((name "*Bufferlo Orphans Ibuffer*"))
     (ibuffer other-window-p name '((bufferlo-orphan-buffers . nil))
              noselect shrink)))
+
+(define-minor-mode bufferlo-anywhere-mode
+  "Frame/tab-local buffer lists anywhere you like.
+Enables bufferlo's local buffer list for any function that interactively prompts
+for buffers via `read-buffer'.  By default this enables the local buffer list
+for (almost) all functions.  Customize `bufferlo-anywhere-filter' and
+`bufferlo-anywhere-filter-type' to adapt the behavior.
+This minor mode requires `bufferlo-mode' to be enabled.
+You can use `bufferlo-anywhere-disable' to disable the local buffer list for
+the next command, when the mode is enabled."
+  :global t
+  :require 'bufferlo
+  :init-value nil
+  :lighter nil
+  :keymap nil
+  (if bufferlo-anywhere-mode
+      (advice-add #'call-interactively :around #'bufferlo--interactive-advice)
+    (advice-remove #'call-interactively #'bufferlo--interactive-advice)))
+
+(defvar bufferlo--anywhere-tmp-enabled nil)
+(defvar bufferlo--anywhere-tmp-disabled nil)
+(defvar bufferlo--anywhere-old-read-buffer-function nil)
+(defvar bufferlo--anywhere-nested nil)
+
+(defun bufferlo--interactive-advice (oldfn function &optional record-flags keys)
+  "Advice function for `call-interactively' for `bufferlo-anywhere-mode'.
+Temporarily overrides the `read-buffer-function' to filter the
+available buffers to bufferlo's local buffer list.
+OLDFN is the original function.
+FUNCTION is the interactively called functions.
+RECORD-FLAGS and KEYS are passed to `call-interactively'."
+  (if (or bufferlo--anywhere-tmp-enabled
+          (and (not bufferlo--anywhere-tmp-disabled)
+               (xor (eq bufferlo-anywhere-filter-type 'exclude)
+                    (cond
+                     ((eq bufferlo-anywhere-filter t) t)
+                     ((listp bufferlo-anywhere-filter)
+                      (memq function bufferlo-anywhere-filter))
+                     ((functionp bufferlo-anywhere-filter)
+                      (funcall bufferlo-anywhere-filter function))))))
+      (let* ((bufferlo--anywhere-old-read-buffer-function
+              ;; Preserve the original `read-buffer-function' but not for
+              ;; nested calls; otherwise we would save our own function.
+              (if bufferlo--anywhere-nested
+                  bufferlo--anywhere-old-read-buffer-function
+                read-buffer-function))
+             (bufferlo--anywhere-nested t)
+             (read-buffer-function
+              (lambda (prompt &optional def require-match predicate)
+                (let ((read-buffer-function
+                       bufferlo--anywhere-old-read-buffer-function))
+                  (read-buffer prompt def require-match
+                               (lambda (b)
+                                 (and (bufferlo-local-buffer-p
+                                       (get-buffer
+                                        (if (stringp b) b (car b))))
+                                      (or (not predicate)
+                                          (funcall predicate b)))))))))
+        (apply oldfn (list function record-flags keys)))
+    ;; `call-interactively' can be nested, e.g., on M-x invocations.
+    ;; Therefore, we restore the original value of the `read-buffer-function'
+    ;; if we do not use bufferlo's local buffer list for this call.
+    (let ((read-buffer-function
+           (if bufferlo--anywhere-nested
+               bufferlo--anywhere-old-read-buffer-function
+             read-buffer-function)))
+      (apply oldfn (list function record-flags keys)))))
+
+(defun bufferlo-anywhere-disable-prefix ()
+  "Disable `bufferlo-anywhere-mode' only for the next command.
+Has no effect if `bufferlo-anywhere-mode' is not enabled.
+Has no effect if the next command does not query for a buffer."
+  (interactive)
+  (let* ((command this-command)
+         (minibuffer-depth (minibuffer-depth))
+         (postfun (make-symbol "bufferlo--anywhere-reenable-next-command")))
+    (fset postfun
+          (lambda ()
+            (unless (or
+                     ;; from window.el:display-buffer-override-next-command
+		     (> (minibuffer-depth) minibuffer-depth)
+		     (eq this-command command))
+              (setq bufferlo--anywhere-tmp-disabled nil)
+              (remove-hook 'post-command-hook postfun))))
+    (setq bufferlo--anywhere-tmp-disabled t)
+    (add-hook 'post-command-hook postfun)))
+
+(defun bufferlo-anywhere-enable-prefix ()
+  "Use bufferlo's local buffer list for the next command.
+Has a similar effect as `bufferlo-anywhere-mode' but only for the next command.
+Has no effect if the next command does not query for a buffer.
+Can be used with or without `bufferlo-anywhere-mode' enabled.
+In contrast to `bufferlo-anywhere-mode', this does not adhere to
+`bufferlo-anywhere-filter'.  Therefore, you can use it in conjunction with
+`bufferlo-anywhere-mode' to temporarily disable the configured filters."
+  (interactive)
+  (let* ((command this-command)
+         (minibuffer-depth (minibuffer-depth))
+         (postfun (make-symbol "bufferlo--anywhere-disable-next-command")))
+    (fset postfun
+          (lambda ()
+            (unless (or
+                     ;; from window.el:display-buffer-override-next-command
+		     (> (minibuffer-depth) minibuffer-depth)
+		     (eq this-command command))
+              (setq bufferlo--anywhere-tmp-enabled nil)
+              (unless bufferlo-anywhere-mode
+                (advice-remove #'call-interactively
+                               #'bufferlo--interactive-advice))
+              (remove-hook 'post-command-hook postfun))))
+    (setq bufferlo--anywhere-tmp-enabled t)
+    (unless bufferlo-anywhere-mode
+      (advice-add #'call-interactively :around #'bufferlo--interactive-advice))
+    (add-hook 'post-command-hook postfun)))
 
 (provide 'bufferlo)
 
