@@ -201,6 +201,51 @@ You can also integrate bufferlo with ivy.
 #+end_src
 
 
+** Bookmarking Tabs and Frames
+
+Bufferlo lets you bookmark the current editing state of individual
+frames and tabs (windows and local buffers, i.e., the "session").
+This allows persisting and restoring the state of a frame or tab
+within or between Emacs sessions.
+
+This feature has similarities to [[https://github.com/alphapapa/activities.el][activities.el]] and [[https://github.com/minad/bookmark-view][bookmark-view]]
+but with awareness of bufferlo's local buffer list.
+
+A tab bookmark includes the tab's window configuration, the local
+buffer list, and the state (not the contents) of all bookmarkable
+local buffers.  A frame bookmark saves the entire frame with all its
+tabs and their states.
+
+The state of non-bookmarkable buffers is not saved.  However, when
+still open, they are included in the restored tab/frame.
+
+Tab bookmark functions:
+- ~bufferlo-bookmark-tab-save~:
+  Save the current tab as a bookmark.
+- ~bufferlo-bookmark-tab-load~:
+  Load a tab bookmark.  This replaces the current tab.
+- ~bufferlo-bookmark-tab-save-current~:
+  Save the current tab to its associated bookmark (*).
+- ~bufferlo-bookmark-tab-load-current~:
+  Load the current tab from its associated bookmark (*).
+
+Frame bookmark functions:
+- ~bufferlo-bookmark-frame-save~:
+  Save the current frame as a bookmark.
+- ~bufferlo-bookmark-frame-load~:
+  Load a frame bookmark.  This replaces the current frame.
+- ~bufferlo-bookmark-frame-save-current~:
+  Save the current frame to its associated bookmark (*).
+- ~bufferlo-bookmark-frame-load-current~:
+  Load the current frame from its associated bookmark (*).
+
+Restoring bookmarks correctly handles renamed buffers with unchanged
+file association (e.g., when Emacs had to "uniquify" buffer names).
+
+(*) The associated bookmark is the bookmark from which the frame/tab
+was loaded or to which it was saved.
+
+
 ** Initial Buffer
 
 By default, the currently active buffer is shown in a newly created tab, so
