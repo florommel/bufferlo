@@ -56,6 +56,8 @@
 
 ;;; Code:
 
+(require 'seq)
+(require 'tab-bar)
 (require 'desktop)
 
 (defgroup bufferlo nil
