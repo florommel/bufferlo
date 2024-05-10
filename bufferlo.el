@@ -258,10 +258,10 @@ before calling OLDFN with ARGS.  See `bufferlo--clear-buffer-lists'."
     ;; This workaround selects a buffer that is in the local list in such a case.
     (unless (bufferlo-local-buffer-p (current-buffer) nil nil t)
       (let ((buffer (or
-                     (cl-find-if-not #'minibufferp
-                                     (frame-parameter nil 'buffer-list))
-                     (cl-find-if-not #'minibufferp
-                                     (frame-parameter nil 'buried-buffer-list)))))
+                     (seq-find (lambda (b) (not (minibufferp b)))
+                               (frame-parameter nil 'buffer-list))
+                     (seq-find (lambda (b) (not (minibufferp b)))
+                               (frame-parameter nil 'buried-buffer-list)))))
         (switch-to-buffer buffer t t)))
 
     result))
