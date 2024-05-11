@@ -33,26 +33,16 @@
 ;; including undeletion of frame and tabs, tab duplication and moving,
 ;; frame cloning, and persisting sessions (via desktop.el).
 
-;; A buffer is added to the local buffer list when it is displayed in
-;; the frame/tab (e.g., by opening a new file in the tab or by
-;; switching to the buffer from the global buffer list).  In addition,
-;; bufferlo provides functions that allow the manipulation of the
-;; local buffer list.  Bufferlo does not touch the global buffer list
-;; or the existing buffer-management facilities.  Use the equivalent
-;; bufferlo variants to work with the frame/tab local buffer list.
-
-;; The packages frame-bufs (unmaintained) and beframe provide similar
-;; functionality, but only at the frame level, without support for
-;; tabs and desktop.el.
-;; https://github.com/alpaker/frame-bufs
-;; https://protesilaos.com/emacs/beframe
-
-;; You may also have a look at full workspace solutions like bufler
-;; (automatic rule-based workspace management and buffer grouping) or
-;; perspective (comprehensive workspace isolation, workspace merging,
-;; workspace persistence).  They work quite differently than bufferlo.
-;; https://github.com/alphapapa/bufler.el
-;; https://github.com/nex3/perspective-el
+;; With bufferlo, every frame or tab (if you use tab-bar tabs) has an
+;; additional manageable local buffer list.  A buffer is added to the
+;; local buffer list when displayed in the frame/tab (e.g., by opening
+;; a new file in the tab or by switching to the buffer from the global
+;; buffer list).  Bufferlo provides extensive management functions for
+;; the local list and frame/tab-local variants of the switch-buffer
+;; function, buffer menu, and Ibuffer.  In addition, you can configure
+;; any command that selects a buffer to use the local buffer list
+;; (bufferlo anyhwere).  Bufferlo also allows you to bookmark and
+;; persist the state of individual frames or tabs.
 
 ;;; Code:
 
