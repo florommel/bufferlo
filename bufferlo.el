@@ -137,7 +137,10 @@ You can set this to \"*scratch*\"."
 If nil, the local scratch buffers' major mode is set to `initial-major-mode'."
   :type 'function)
 
-(defcustom bufferlo-anywhere-filter '(switch-to-buffer bufferlo-switch-to-buffer)
+(defcustom bufferlo-anywhere-filter '(switch-to-buffer
+                                      bufferlo-switch-to-buffer
+                                      bufferlo-find-buffer
+                                      bufferlo-find-buffer-switch)
   "The functions that use the local buffer list in `bufferlo-anywhere-mode'.
 If `bufferlo-anywhere-filter-type' is set to `exclude', this is an exclude
 filter (i.e., determines the functions that do not use the local buffer list).
