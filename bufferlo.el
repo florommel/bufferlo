@@ -433,10 +433,20 @@ the adviced functions."
         (bufferlo--desktop-advice-active-force t))
     (apply oldfn args)))
 
+(defsubst bufferlo--warn ()
+  "Warn if `bufferlo-mode' is not enabled."
+  (defvar bufferlo--warn-current-command nil)
+  (when (and (not bufferlo-mode)
+             (not (eq this-command bufferlo--warn-current-command)))
+    (setq bufferlo--warn-current-command this-command)
+    (message (format "%s: bufferlo-mode should be enabled"
+                     this-command))))
+
 (defun bufferlo-clear (&optional frame)
   "Clear the frame/tab's buffer list, except for the current buffer.
 If FRAME is nil, use the current frame."
   (interactive)
+  (bufferlo--warn)
   (set-frame-parameter frame 'buffer-list
                        (list (if frame
                                  (with-selected-frame frame
@@ -452,6 +462,7 @@ If FRAME is nil, use the current frame."
                        (bufferlo-buffer-list))))
       (read-buffer "Remove buffer: " nil t
                    (lambda (b) (member (car b) lbs))))))
+  (bufferlo--warn)
   (let ((bl (frame-parameter nil 'buffer-list))
         (bbl (frame-parameter nil 'buried-buffer-list))
         (buffer (get-buffer buffer)))
@@ -473,6 +484,7 @@ If FRAME is nil, use the current frame."
 (defun bufferlo-remove-non-exclusive-buffers ()
   "Remove all buffers from the local buffer list that are not exclusive to it."
   (interactive)
+  (bufferlo--warn)
   (dolist (buffer (bufferlo--get-exclusive-buffers nil t))
     (bufferlo-remove buffer)))
 
@@ -481,6 +493,7 @@ If FRAME is nil, use the current frame."
 If `bufferlo-include-buried-buffers' is set to nil then this has the same
 effect as a simple `bury-buffer'."
   (interactive)
+  (bufferlo--warn)
   (let ((buffer (window-normalize-buffer buffer-or-name)))
     (bury-buffer-internal buffer)
     (bufferlo-remove buffer)))
@@ -533,6 +546,7 @@ local lists of other frames and tabs are killed too.
 Buffers matching `bufferlo-kill-buffers-exclude-filters' are never killed.
 If FRAME is nil, use the current frame."
   (interactive "P")
+  (bufferlo--warn)
   (let ((exclude (bufferlo--merge-regexp-list
                   (append '("a^") bufferlo-kill-buffers-exclude-filters)))
         (kill-list (if killall
@@ -546,6 +560,7 @@ If FRAME is nil, use the current frame."
   "Kill all buffers that are not in any local list of a frame or tab.
 Buffers matching `bufferlo-kill-buffers-exclude-filters' are never killed."
   (interactive)
+  (bufferlo--warn)
   (let ((exclude (bufferlo--merge-regexp-list
                   (append '("a^") bufferlo-kill-buffers-exclude-filters))))
     (dolist (buffer (bufferlo--get-orphan-buffers))
@@ -556,6 +571,7 @@ Buffers matching `bufferlo-kill-buffers-exclude-filters' are never killed."
   "Delete a frame and kill the local buffers.
 If FRAME is nil, kill the current frame."
   (interactive)
+  (bufferlo--warn)
   (bufferlo-kill-buffers frame)
   (delete-frame))
 
@@ -563,6 +579,7 @@ If FRAME is nil, kill the current frame."
   "Close the current tab and kill the local buffers.
 The optional parameter KILLALL is passed to `bufferlo-kill-buffers'"
   (interactive "P")
+  (bufferlo--warn)
   (bufferlo-kill-buffers killall)
   (tab-bar-close-tab))
 
@@ -573,6 +590,7 @@ the local buffer list.  When FILE-BUFFERS-ONLY is non-nil or the
 prefix argument is given, remove only buffers that visit a file.
 Buffers matching `bufferlo-include-buffer-filters' are not removed."
   (interactive "P")
+  (bufferlo--warn)
   (let ((curr-project (project-current))
         (include (bufferlo--merge-regexp-list
                   (append '("a^") bufferlo-include-buffer-filters))))
@@ -591,6 +609,7 @@ If multiple frame or tabs contain the buffer, interactively prompt
 for the to-be-selected frame and tab.
 This does not select the buffer -- just the containing frame and tab."
   (interactive "b")
+  (bufferlo--warn)
   (let* ((buffer (get-buffer buffer-or-name))
          (flatten (lambda (list)
                     (apply #'append (append list '()))))
@@ -656,6 +675,7 @@ This does not select the buffer -- just the containing frame and tab."
   "Switch to the frame/tab containig BUFFER-OR-NAME and select the buffer.
 This is like `bufferlo-find-buffer' but additionally selects the buffer."
   (interactive "b")
+  (bufferlo--warn)
   (when (bufferlo-find-buffer buffer-or-name)
     (switch-to-buffer buffer-or-name)))
 
@@ -726,6 +746,7 @@ If the prefix arument is given, include all buffers."
         (read-buffer
          "Switch to local buffer: " (other-buffer (current-buffer)) nil
          (lambda (b) (member (if (stringp b) b (car b)) lbs)))))))
+  (bufferlo--warn)
   (switch-to-buffer buffer norecord force-same-window))
 
 (defvar-local bufferlo--buffer-menu-this-frame nil)
@@ -737,6 +758,7 @@ If the prefix arument is given, include all buffers."
 (defun bufferlo-list-buffers ()
   "Display a list of local buffers."
   (interactive)
+  (bufferlo--warn)
   (display-buffer
    (let* ((old-buffer (current-buffer))
           (name (or
@@ -761,6 +783,7 @@ If the prefix arument is given, include all buffers."
 (defun bufferlo-list-orphan-buffers ()
   "Display a list of orphan buffers."
   (interactive)
+  (bufferlo--warn)
   (display-buffer
    (let* ((old-buffer (current-buffer))
           (name "*Orphan Buffer List*")
@@ -799,6 +822,7 @@ If the prefix arument is given, include all buffers."
 Every frame/tab gets its own local bufferlo ibuffer buffer.
 The parameters OTHER-WINDOW-P NOSELECT SHRINK are passed to `ibuffer'."
   (interactive)
+  (bufferlo--warn)
   (let ((name (or
                (seq-find (lambda (b)
                            (string-match-p
@@ -813,6 +837,7 @@ The parameters OTHER-WINDOW-P NOSELECT SHRINK are passed to `ibuffer'."
   "Invoke `ibuffer' filtered for orphan buffers.
 The parameters OTHER-WINDOW-P NOSELECT SHRINK are passed to `ibuffer'."
   (interactive)
+  (bufferlo--warn)
   (let ((name "*Bufferlo Orphans Ibuffer*"))
     (ibuffer other-window-p name '((bufferlo-orphan-buffers . nil))
              noselect shrink)))
@@ -832,7 +857,10 @@ the next command, when the mode is enabled."
   :lighter nil
   :keymap nil
   (if bufferlo-anywhere-mode
-      (advice-add #'call-interactively :around #'bufferlo--interactive-advice)
+      (progn
+        (bufferlo--warn)
+        (advice-add #'call-interactively
+                    :around #'bufferlo--interactive-advice))
     (advice-remove #'call-interactively #'bufferlo--interactive-advice)))
 
 (defvar bufferlo--anywhere-tmp-enabled nil)
@@ -1091,6 +1119,7 @@ buffer list."
           "Save bufferlo tab bookmark: "
           (bufferlo--bookmark-get-names #'bufferlo--bookmark-tab-handler)
           nil nil nil 'bufferlo-bookmark-tab-history)))
+  (bufferlo--warn)
   (bookmark-store name (bufferlo--bookmark-tab-get name) no-overwrite)
   (setf (alist-get 'bufferlo-bookmark-tab-name
                    (cdr (bufferlo--current-tab)))
@@ -1105,6 +1134,7 @@ NAME is the bookmark's name."
           "Load bufferlo tab bookmark: "
           (bufferlo--bookmark-get-names #'bufferlo--bookmark-tab-handler)
           nil nil nil 'bufferlo-bookmark-tab-history)))
+  (bufferlo--warn)
   (let ((bookmark-fringe-mark nil))
     (bookmark-jump name #'ignore))
   (setf (alist-get 'bufferlo-bookmark-tab-name
@@ -1118,6 +1148,7 @@ which the tab was last saved or (if not yet saved) from which it was
 initially loaded.  Performs an interactive bookmark selection if no
 associated bookmark exists."
   (interactive)
+  (bufferlo--warn)
   (if-let (bm (alist-get 'bufferlo-bookmark-tab-name
                          (cdr (bufferlo--current-tab))))
       (bufferlo-bookmark-tab-save bm)
@@ -1130,6 +1161,7 @@ which the tab was last saved or (if not yet saved) from which it was
 initially loaded.  Performs an interactive bookmark selection if no
 associated bookmark exists."
   (interactive)
+  (bufferlo--warn)
   (if-let (bm (alist-get 'bufferlo-bookmark-tab-name
                          (cdr (bufferlo--current-tab))))
       (bufferlo-bookmark-tab-load bm)
@@ -1150,6 +1182,7 @@ state (not the contents) of the bookmarkable buffers for each tab."
           (bufferlo--bookmark-get-names #'bufferlo--bookmark-frame-handler)
           nil nil nil 'bufferlo-bookmark-frame-history
           (frame-parameter nil 'bufferlo-bookmark-frame-name))))
+  (bufferlo--warn)
   (bookmark-store name (bufferlo--bookmark-frame-get name) no-overwrite)
   (set-frame-parameter nil 'bufferlo-bookmark-frame-name name)
   (message "Saved bufferlo frame bookmark: %s" name))
@@ -1163,6 +1196,7 @@ NAME is the bookmark's name."
           (bufferlo--bookmark-get-names #'bufferlo--bookmark-frame-handler)
           nil nil nil 'bufferlo-bookmark-frame-history
           (frame-parameter nil 'bufferlo-bookmark-frame-name))))
+  (bufferlo--warn)
   (let ((bookmark-fringe-mark nil))
     (bookmark-jump name #'ignore))
   (set-frame-parameter nil 'bufferlo-bookmark-frame-name name))
@@ -1174,6 +1208,7 @@ which the frame was last saved or (if not yet saved) from which it was
 initially loaded.  Performs an interactive bookmark selection if no
 associated bookmark exists."
   (interactive)
+  (bufferlo--warn)
   (if-let (bm (frame-parameter nil 'bufferlo-bookmark-frame-name))
       (bufferlo-bookmark-frame-save bm)
     (call-interactively #'bufferlo-bookmark-frame-save)))
@@ -1185,6 +1220,7 @@ which the frame was last saved or (if not yet saved) from which it was
 initially loaded.  Performs an interactive bookmark selection if no
 associated bookmark exists."
   (interactive)
+  (bufferlo--warn)
   (if-let (bm (frame-parameter nil 'bufferlo-bookmark-frame-name))
       (bufferlo-bookmark-frame-load bm)
     (call-interactively #'bufferlo-bookmark-frame-load)))
