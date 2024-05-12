@@ -1,3 +1,7 @@
+* Version 0.7 (2024-05-12)
+- Allow bookmarking of frames and tabs
+- Bugfixes
+
 * Version 0.6 (2024-01-05)
 - Add "bufferlo anywhere"
 - Bugfixes
