@@ -6,7 +6,7 @@
 ;; Maintainer: Florian Rommel <mail@florommel.de>
 ;; Url: https://github.com/florommel/bufferlo
 ;; Created: 2021-09-15
-;; Version: 0.7
+;; Version: 0.8
 ;; Package-Requires: ((emacs "27.1"))
 ;; Keywords: buffer frame tabs local
 
