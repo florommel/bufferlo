@@ -713,11 +713,17 @@ This does not select the buffer -- just the containing frame and tab."
 
 (defun bufferlo-find-buffer-switch (buffer-or-name)
   "Switch to the frame/tab containig BUFFER-OR-NAME and select the buffer.
-This is like `bufferlo-find-buffer' but additionally selects the buffer."
+This is like `bufferlo-find-buffer' but additionally selects the buffer.
+If the buffer is already visible in a non-selected window, select it."
   (interactive "b")
   (bufferlo--warn)
   (when (bufferlo-find-buffer buffer-or-name)
-    (switch-to-buffer buffer-or-name)))
+    (if-let (w (seq-find
+                (lambda (w)
+                  (eq (get-buffer buffer-or-name) (window-buffer w)))
+                (window-list)))
+        (select-window w)
+      (switch-to-buffer buffer-or-name))))
 
 (defun bufferlo-get-local-scratch-buffer ()
   "Get the local scratch buffer or create it if not already existent and return it."
