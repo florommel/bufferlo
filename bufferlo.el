@@ -1163,14 +1163,14 @@ FRAME specifies the frame; the default value of nil selects the current frame."
                (when-let (replace (assoc (cadr bc) replace-alist))
                  (setf (cadr bc) (cdr replace)))))))))
 
-(defun bufferlo--bookmark-tab-handler (bookmark &optional no-message)
+(defun bufferlo--bookmark-tab-handler (bookmark &optional no-message is-fbm-tab)
   "Handle bufferlo tab bookmark.
 The argument BOOKMARK is the to-be restored tab bookmark created via
 `bufferlo--bookmark-tab-get'.  The optional argument NO-MESSAGE inhibits
 the message after successfully restoring the bookmark."
   (let* ((ws (copy-tree (alist-get 'window bookmark)))
          (dummy (generate-new-buffer " *bufferlo dummy buffer*")) ; TODO: needs unwind-protect if we error?
-         (bookmark-name (bookmark-name-from-full-record bookmark))
+         (bookmark-name (if (null is-fbm-tab) (bookmark-name-from-full-record bookmark) nil))
          (renamed
           (mapcar
            (lambda (bm)
@@ -1254,7 +1254,7 @@ the message after successfully restoring the bookmark."
          (if first
              (setq first nil)
            (tab-bar-new-tab-to))
-         (bufferlo--bookmark-tab-handler tbm t)
+         (bufferlo--bookmark-tab-handler tbm t 'is-fbm-tab)
          (when-let (tab-name (alist-get 'tab-name tbm))
            (tab-bar-rename-tab tab-name)))
        (alist-get 'tabs bookmark)))
