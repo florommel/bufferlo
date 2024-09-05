@@ -484,7 +484,10 @@ Set to 0 to disable the timer."
           (add-hook 'kill-emacs-hook #'bufferlo--bookmarks-save-at-emacs-exit))
         ;; load bookmarks at startup option
         (when (not (eq bufferlo-bookmarks-load-at-emacs-startup 'noload))
-          (add-hook 'window-setup-hook #'bufferlo-bookmarks-load)))
+          (add-hook 'window-setup-hook #'bufferlo-bookmarks-load))
+        ;; bookmark advice
+        (advice-add 'bookmark-rename :around #'bufferlo--bookmark-rename-advice)
+        (advice-add 'bookmark-delete :around #'bufferlo--bookmark-delete-advice))
     ;; Prefer local buffers
     (dolist (frame (frame-list))
       (bufferlo--reset-buffer-predicate frame))
@@ -512,7 +515,10 @@ Set to 0 to disable the timer."
     ;; kill-emacs-hook save bookmarks option
     (remove-hook 'kill-emacs-hook #'bufferlo--bookmarks-save-at-emacs-exit)
     ;; load bookmarks at startup option
-    (remove-hook 'window-setup-hook #'bufferlo-bookmarks-load)))
+    (remove-hook 'window-setup-hook #'bufferlo-bookmarks-load)
+    ;; bookmark advice
+    (advice-remove 'bookmark-rename #'bufferlo--bookmark-rename-advice)
+    (advice-remove 'bookmark-delete #'bufferlo--bookmark-delete-advice)))
 
 (defun bufferlo-local-buffer-p (buffer &optional frame tabnum include-hidden)
   "Return non-nil if BUFFER is in the list of local buffers.
@@ -1961,7 +1967,7 @@ current or new frame according to
                             (lambda (str pred flag)
                               (pcase flag
                                 ('metadata
-                                 `(metadata (category . ,'bookmark)))
+                                 (metadata (category . bookmark)))
                                 (_
                                  (all-completions str abm-names pred)))))
            abm-names nil nil))
@@ -1986,7 +1992,7 @@ a double prefix argument to narrow to tab bookmark candidates."
                             (lambda (str pred flag)
                               (pcase flag
                                 ('metadata
-                                 `(metadata (category . ,'bookmark)))
+                                 '(metadata (category . bookmark)))
                                 (_
                                  (all-completions str bookmark-names pred)))))
            bookmark-names nil nil))
@@ -2051,7 +2057,7 @@ raised."
                             (lambda (str pred flag)
                               (pcase flag
                                 ('metadata
-                                 `(metadata (category . ,'bookmark)))
+                                 '(metadata (category . bookmark)))
                                 (_
                                  (all-completions str abm-names pred)))))
            abm-names nil nil))
@@ -2069,6 +2075,40 @@ raised."
             (tab-bar-select-tab
              (1+ (tab-bar--tab-index
                   (alist-get 'tab (cadr abm)))))))))))
+
+;;; bookmark advisories
+
+;; (defun bookmark-set (&optional name no-overwrite)
+;; (defun bookmark-set-no-overwrite (&optional name push-bookmark)
+;; Leave these alone for now. They warn about duplicate bookmarks.
+
+;; (defun bookmark-rename (old-name &optional new-name)
+(defun bufferlo--bookmark-rename-advice (oldfn &optional old-name new-name)
+  "`bookmark-rename' advice to prevent renaming active bufferlo bookmarks."
+  (interactive)
+  (if (called-interactively-p 'any)
+      (setq old-name (bookmark-completing-read "Old bookmark name")))
+  (if-let ((abm (assoc old-name (bufferlo--active-bookmarks))))
+      (error "%s is an active bufferlo bookmark. Close its frame/tab, or clear it before renaming." old-name)
+    (if (called-interactively-p 'any)
+        (funcall-interactively oldfn old-name new-name)
+      (apply oldfn old-name new-name))))
+
+;; (defun bookmark-delete (bookmark-name &optional batch)
+(defun bufferlo--bookmark-delete-advice (oldfn &optional bookmark-name batch)
+  "`bookmark-delete' advice to prevent deleting active bufferlo bookmarks."
+  (interactive)
+  (if (called-interactively-p 'any)
+      (setq bookmark-name (bookmark-completing-read "Delete bookmark"
+				                    bookmark-current-bookmark)))
+  (if-let ((abm (assoc bookmark-name (bufferlo--active-bookmarks))))
+      (error "%s is an active bufferlo bookmark. Close its frame/tab, or clear it before deleting." bookmark-name)
+    (if (called-interactively-p 'any)
+        (funcall-interactively oldfn bookmark-name batch)
+      (apply oldfn bookmark-name batch))))
+
+;; (defun bookmark-delete-all (&optional no-confirm)
+;; Leave this alone for now. It does prompt for confirmation.
 
 (provide 'bufferlo)
 
