@@ -2038,7 +2038,7 @@ transient work."
       (dolist (tab (funcall tab-bar-tabs-function frame))
         (setf (alist-get 'bufferlo-bookmark-tab-name tab) nil)))))
 
-(defun bufferlo-raise-bookmark ()
+(defun bufferlo-bookmark-raise ()
   "Raise the selected bookmarked frame or tab.
 Note: If there are duplicated bookmarks, the first one found is
 raised."
