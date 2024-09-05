@@ -1967,7 +1967,7 @@ current or new frame according to
                             (lambda (str pred flag)
                               (pcase flag
                                 ('metadata
-                                 (metadata (category . bookmark)))
+                                 '(metadata (category . bookmark)))
                                 (_
                                  (all-completions str abm-names pred)))))
            abm-names nil nil))
@@ -2084,28 +2084,30 @@ raised."
 
 ;; (defun bookmark-rename (old-name &optional new-name)
 (defun bufferlo--bookmark-rename-advice (oldfn &optional old-name new-name)
-  "`bookmark-rename' advice to prevent renaming active bufferlo bookmarks."
+  "`bookmark-rename' advice to prevent renaming active bufferlo bookmarks.
+OLDFN OLD-NAME NEW-NAME"
   (interactive)
-  (if (called-interactively-p 'any)
+  (if (called-interactively-p 'interactive)
       (setq old-name (bookmark-completing-read "Old bookmark name")))
   (if-let ((abm (assoc old-name (bufferlo--active-bookmarks))))
-      (error "%s is an active bufferlo bookmark. Close its frame/tab, or clear it before renaming." old-name)
-    (if (called-interactively-p 'any)
+      (error "%s is an active bufferlo bookmark. Close its frame/tab, or clear it before renaming" old-name)
+    (if (called-interactively-p 'interactive)
         (funcall-interactively oldfn old-name new-name)
-      (apply oldfn old-name new-name))))
+      (funcall oldfn old-name new-name))))
 
 ;; (defun bookmark-delete (bookmark-name &optional batch)
 (defun bufferlo--bookmark-delete-advice (oldfn &optional bookmark-name batch)
-  "`bookmark-delete' advice to prevent deleting active bufferlo bookmarks."
+  "`bookmark-delete' advice to prevent deleting active bufferlo bookmarks.
+OLDFN BOOKMARK-NAME BATCH"
   (interactive)
-  (if (called-interactively-p 'any)
+  (if (called-interactively-p 'interactive)
       (setq bookmark-name (bookmark-completing-read "Delete bookmark"
 				                    bookmark-current-bookmark)))
   (if-let ((abm (assoc bookmark-name (bufferlo--active-bookmarks))))
-      (error "%s is an active bufferlo bookmark. Close its frame/tab, or clear it before deleting." bookmark-name)
-    (if (called-interactively-p 'any)
+      (error "%s is an active bufferlo bookmark. Close its frame/tab, or clear it before deleting" bookmark-name)
+    (if (called-interactively-p 'interactive)
         (funcall-interactively oldfn bookmark-name batch)
-      (apply oldfn bookmark-name batch))))
+      (funcall oldfn bookmark-name batch))))
 
 ;; (defun bookmark-delete-all (&optional no-confirm)
 ;; Leave this alone for now. It does prompt for confirmation.
