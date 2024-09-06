@@ -207,12 +207,14 @@ option `tab-bar-new-tab-to'."
                 (const :tag "Overwrite)" overwrite)
                 (const :tag "New" new)))
 
-(defcustom bufferlo-bookmark-tab-duplicate-policy 'prompt
+(defcustom bufferlo-bookmark-tab-duplicate-policy 'allow
   "Control duplicate active tab bookmarks.
 Duplicate active bookmarks cause potentially confusing race
 conditions.
 
 \\='prompt allows you to select a policy interactively.
+
+\\='allow allows duplicates.
 
 \\='clear silently clears the tab bookmark which is natural
 reified frame bookmark behavior.
@@ -220,11 +222,13 @@ reified frame bookmark behavior.
 \\='clear-warn issues a warning message about the tab losing its
 bookmark.
 
-\\='allow allows duplicates."
+\\='raise raises the first found existing tab bookmark and its
+frame."
   :type '(radio (const :tag "Prompt" prompt)
+                (const :tag "Allow" allow)
                 (const :tag "Clear (silently)" clear)
                 (const :tag "Clear (with message)" clear-warn)
-                (const :tag "Allow" allow)))
+                (const :tag "Raise" raise)))
 
 (defcustom bufferlo-bookmark-tab-load-into-bookmarked-frame-policy 'allow
   "Control when a tab bookmark is loaded into an already-bookmarked frame.
@@ -1418,17 +1422,19 @@ this bookmark is embedded in a frame bookmark."
                              (bookmark-name-from-full-record bookmark)
                            nil))
              (msg))
-      (when-let ((abm (assoc bookmark-name (bufferlo--active-bookmarks))) ; used as a flag
+      (when-let ((abm (assoc bookmark-name (bufferlo--active-bookmarks)))
                  (duplicate-policy bufferlo-bookmark-tab-duplicate-policy))
         (when (eq duplicate-policy 'prompt)
           (pcase (let ((read-answer-short t))
-                   (read-answer "Tab bookmark active in another tab: Allow, Clear bookmark after loading "
+                   (read-answer "Tab bookmark active in another tab: Allow, Clear bookmark after loading, Raise existing "
                                 '(("allow" ?a "Allow duplicate")
                                   ("clear" ?c "Clear the bookmark after loading")
+                                  ("raise" ?r "Raise the existing tab bookmark")
                                   ("help" ?h "Help")
                                   ("quit" ?q "Quit with no changes"))))
             ("allow" (setq duplicate-policy 'allow))
             ("clear" (setq duplicate-policy 'clear))
+            ("raise" (setq duplicate-policy 'raise))
             (_ (throw :noload t))))
         (pcase duplicate-policy
           ('allow)
@@ -1436,7 +1442,10 @@ this bookmark is embedded in a frame bookmark."
            (setq bookmark-name nil))
           ('clear-warn
            (setq bookmark-name nil)
-           (setq msg (concat msg "; cleared tab bookmark")))))
+           (setq msg (concat msg "; cleared tab bookmark")))
+          ('raise
+           (bufferlo--bookmark-raise abm)
+           (throw :noload t))))
       (unless embedded-tab
         (let ((overwrite-policy bufferlo-bookmark-tab-overwrite-policy))
           (when (eq overwrite-policy 'prompt)
@@ -1452,7 +1461,8 @@ this bookmark is embedded in a frame bookmark."
           (pcase overwrite-policy
             ('overwrite)
             ('new
-             (tab-bar-new-tab-to)))))
+             (unless current-prefix-arg ; user new tab suppression
+               (tab-bar-new-tab-to))))))
       (let* ((ws (copy-tree (alist-get 'window bookmark)))
              (dummy (generate-new-buffer " *bufferlo dummy buffer*")) ; TODO: needs unwind-protect or make-finalizer?
              (renamed
@@ -1468,7 +1478,7 @@ this bookmark is embedded in a frame bookmark."
                               (run-hooks 'bookmark-after-jump-hook))
                      (error
                       (ignore err)
-                      (message "Bufferlo tab: Could not restore %s" org-name)))
+                      (message "Bufferlo tab: Could not restore %s (error %s)" org-name err)))
                    (unless (eq (current-buffer) dummy)
                      (unless (string-equal org-name (buffer-name))
                        (cons org-name (buffer-name))))))
@@ -1559,7 +1569,7 @@ the message after successfully restoring the bookmark."
                 ("raise" (setq duplicate-policy 'raise))
                 (_ (throw :noload t))))
             (when (eq duplicate-policy 'raise)
-              (raise-frame (alist-get 'frame (cadr abm)))
+              (bufferlo--bookmark-raise abm)
               (throw :noload t)))
         (setq duplicate-policy nil)) ; signal not a duplicate
       (when (and
@@ -1674,8 +1684,13 @@ buffer list."
     (message "Saved bufferlo tab bookmark: %s" name)))
 
 (defun bufferlo-bookmark-tab-load (name)
-  "Load a tab bookmark; replace the current tab's state.
-NAME is the bookmark's name."
+  "Load a tab bookmark.
+NAME is the bookmark's name.
+
+`bufferlo-bookmark-tab-overwrite-policy' controls if the loaded
+bookmark overwrites the current tab or makes a new tab.
+
+Specify a prefix argument to force reusing the current tab."
   (interactive
    (list (completing-read
           "Load bufferlo tab bookmark: "
@@ -1703,13 +1718,17 @@ associated bookmark exists."
 The associated bookmark is determined by the name of the bookmark to
 which the tab was last saved or (if not yet saved) from which it was
 initially loaded.  Performs an interactive bookmark selection if no
-associated bookmark exists."
+associated bookmark exists.
+
+This reuses the current tab even if
+`bufferlo-bookmark-tab-overwrite-policy' is set to \\='new."
   (interactive)
   (bufferlo--warn)
-  (if-let (bm (alist-get 'bufferlo-bookmark-tab-name
-                         (cdr (bufferlo--current-tab))))
-      (bufferlo-bookmark-tab-load bm)
-    (call-interactively #'bufferlo-bookmark-tab-load)))
+  (let ((bufferlo-bookmark-tab-overwrite-policy 'overwrite)) ; reload reuses current tab
+    (if-let (bm (alist-get 'bufferlo-bookmark-tab-name
+                           (cdr (bufferlo--current-tab))))
+        (bufferlo-bookmark-tab-load bm)
+      (call-interactively #'bufferlo-bookmark-tab-load))))
 
 (defun bufferlo-bookmark-frame-save (name &optional no-overwrite no-message)
   "Save the current frame as a bookmark.
@@ -1735,9 +1754,10 @@ state (not the contents) of the bookmarkable buffers for each tab."
 
 (defun bufferlo-bookmark-frame-load (name)
   "Load a frame bookmark.
+NAME is the bookmark's name.
+
 Replace the current frame's state if
-`bufferlo-bookmark-frame-load-make-frame' is nil. NAME is the
-bookmark's name."
+`bufferlo-bookmark-frame-load-make-frame' is nil."
   (interactive
    (list (completing-read
           "Load bufferlo frame bookmark: "
@@ -2011,15 +2031,17 @@ This is useful if an active bookmark has been loaded twice, and
 especially if you use auto saving features and want to ensure
 that only one bookmark is active.
 
-FORCE will clear the bookmark even if it is currently unique."
+FORCE will clear the bookmark even if it is currently unique.
+
+Specify a prefix argument to imply FORCE."
   (interactive)
   (let* ((fbm (frame-parameter nil 'bufferlo-bookmark-frame-name))
          (tbm (alist-get 'bufferlo-bookmark-tab-name (tab-bar--current-tab-find)))
          (duplicate-fbm (> (length (seq-filter (lambda (x) (equal fbm (car x))) (bufferlo--active-bookmarks nil 'fbm))) 1))
          (duplicate-tbm (> (length (seq-filter (lambda (x) (equal tbm (car x))) (bufferlo--active-bookmarks nil 'tbm))) 1)))
-    (when (or force duplicate-fbm)
+    (when (or force current-prefix-arg duplicate-fbm)
       (set-frame-parameter nil 'bufferlo-bookmark-frame-name nil))
-    (when (or force duplicate-tbm)
+    (when (or force current-prefix-arg duplicate-tbm)
       (setf (alist-get 'bufferlo-bookmark-tab-name
                        (cdr (bufferlo--current-tab)))
                  nil))))
@@ -2044,6 +2066,17 @@ transient work."
       (dolist (tab (funcall tab-bar-tabs-function frame))
         (setf (alist-get 'bufferlo-bookmark-tab-name tab) nil)))))
 
+(defun bufferlo--bookmark-raise (abm)
+  "Raise ABM's frame/tab."
+  (when-let ((abm-type (alist-get 'type (cadr abm)))
+             (abm-frame (alist-get 'frame (cadr abm))))
+    (with-selected-frame abm-frame
+      (raise-frame)
+      (when (eq abm-type 'tbm)
+        (tab-bar-select-tab
+         (1+ (tab-bar--tab-index
+              (alist-get 'tab (cadr abm)))))))))
+
 (defun bufferlo-bookmark-raise ()
   "Raise the selected bookmarked frame or tab.
 Note: If there are duplicated bookmarks, the first one found is
@@ -2066,15 +2099,8 @@ raised."
     (setq comps (seq-uniq comps))
     (if (not (= (length comps) 1))
         (message "Please select a single bookmark to raise")
-      (when-let* ((abm (assoc (car comps) abms))
-                  (abm-type (alist-get 'type (cadr abm)))
-                  (abm-frame (alist-get 'frame (cadr abm))))
-        (with-selected-frame abm-frame
-          (raise-frame)
-          (when (eq abm-type 'tbm)
-            (tab-bar-select-tab
-             (1+ (tab-bar--tab-index
-                  (alist-get 'tab (cadr abm)))))))))))
+      (when-let* ((abm (assoc (car comps) abms)))
+        (bufferlo--bookmark-raise abm)))))
 
 ;;; bookmark advisories
 
