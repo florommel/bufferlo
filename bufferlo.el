@@ -2066,6 +2066,45 @@ transient work."
       (dolist (tab (funcall tab-bar-tabs-function frame))
         (setf (alist-get 'bufferlo-bookmark-tab-name tab) nil)))))
 
+(defun bufferlo-close-active-bookmarks ()
+  "Close all active bufferlo frame and tab bookmarks and kill their buffers.
+
+You will be offered to save bookmarks using filter predicates or
+all unless a prefix argument is specified."
+  (interactive)
+  (let ((close t))
+    (unless current-prefix-arg
+      (pcase (let ((read-answer-short t))
+               (read-answer "Save bookmarks before closing them: All, Predicate, Don't save "
+                            '(("all" ?a "Save all active bookmarks")
+                              ("pred" ?p "Save predicate-filtered bookmarks, if set")
+                              ("nosave" ?d "Close without saving")
+                              ("help" ?h "Help")
+                              ("quit" ?q "Quit"))))
+        ("all"
+         (bufferlo-bookmarks-save 'all))
+        ("pred"
+         (bufferlo-bookmarks-save))
+        ("nosave")
+        (_ (setq close nil))))
+    (when close
+      ;; do tabs first to clear their buffers, then frames
+      (while-let ((abms (bufferlo--active-bookmarks nil 'tbm)))
+        (let* ((abm (car abms))
+               (abm-frame (alist-get 'frame (cadr abm))))
+          (with-selected-frame abm-frame
+            (tab-bar-select-tab
+             (1+ (tab-bar--tab-index
+                  (alist-get 'tab (cadr abm)))))
+            (bufferlo-tab-close-kill-buffers))))
+      (while-let ((abms (bufferlo--active-bookmarks nil 'fbm)))
+        (let* ((abm (car abms))
+               (abm-frame (alist-get 'frame (cadr abm))))
+          (with-selected-frame abm-frame
+            (let ((bufferlo-delete-frame-kill-buffers-save-bookmark-prompt nil)
+                  (bufferlo-delete-frame-kill-buffers-prompt nil))
+              (bufferlo-delete-frame-kill-buffers))))))))
+
 (defun bufferlo--bookmark-raise (abm)
   "Raise ABM's frame/tab."
   (when-let ((abm-type (alist-get 'type (cadr abm)))
@@ -2116,7 +2155,7 @@ OLDFN OLD-NAME NEW-NAME"
   (if (called-interactively-p 'interactive)
       (setq old-name (bookmark-completing-read "Old bookmark name")))
   (if-let ((abm (assoc old-name (bufferlo--active-bookmarks))))
-      (error "%s is an active bufferlo bookmark. Close its frame/tab, or clear it before renaming" old-name)
+      (user-error "%s is an active bufferlo bookmark. Close its frame/tab, or clear it before renaming" old-name)
     (if (called-interactively-p 'interactive)
         (funcall-interactively oldfn old-name new-name)
       (funcall oldfn old-name new-name))))
@@ -2130,7 +2169,7 @@ OLDFN BOOKMARK-NAME BATCH"
       (setq bookmark-name (bookmark-completing-read "Delete bookmark"
 				                    bookmark-current-bookmark)))
   (if-let ((abm (assoc bookmark-name (bufferlo--active-bookmarks))))
-      (error "%s is an active bufferlo bookmark. Close its frame/tab, or clear it before deleting" bookmark-name)
+      (user-error "%s is an active bufferlo bookmark. Close its frame/tab, or clear it before deleting" bookmark-name)
     (if (called-interactively-p 'interactive)
         (funcall-interactively oldfn bookmark-name batch)
       (funcall oldfn bookmark-name batch))))
