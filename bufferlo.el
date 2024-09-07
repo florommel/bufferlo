@@ -440,13 +440,17 @@ Set to 0 to disable the timer."
          (set-default sym val)
          (bufferlo--bookmarks-auto-save-timer-maybe-start)))
 
+;; Yes, it's a playful cow, but the water buffalo "🐃" is dark and hard to see.
+(defvar bufferlo-mode-line-lighter-prefix " 🐮"
+	"Bufferlo mode-line lighter prefix.")
+
 (defvar bufferlo-mode) ; byte compiler
 (defun bufferlo-mode-line-format ()
   "Bufferlo mode-line format to display the current active frame or tab bookmark."
   (when bufferlo-mode
     (let ((fbm (frame-parameter nil 'bufferlo-bookmark-frame-name))
           (tbm (alist-get 'bufferlo-bookmark-tab-name (tab-bar--current-tab-find))))
-      (concat " 🐮" ; "🐃"; It's a cow, but the water buffalo is dark and hard to see.
+      (concat bufferlo-mode-line-lighter-prefix
               (if fbm (concat "f:" fbm))
               (if (and fbm tbm) "/")
               (if tbm (concat "t:" tbm))))))
