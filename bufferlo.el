@@ -125,11 +125,19 @@ This is a list of regular expressions to filter buffer names."
   :type 'boolean)
 
 (defcustom bufferlo-delete-frame-kill-buffers-save-bookmark-prompt nil
-  "If non-nil, offer to save bookmark before killing the frame and its buffers."
+  "If non-nil, offer to save bookmark before killing the frame and buffers."
   :type 'boolean)
 
 (defcustom bufferlo-delete-frame-kill-buffers-prompt nil
-  "If non-nil, confirm before deleting the frame and killing its buffers."
+  "If non-nil, confirm before deleting the frame and killing buffers."
+  :type 'boolean)
+
+(defcustom bufferlo-close-tab-kill-buffers-save-bookmark-prompt nil
+  "If non-nil, offer to save bookmark before closing the tab and killing buffers."
+  :type 'boolean)
+
+(defcustom bufferlo-close-tab-kill-buffers-prompt nil
+  "If non-nil, confirm before closing the tab and killing buffers."
   :type 'boolean)
 
 (defcustom bufferlo-bookmark-frame-load-policy 'current
@@ -954,8 +962,19 @@ The optional arguments KILLALL and INTERNAL-TOO are passed to
 `bufferlo-kill-buffers'."
   (interactive "P")
   (bufferlo--warn)
-  (bufferlo-kill-buffers killall nil nil internal-too)
-  (tab-bar-close-tab))
+	(let ((kill t)
+        (tbm (alist-get 'bufferlo-bookmark-tab-name (tab-bar--current-tab-find))))
+    (when (and tbm
+               bufferlo-close-tab-kill-buffers-save-bookmark-prompt)
+      (when (y-or-n-p
+             (concat "Save tab bookmark \"" tbm "\"? "))
+        (bufferlo-bookmark-tab-save-current)))
+    (when bufferlo-close-tab-kill-buffers-prompt
+      (setq kill (y-or-n-p
+                  (concat "Kill tab and its buffers? "))))
+		(when kill
+			(bufferlo-kill-buffers killall nil nil internal-too)
+			(tab-bar-close-tab))))
 
 (defun bufferlo-isolate-project (&optional file-buffers-only)
   "Isolate a project in the frame or tab.
@@ -2096,7 +2115,9 @@ all unless a prefix argument is specified."
             (tab-bar-select-tab
              (1+ (tab-bar--tab-index
                   (alist-get 'tab (cadr abm)))))
-            (bufferlo-tab-close-kill-buffers))))
+						(let ((bufferlo-close-tab-kill-buffers-save-bookmark-prompt nil)
+									(bufferlo-close-tab-kill-buffers-prompt nil))
+							(bufferlo-tab-close-kill-buffers)))))
       (while-let ((abms (bufferlo--active-bookmarks nil 'fbm)))
         (let* ((abm (car abms))
                (abm-frame (alist-get 'frame (cadr abm))))
