@@ -609,7 +609,7 @@ when `tab-bar--tab' is called from `tab-bar-select-tab."
 
 (defun bufferlo--clear-buffer-lists-activate (oldfn &rest args)
   "This should be set up as a advice around `tab-bar-select-tab'.
-It actiavtes clearing the buffer lists for `tab-bar--tab'
+It activates clearing the buffer lists for `tab-bar--tab'
 before calling OLDFN with ARGS.  See `bufferlo--clear-buffer-lists'."
   (let* ((bufferlo--clear-buffer-lists-active t)
          (result (apply oldfn args)))
@@ -1493,7 +1493,7 @@ this bookmark is embedded in a frame bookmark."
     (let ((bookmark-name (if (null embedded-tab)
                              (bookmark-name-from-full-record bookmark)
                            nil))
-             (msg))
+          (msg))
       (when-let ((abm (assoc bookmark-name (bufferlo--active-bookmarks)))
                  (duplicate-policy bufferlo-bookmark-tab-duplicate-policy))
         (when (eq duplicate-policy 'prompt)
@@ -1540,7 +1540,7 @@ this bookmark is embedded in a frame bookmark."
              (renamed
               (mapcar
                (lambda (bm)
-                 (let ((org-name (car bm))
+                 (let ((orig-name (car bm))
                        (record (cadr bm)))
                    (set-buffer dummy)
                    (condition-case err
@@ -1550,10 +1550,10 @@ this bookmark is embedded in a frame bookmark."
                               (run-hooks 'bookmark-after-jump-hook))
                      (error
                       (ignore err)
-                      (message "Bufferlo tab: Could not restore %s (error %s)" org-name err)))
+                      (message "Bufferlo tab: Could not restore %s (error %s)" orig-name err)))
                    (unless (eq (current-buffer) dummy)
-                     (unless (string-equal org-name (buffer-name))
-                       (cons org-name (buffer-name))))))
+                     (unless (string-equal orig-name (buffer-name))
+                       (cons orig-name (buffer-name))))))
                (alist-get 'buffer-bookmarks bookmark)))
              (bl (mapcar (lambda (b)
                            (if-let (replace (assoc b renamed))
@@ -1571,23 +1571,23 @@ this bookmark is embedded in a frame bookmark."
           (when (and (not embedded-tab)
                      bookmark-name
                      (frame-parameter nil 'bufferlo-bookmark-frame-name))
-              (let ((clear-policy bufferlo-bookmark-tab-load-into-bookmarked-frame-policy))
-                (when (eq clear-policy 'prompt)
-                  (pcase (let ((read-answer-short t))
-                           (read-answer "Tab bookmark conflicts with frame bookmark: Allow tab bookmark, Clear tab bookmark "
-                                        '(("allow" ?a "Allow tab bookmark")
-                                          ("clear" ?c "Clear tab bookmark")
-                                          ("help" ?h "Help")
-                                          ("quit" ?q "Quit--retains the bookmark"))))
-                    ("clear" (setq clear-policy 'clear))
-                    (_ (setq clear-policy 'allow)))) ; allow, quit cases
-                (pcase clear-policy
-                  ('clear
-                   (setq tbm nil))
-                  ('clear-warn
-                   (setq tbm nil)
-                   (setq msg (concat msg "; cleared tab bookmark")))
-                  ('allow))))
+            (let ((clear-policy bufferlo-bookmark-tab-load-into-bookmarked-frame-policy))
+              (when (eq clear-policy 'prompt)
+                (pcase (let ((read-answer-short t))
+                         (read-answer "Tab bookmark conflicts with frame bookmark: Allow tab bookmark, Clear tab bookmark "
+                                      '(("allow" ?a "Allow tab bookmark")
+                                        ("clear" ?c "Clear tab bookmark")
+                                        ("help" ?h "Help")
+                                        ("quit" ?q "Quit--retains the bookmark"))))
+                  ("clear" (setq clear-policy 'clear))
+                  (_ (setq clear-policy 'allow)))) ; allow, quit cases
+              (pcase clear-policy
+                ('clear
+                 (setq tbm nil))
+                ('clear-warn
+                 (setq tbm nil)
+                 (setq msg (concat msg "; cleared tab bookmark")))
+                ('allow))))
           (setf (alist-get 'bufferlo-bookmark-tab-name
                            (cdr (bufferlo--current-tab)))
                 tbm))
@@ -1600,7 +1600,7 @@ this bookmark is embedded in a frame bookmark."
 (defun bufferlo--bookmark-frame-get (&optional frame)
   "Get the bufferlo frame bookmark.
 FRAME specifies the frame; the default value of nil selects the current frame."
-  (let ((org-tab (1+ (tab-bar--current-tab-index nil frame)))
+  (let ((orig-tab (1+ (tab-bar--current-tab-index nil frame)))
         (tabs nil))
     (dotimes (i (length (funcall tab-bar-tabs-function frame)))
       (tab-bar-select-tab (1+ i))
@@ -1612,9 +1612,9 @@ FRAME specifies the frame; the default value of nil selects the current frame."
             (push (cons 'tab-name name) tbm)
           (push (cons 'tab-name nil) tbm))
         (push tbm tabs)))
-    (tab-bar-select-tab org-tab)
+    (tab-bar-select-tab orig-tab)
     `((tabs . ,(reverse tabs))
-      (current . ,org-tab)
+      (current . ,orig-tab)
       (handler . ,#'bufferlo--bookmark-frame-handler))))
 
 (defun bufferlo--bookmark-frame-handler (bookmark &optional no-message)
@@ -1927,7 +1927,12 @@ Specify NO-MESSAGE to inhibit the bookmark save status message."
              ((eq abm-type 'fbm)
               (bufferlo-bookmark-frame-save abm-name nil t))
              ((eq abm-type 'tbm)
-              (bufferlo-bookmark-tab-save abm-name nil t)))
+              (let ((orig-tab (1+ (tab-bar--current-tab-index))))
+                (tab-bar-select-tab
+                 (1+ (tab-bar--tab-index
+                      (alist-get 'tab (cadr abm)))))
+                (bufferlo-bookmark-tab-save abm-name nil t)
+                (tab-bar-select-tab orig-tab))))
             (push abm-name bookmarks-saved)))))
     (cond
      (bookmarks-saved
@@ -2173,8 +2178,9 @@ transient work."
                 abms))
          (fbms (seq-filter
                 (lambda (x) (eq 'fbm (alist-get 'type (cadr x))))
-                abms)))
-    ;; do tab bookmarks first, then frame bookmarks
+                abms))
+         (orig-frame (selected-frame))
+         (orig-tab-name (alist-get 'name (bufferlo--current-tab))))
     (dolist (abm tbms)
       (let ((abm-frame (alist-get 'frame (cadr abm)))
             (abm-tab (alist-get 'tab (cadr abm))))
@@ -2189,7 +2195,13 @@ transient work."
         (with-selected-frame abm-frame
           (let ((bufferlo-delete-frame-kill-buffers-save-bookmark-prompt nil)
                 (bufferlo-delete-frame-kill-buffers-prompt nil))
-            (bufferlo-delete-frame-kill-buffers)))))))
+            (bufferlo-delete-frame-kill-buffers)))))
+    ;; Best effort to get back to where we started. Frame and/or tab could now be gone.
+    (when (frame-live-p orig-frame)
+      (select-frame orig-frame)
+      (let ((tab-index (tab-bar--tab-index-by-name orig-tab-name)))
+        (if tab-index
+            (tab-bar-select-tab (1+ tab-index)))))))
 
 (defun bufferlo-bookmarks-close ()
   "Close all active bufferlo frame and tab bookmarks and kill their buffers.
