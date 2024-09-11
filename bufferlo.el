@@ -1709,6 +1709,11 @@ the message after successfully restoring the bookmark."
 
 (put #'bufferlo--bookmark-frame-handler 'bookmark-handler-type "B-Frame") ; short name here as bookmark-bmenu-list hard codes width of 8 chars
 
+(defun bufferlo-bookmark-set-location (bookmark-name-or-record &optional location)
+  "Set the location of BOOKMARK-NAME-OR-RECORD to LOCATION or \\=\"\", if nil."
+  (bookmark-prop-set bookmark-name-or-record 'location (or location ""))
+  bookmark-name-or-record)
+
 (defvar bufferlo--bookmark-handlers
   (list
    #'bufferlo--bookmark-tab-handler
@@ -1748,7 +1753,7 @@ buffer list."
           (bufferlo--bookmark-get-names #'bufferlo--bookmark-tab-handler)
           nil nil nil 'bufferlo-bookmark-tab-history)))
   (bufferlo--warn)
-  (bookmark-store name (bufferlo--bookmark-tab-get) no-overwrite)
+  (bookmark-store name (bufferlo-bookmark-set-location (bufferlo--bookmark-tab-get)) no-overwrite)
   (setf (alist-get 'bufferlo-bookmark-tab-name
                    (cdr (bufferlo--current-tab)))
         name)
@@ -1819,7 +1824,7 @@ state (not the contents) of the bookmarkable buffers for each tab."
           nil nil nil 'bufferlo-bookmark-frame-history
           (frame-parameter nil 'bufferlo-bookmark-frame-name))))
   (bufferlo--warn)
-  (bookmark-store name (bufferlo--bookmark-frame-get) no-overwrite)
+  (bookmark-store name (bufferlo-bookmark-set-location (bufferlo--bookmark-frame-get)) no-overwrite)
   (set-frame-parameter nil 'bufferlo-bookmark-frame-name name)
   (unless no-message
     (message "Saved bufferlo frame bookmark: %s" name)))
