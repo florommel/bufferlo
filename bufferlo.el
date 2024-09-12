@@ -1882,20 +1882,23 @@ associated bookmark exists."
   "Produces an alist of active bufferlo bookmarks.
 The alist is of the form:
   ((bookmark-name .
-    ((\\='type . type) (\\='frame . frame) (\\='tab . tab))) ...)
+    ((\\='type . type) (\\='frame . frame) (\\='tab-number . tab-number))) ...)
 for the specified FRAMES,
 filtered by TYPE, where type is:
-  \\='fbm for frame bookmarks or
-  \\='tbm for tab bookmarks."
+  \\='fbm for frame bookmarks which include frame only or
+  \\='tbm for tab bookmarks which include frame and tab numbers."
   (let ((abms))
     (dolist (frame (or frames (frame-list)))
       (when-let ((fbm (frame-parameter frame 'bufferlo-bookmark-frame-name)))
         (when (or (null type) (eq type 'fbm))
-          (push (list fbm `((type . fbm) (frame . ,frame))) abms)))
+          (push (list fbm `((type . fbm)
+                            (frame . ,frame))) abms)))
       (dolist (tab (funcall tab-bar-tabs-function frame))
         (when-let ((tbm (alist-get 'bufferlo-bookmark-tab-name tab)))
           (when (or (null type) (eq type 'tbm))
-            (push (list tbm `((type . tbm) (frame . ,frame) (tab . ,tab))) abms)))))
+            (push (list tbm `((type . tbm)
+                              (frame . ,frame)
+                              (tab-number . ,(1+ (tab-bar--tab-index tab nil frame))))) abms)))))
     abms))
 
 (defun bufferlo-bookmarks-save-all-p (_bookmark-name)
@@ -1932,12 +1935,11 @@ Specify NO-MESSAGE to inhibit the bookmark save status message."
              ((eq abm-type 'fbm)
               (bufferlo-bookmark-frame-save abm-name nil t))
              ((eq abm-type 'tbm)
-              (let ((orig-tab (1+ (tab-bar--current-tab-index))))
-                (tab-bar-select-tab
-                 (1+ (tab-bar--tab-index
-                      (alist-get 'tab (cadr abm)))))
+              (let ((orig-tab-number (1+ (tab-bar--current-tab-index))))
+                (tab-bar-select-tab (alist-get 'tab-number (cadr abm)))
                 (bufferlo-bookmark-tab-save abm-name nil t)
-                (tab-bar-select-tab orig-tab))))
+                (tab-bar-select-tab orig-tab-number)
+                )))
             (push abm-name bookmarks-saved)))))
     (cond
      (bookmarks-saved
@@ -2185,13 +2187,12 @@ transient work."
                 (lambda (x) (eq 'fbm (alist-get 'type (cadr x))))
                 abms))
          (orig-frame (selected-frame))
-         (orig-tab-name (alist-get 'name (bufferlo--current-tab))))
+         (orig-tab-name (alist-get 'name (bufferlo--current-tab)))) ; can't rely on index, it might disappear
     (dolist (abm tbms)
       (let ((abm-frame (alist-get 'frame (cadr abm)))
-            (abm-tab (alist-get 'tab (cadr abm))))
+            (abm-tab-number (alist-get 'tab-number (cadr abm))))
         (with-selected-frame abm-frame
-          (tab-bar-select-tab
-           (1+ (tab-bar--tab-index abm-tab)))
+          (tab-bar-select-tab abm-tab-number)
           (let ((bufferlo-close-tab-kill-buffers-save-bookmark-prompt nil)
                 (bufferlo-close-tab-kill-buffers-prompt nil))
             (bufferlo-tab-close-kill-buffers)))))
@@ -2201,7 +2202,7 @@ transient work."
           (let ((bufferlo-delete-frame-kill-buffers-save-bookmark-prompt nil)
                 (bufferlo-delete-frame-kill-buffers-prompt nil))
             (bufferlo-delete-frame-kill-buffers)))))
-    ;; Best effort to get back to where we started. Frame and/or tab could now be gone.
+    ;; Frame and/or tab could now be gone.
     (when (frame-live-p orig-frame)
       (select-frame orig-frame)
       (let ((tab-index (tab-bar--tab-index-by-name orig-tab-name)))
@@ -2244,8 +2245,7 @@ all unless a prefix argument is specified."
       (raise-frame)
       (when (eq abm-type 'tbm)
         (tab-bar-select-tab
-         (1+ (tab-bar--tab-index
-              (alist-get 'tab (cadr abm)))))))))
+         (alist-get 'tab-number (cadr abm)))))))
 
 (defun bufferlo-bookmark-raise ()
   "Raise the selected bookmarked frame or tab.
