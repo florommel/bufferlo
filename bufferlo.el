@@ -3,7 +3,9 @@
 ;; Copyright (C) 2021-2024 Free Software Foundation, Inc.
 
 ;; Author: Florian Rommel <mail@florommel.de>
+;;         Stephane Marks <shipmints@gmail.com>
 ;; Maintainer: Florian Rommel <mail@florommel.de>
+;;             Stephane Marks <shipmints@gmail.com>
 ;; Url: https://github.com/florommel/bufferlo
 ;; Created: 2021-09-15
 ;; Version: 0.8
