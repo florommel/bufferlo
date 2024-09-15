@@ -52,6 +52,8 @@
 (require 'tab-bar)
 (require 'desktop)
 (require 'bookmark)
+(require 'ibuffer)
+(require 'ibuf-ext)
 
 (defgroup bufferlo nil
   "Manage frame/tab-local buffer lists."
@@ -1240,7 +1242,7 @@ If the prefix argument is given, include all buffers."
   (display-buffer
    (let* ((old-buffer (current-buffer))
           (name "*Orphan Buffer List*")
-    (buffer (get-buffer-create name)))
+          (buffer (get-buffer-create name)))
      (with-current-buffer buffer
        (Buffer-menu-mode)
        (setq bufferlo--buffer-menu-this-frame (selected-frame))
@@ -1252,32 +1254,21 @@ If the prefix argument is given, include all buffers."
        (revert-buffer))
      buffer)))
 
-;; byte compiler
-(defvar ibuffer-filtering-alist)
-(defvar ibuffer--filter-map)
-(declare-function ibuffer-push-filter "ibuf-ext")
-(declare-function ibuffer-pop-filter "ibuf-ext")
-(declare-function ibuffer-update "ibuf-ext")
-(declare-function ibuffer-filter-by-bufferlo-local-buffers "bufferlo")
-(declare-function ibuffer-filter-by-bufferlo-orphan-buffers "bufferlo")
+(define-ibuffer-filter bufferlo-local-buffers
+    "Limit current view to local buffers."
+  (:description "local buffers" :reader nil)
+  (bufferlo-local-buffer-p buf))
 
-(with-eval-after-load 'ibuf-ext
-  (define-ibuffer-filter bufferlo-local-buffers
-      "Limit current view to local buffers."
-    (:description "local buffers" :reader nil)
-    (bufferlo-local-buffer-p buf))
-  (define-ibuffer-filter bufferlo-orphan-buffers
-      "Limit current view to orphan buffers."
-    (:description "orphan buffers" :reader nil)
-    (not (memq buf (bufferlo--get-captured-buffers)))))
+(define-ibuffer-filter bufferlo-orphan-buffers
+    "Limit current view to orphan buffers."
+  (:description "orphan buffers" :reader nil)
+  (not (memq buf (bufferlo--get-captured-buffers))))
 
-(with-eval-after-load 'ibuffer
-  (when bufferlo-ibuffer-bind-local-buffer-filter
-    (require 'ibuf-ext)
-    (define-key ibuffer--filter-map (kbd "l")
-                #'ibuffer-filter-by-bufferlo-local-buffers)
-    (define-key ibuffer--filter-map (kbd "L")
-                #'ibuffer-filter-by-bufferlo-orphan-buffers)))
+(when bufferlo-ibuffer-bind-local-buffer-filter
+  (define-key ibuffer--filter-map (kbd "l")
+              'ibuffer-filter-by-bufferlo-local-buffers)
+  (define-key ibuffer--filter-map (kbd "L")
+              'ibuffer-filter-by-bufferlo-orphan-buffers))
 
 (defun bufferlo-ibuffer (&optional other-window-p noselect shrink)
   "Invoke `ibuffer' filtered for local buffers.
@@ -1303,6 +1294,18 @@ The parameters OTHER-WINDOW-P NOSELECT SHRINK are passed to `ibuffer'."
   (let ((name "*Bufferlo Orphans Ibuffer*"))
     (ibuffer other-window-p name '((bufferlo-orphan-buffers . nil))
              noselect shrink)))
+
+(define-ibuffer-op ibuffer-do-bufferlo-remove ()
+  "Remove marked buffers from bufferlo's local buffer list."
+  (
+   :active-opstring "remove from bufferlo locals" ; user prompt
+   :opstring "removed from bufferlo locals:" ; upon action completion
+   :modifier-p t
+   :dangerous t
+   :complex t
+   )
+  (bufferlo-remove buf) ; always returns nil; TODO: consider it could return t if actually removed, nil if not
+  t)
 
 (define-minor-mode bufferlo-anywhere-mode
   "Frame/tab-local buffer lists anywhere you like.
@@ -1386,8 +1389,8 @@ Has no effect if the next command does not query for a buffer."
           (lambda ()
             (unless (or
                      ;; from window.el:display-buffer-override-next-command
-         (> (minibuffer-depth) minibuffer-depth)
-         (eq this-command command))
+                     (> (minibuffer-depth) minibuffer-depth)
+                     (eq this-command command))
               (setq bufferlo--anywhere-tmp-disabled nil)
               (remove-hook 'post-command-hook postfun))))
     (setq bufferlo--anywhere-tmp-disabled t)
@@ -1409,8 +1412,8 @@ In contrast to `bufferlo-anywhere-mode', this does not adhere to
           (lambda ()
             (unless (or
                      ;; from window.el:display-buffer-override-next-command
-         (> (minibuffer-depth) minibuffer-depth)
-         (eq this-command command))
+                     (> (minibuffer-depth) minibuffer-depth)
+                     (eq this-command command))
               (setq bufferlo--anywhere-tmp-enabled nil)
               (unless bufferlo-anywhere-mode
                 (advice-remove #'call-interactively
