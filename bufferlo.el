@@ -1806,11 +1806,12 @@ This reuses the current tab even if
 `bufferlo-bookmark-tab-overwrite-policy' is set to \\='new."
   (interactive)
   (bufferlo--warn)
-  (let ((bufferlo-bookmark-tab-overwrite-policy 'overwrite)) ; reload reuses current tab
-    (if-let (bm (alist-get 'bufferlo-bookmark-tab-name
-                           (cdr (bufferlo--current-tab))))
-        (bufferlo-bookmark-tab-load bm)
-      (call-interactively #'bufferlo-bookmark-tab-load))))
+  (if-let (bm (alist-get 'bufferlo-bookmark-tab-name
+                         (cdr (bufferlo--current-tab))))
+      (let ((bufferlo-bookmark-tab-overwrite-policy 'overwrite) ; reload reuses current tab
+            (bufferlo-bookmark-tab-duplicate-policy 'allow)) ; not technically a duplicate
+        (bufferlo-bookmark-tab-load bm))
+    (call-interactively #'bufferlo-bookmark-tab-load)))
 
 (defun bufferlo-bookmark-frame-save (name &optional no-overwrite no-message)
   "Save the current frame as a bookmark.
@@ -1870,10 +1871,12 @@ initially loaded.  Performs an interactive bookmark selection if no
 associated bookmark exists."
   (interactive)
   (bufferlo--warn)
-  (let ((bufferlo-bookmark-frame-load-make-frame nil))
-    (if-let (bm (frame-parameter nil 'bufferlo-bookmark-frame-name))
-        (bufferlo-bookmark-frame-load bm)
-      (call-interactively #'bufferlo-bookmark-frame-load))))
+  (if-let (bm (frame-parameter nil 'bufferlo-bookmark-frame-name))
+      (let ((bufferlo-bookmark-frame-load-make-frame nil) ; reload reuses the current frame
+            (bufferlo-bookmark-frame-load-policy 'replace-frame-retain-current-bookmark)
+            (bufferlo-bookmark-frame-duplicate-policy 'allow)) ; not technically a duplicate
+        (bufferlo-bookmark-frame-load bm))
+    (call-interactively #'bufferlo-bookmark-frame-load)))
 
 (defun bufferlo-bookmark-frame-load-merge ()
   "Load a bufferlo frame bookmark merging its content into the current frame."
