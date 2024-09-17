@@ -60,13 +60,18 @@
   :group 'convenience)
 
 (defcustom bufferlo-prefer-local-buffers t
-  "Use a frame predicate to prefer local buffers over global ones.
-This means that a local buffer will be preferred to be displayed
-when the current buffer disappears (buried or killed).
-This is also required to make `next-buffer' and `previous-buffer'
-work as expected.
-Changes to this variable must be made before enabling
-`bufferlo-mode' in order to take effect."
+  "Use the frame `buffer-predicate' to prefer local buffers.
+Without this option, buffers from across all frames are
+presented. This means that a local buffer will be preferred to be
+displayed when the current buffer disappears (buried or killed).
+
+This also influences `next-buffer' and `previous-buffer'.
+
+Set to \\='tabs for `next-buffer' and `previous-buffer' to respect
+buffers local to the current tab, otherwise they will cycle
+through buffers across the frame.
+
+This variable must be set before enabling `bufferlo-mode'."
   :type 'boolean)
 
 (defcustom bufferlo-include-buried-buffers t
@@ -509,6 +514,8 @@ Set to 0 to disable the timer. Units are whole integer seconds."
           (dolist (frame (frame-list))
             (bufferlo--set-buffer-predicate frame))
           (add-hook 'after-make-frame-functions #'bufferlo--set-buffer-predicate))
+        (when (eq bufferlo-prefer-local-buffers 'tabs)
+          (bufferlo--set-switch-to-prev-buffer-skip))
         ;; Include/exclude buffers
         (add-hook 'after-make-frame-functions #'bufferlo--include-exclude-buffers)
         (add-hook 'tab-bar-tab-post-open-functions #'bufferlo--tab-include-exclude-buffers)
@@ -542,6 +549,8 @@ Set to 0 to disable the timer. Units are whole integer seconds."
     ;; Prefer local buffers
     (dolist (frame (frame-list))
       (bufferlo--reset-buffer-predicate frame))
+    (when (eq bufferlo-prefer-local-buffers 'tabs)
+      (bufferlo--reset-switch-to-prev-buffer-skip))
     (remove-hook 'after-make-frame-functions #'bufferlo--set-buffer-predicate)
     ;; Include/exclude buffers
     (remove-hook 'after-make-frame-functions #'bufferlo--include-exclude-buffers)
@@ -621,6 +630,25 @@ before calling OLDFN with ARGS.  See `bufferlo--clear-buffer-lists'."
         (switch-to-buffer buffer t t)))
 
     result))
+
+;; via window.el switch-to-prev-buffer-skip-p
+;; (funcall skip window buffer bury-or-kill)
+(defun bufferlo--switch-to-prev-buffer-skip-p (_window buffer _bury-or-kill)
+  "Restrict BUFFER to the current tab's locals for buffer switching.
+Affects `switch-to-prev-buffer' and `switch-to-next-buffer'.
+Includes hidden buffers."
+  (not (bufferlo-local-buffer-p buffer nil (tab-bar--current-tab-index) t)))
+
+(defvar bufferlo--switch-to-prev-buffer-skip-orig)
+
+(defun bufferlo--set-switch-to-prev-buffer-skip ()
+  "Set the buffer predicate of FRAME to `bufferlo--buffer-predicate'."
+  (setq bufferlo--switch-to-prev-buffer-skip-orig switch-to-prev-buffer-skip)
+  (setq switch-to-prev-buffer-skip #'bufferlo--switch-to-prev-buffer-skip-p))
+
+(defun bufferlo--reset-switch-to-prev-buffer-skip ()
+  "Reset `switch-to-prev-buffer-skip'."
+  (setq switch-to-prev-buffer-skip bufferlo--switch-to-prev-buffer-skip-orig))
 
 (defun bufferlo--buffer-predicate (buffer)
   "Return whether BUFFER is local to the current frame/tab.
@@ -748,7 +776,7 @@ function.  WINDOW and WRITABLE are passed to the function."
   "Restore the frame's buffer list from the window state.
 Used as advice after `window-state-put'.  STATE is the window state.
 WINDOW is the window in question.  IGNORE is not used and exists for
-compatibility with the adviced function."
+compatibility with the advised function."
   ;; We have to make sure that the window is live at this point.
   ;; `frameset-restore' may pass a window with a non-existing buffer
   ;; to `window-state-put', which in turn will delete that window
@@ -770,14 +798,14 @@ compatibility with the adviced function."
 (defun bufferlo--activate (oldfn &rest args)
   "Activate the advice for `bufferlo--window-state-{get,put}'.
 OLDFN is the original function.  ARGS is for compatibility with
-the adviced functions."
+the advised functions."
   (let ((bufferlo--desktop-advice-active t))
     (apply oldfn args)))
 
 (defun bufferlo--activate-force (oldfn &rest args)
   "Activate the advice for `bufferlo--window-state-{get,put}'.
 OLDFN is the original function.  ARGS is for compatibility with
-the adviced functions."
+the advised functions."
   (let ((bufferlo--desktop-advice-active t)
         (bufferlo--desktop-advice-active-force t))
     (apply oldfn args)))
@@ -785,7 +813,7 @@ the adviced functions."
 (defun bufferlo--clone-undelete-frame-advice (oldfn &rest args)
   "Activate the advice for `bufferlo--window-state-{get,put}'.
 OLDFN is the original function.  ARGS is for compatibility with
-the adviced functions. Honors `bufferlo-bookmark-frame-clone-policy'."
+the advised functions. Honors `bufferlo-bookmark-frame-clone-policy'."
   (let ((bufferlo--desktop-advice-active t)
         (bufferlo--desktop-advice-active-force t))
     (apply oldfn args))
