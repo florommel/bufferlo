@@ -72,7 +72,7 @@ buffers local to the current tab, otherwise they will cycle
 through buffers across the frame.
 
 This variable must be set before enabling `bufferlo-mode'."
-  :type 'boolean)
+  :type 'symbol)
 
 (defcustom bufferlo-include-buried-buffers t
   "Include buried buffers in the local list (`bufferlo-buffer-list').
