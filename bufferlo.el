@@ -1680,7 +1680,8 @@ the message after successfully restoring the bookmark."
                    bufferlo-bookmark-frame-load-make-frame
                    (not (consp current-prefix-arg)) ; user make-frame suppression
                    (not pop-up-frames)) ; make-frame implied by functions like `bookmark-jump-other-frame'
-              (setq new-frame (make-frame)))
+              (with-current-buffer (messages-buffer) ; least expensive (fundamental-mode)
+                (setq new-frame (make-frame))))
             (let ((fbm (frame-parameter nil 'bufferlo-bookmark-frame-name))
                   (load-policy bufferlo-bookmark-frame-load-policy))
               (if fbm
