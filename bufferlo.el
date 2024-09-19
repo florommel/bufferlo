@@ -470,9 +470,9 @@ Set to 0 to disable the timer. Units are whole integer seconds."
           (tbm (alist-get 'bufferlo-bookmark-tab-name (tab-bar--current-tab-find))))
       (concat bufferlo-mode-line-lighter-prefix
               "["
-              (if fbm (concat "Ⓕ" fbm))
+              (if fbm (concat "Ⓕ " fbm)) ; the space accommodates tty rendering
               (if (and fbm tbm) " ")
-              (if tbm (concat "Ⓣ" tbm))
+              (if tbm (concat "Ⓣ " tbm)) ; the space accommodates tty rendering
               "]"))))
 
 (defcustom bufferlo-mode-line-lighter '(:eval (bufferlo-mode-line-format))
