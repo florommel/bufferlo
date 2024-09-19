@@ -487,9 +487,13 @@ Set to 0 to disable the timer. Units are whole integer seconds."
   "Process bufferlo Emacs command-line arguments."
   (when-let (pos (seq-position command-line-args bufferlo--command-line-noload-prefix #'string-equal))
     (setq bufferlo--command-line-noload pos)
-    (setq command-line-args (seq-remove-at-position command-line-args pos))))
+    (setq command-line-args (seq-remove-at-position command-line-args pos)))
+  (when (file-exists-p (expand-file-name "bufferlo-no-load" user-emacs-directory))
+    (message "bufferlo-no-load file found; inhibiting bufferlo bookmark loading")
+    (setq bufferlo--command-line-noload t)))
 
-(defun -bufferlo--parse-command-line-test () "."
+(defun -bufferlo--parse-command-line-test ()
+  "Internal test function for command-line processing."
   (let ((command-line-args (list "/usr/bin/emacs" "--name" "foobar" bufferlo--command-line-noload-prefix "-T" "title")))
     (setq bufferlo--command-line-noload nil)
     (message "command-line-args=%s" command-line-args)
