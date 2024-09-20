@@ -107,6 +107,10 @@ Matching buffers are hidden even if displayed in the current frame or tab."
 This is a list of regular expressions that match buffer names."
   :type '(repeat string))
 
+(defcustom bufferlo-kill-buffers-prompt nil
+  "If non-nil, confirm before killing local or orphan buffers."
+  :type 'boolean)
+
 (defcustom bufferlo-bookmark-prefer-saveplace-point nil
   "If non-nil, and `save-place-mode' mode is on, inhibit point in bookmarks."
   :type 'boolean)
@@ -972,20 +976,24 @@ Ignores buffers whose names start with a space, unless optional
 argument INTERNAL-TOO is non-nil."
   (interactive "P")
   (bufferlo--warn)
-  (let* ((exclude (bufferlo--merge-regexp-list
-                   (append '("a^") bufferlo-kill-buffers-exclude-filters)))
-         (kill-list (if killall
-                        (bufferlo--get-buffers frame tabnum)
-                      (bufferlo--get-exclusive-buffers frame tabnum)))
-         (buffers (seq-filter
-                   (lambda (b)
-                     (not (and
-                           ;; (or internal-too (/= (aref (buffer-name b) 0) ?\s)) ; NOTE: this can cause null reference errors
-                           (or internal-too (not (string-prefix-p " " (buffer-name b))))
-                           (string-match-p exclude (buffer-name b)))))
-                   kill-list)))
-    (dolist (b buffers)
-      (kill-buffer b))))
+  (let ((kill t))
+    (when bufferlo-kill-buffers-prompt
+      (setq kill (y-or-n-p "Kill bufferlo local buffers? ")))
+    (when kill
+      (let* ((exclude (bufferlo--merge-regexp-list
+                       (append '("a^") bufferlo-kill-buffers-exclude-filters)))
+             (kill-list (if killall
+                            (bufferlo--get-buffers frame tabnum)
+                          (bufferlo--get-exclusive-buffers frame tabnum)))
+             (buffers (seq-filter
+                       (lambda (b)
+                         (not (and
+                               ;; (or internal-too (/= (aref (buffer-name b) 0) ?\s)) ; NOTE: this can cause null reference errors
+                               (or internal-too (not (string-prefix-p " " (buffer-name b))))
+                               (string-match-p exclude (buffer-name b)))))
+                       kill-list)))
+        (dolist (b buffers)
+          (kill-buffer b))))))
 
 (defun bufferlo-kill-orphan-buffers (&optional internal-too)
   "Kill all buffers that are not in any local list of a frame or tab.
@@ -994,17 +1002,21 @@ argument INTERNAL-TOO is non-nil.
 Buffers matching `bufferlo-kill-buffers-exclude-filters' are never killed."
   (interactive)
   (bufferlo--warn)
-  (let* ((exclude (bufferlo--merge-regexp-list
-                   (append '("a^") bufferlo-kill-buffers-exclude-filters)))
-         (buffers (seq-filter
-                   (lambda (b)
-                     (not (and
-                           ;; (or internal-too (/= (aref (buffer-name b) 0) ?\s)) ; NOTE: this can cause null reference errors
-                           (or internal-too (not (string-prefix-p " " (buffer-name b))))
-                           (string-match-p exclude (buffer-name b)))))
-                   (bufferlo--get-orphan-buffers))))
-    (dolist (b buffers)
-      (kill-buffer b))))
+  (let ((kill t))
+    (when bufferlo-kill-buffers-prompt
+      (setq kill (y-or-n-p "Kill bufferlo orphan buffers? ")))
+    (when kill
+      (let* ((exclude (bufferlo--merge-regexp-list
+                       (append '("a^") bufferlo-kill-buffers-exclude-filters)))
+             (buffers (seq-filter
+                       (lambda (b)
+                         (not (and
+                               ;; (or internal-too (/= (aref (buffer-name b) 0) ?\s)) ; NOTE: this can cause null reference errors
+                               (or internal-too (not (string-prefix-p " " (buffer-name b))))
+                               (string-match-p exclude (buffer-name b)))))
+                       (bufferlo--get-orphan-buffers))))
+        (dolist (b buffers)
+          (kill-buffer b))))))
 
 (defun bufferlo-delete-frame-kill-buffers (&optional frame internal-too)
   "Delete a frame and kill the local buffers of its tabs.
@@ -1021,8 +1033,7 @@ argument INTERNAL-TOO is non-nil."
              (concat "Save frame bookmark \"" fbm "\"? "))
         (bufferlo-bookmark-frame-save-current)))
     (when bufferlo-delete-frame-kill-buffers-prompt
-      (setq kill (y-or-n-p
-                  (concat "Kill frame and its buffers? "))))
+      (setq kill (y-or-n-p "Kill frame and its buffers? ")))
     (when kill
       (bufferlo-kill-buffers nil frame 'all internal-too)
       ;; TODO: Emacs 30 frame-deletable-p
@@ -1048,8 +1059,7 @@ The optional arguments KILLALL and INTERNAL-TOO are passed to
              (concat "Save tab bookmark \"" tbm "\"? "))
         (bufferlo-bookmark-tab-save-current)))
     (when bufferlo-close-tab-kill-buffers-prompt
-      (setq kill (y-or-n-p
-                  (concat "Kill tab and its buffers? "))))
+      (setq kill (y-or-n-p "Kill tab and its buffers? ")))
     (when kill
       (bufferlo-kill-buffers killall nil nil internal-too)
       (tab-bar-close-tab))))
