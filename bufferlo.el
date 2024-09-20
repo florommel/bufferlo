@@ -2341,7 +2341,7 @@ OLDFN BOOKMARK-NAME BATCH"
   (interactive)
   (if (called-interactively-p 'interactive)
       (setq bookmark-name (bookmark-completing-read "Delete bookmark"
-                            bookmark-current-bookmark)))
+                                                    bookmark-current-bookmark)))
   (if-let ((abm (assoc bookmark-name (bufferlo--active-bookmarks))))
       (user-error "%s is an active bufferlo bookmark--close its frame/tab, or clear it before deleting" bookmark-name)
     (if (called-interactively-p 'interactive)
@@ -2350,6 +2350,22 @@ OLDFN BOOKMARK-NAME BATCH"
 
 ;; (defun bookmark-delete-all (&optional no-confirm)
 ;; Leave this alone for now. It does prompt for confirmation.
+
+;;; Aliases:
+
+(defalias 'bufferlo-bms-load            'bufferlo-bookmarks-load-interactive)
+(defalias 'bufferlo-bms-save            'bufferlo-bookmarks-save-interactive)
+(defalias 'bufferlo-bms-close           'bufferlo-bookmarks-close-interactive)
+(defalias 'bufferlo-bm-raise            'bufferlo-bookmark-raise)
+(defalias 'bufferlo-bm-tab-save         'bufferlo-bookmark-tab-save)
+(defalias 'bufferlo-bm-tab-save-curr    'bufferlo-bookmark-tab-save-current)
+(defalias 'bufferlo-bm-tab-load         'bufferlo-bookmark-tab-load)
+(defalias 'bufferlo-bm-tab-load-curr    'bufferlo-bookmark-tab-load-current)
+(defalias 'bufferlo-bm-frame-save       'bufferlo-bookmark-frame-save)
+(defalias 'bufferlo-bm-frame-save-curr  'bufferlo-bookmark-frame-save-current)
+(defalias 'bufferlo-bm-frame-load       'bufferlo-bookmark-frame-load)
+(defalias 'bufferlo-bm-frame-load-curr  'bufferlo-bookmark-frame-load-current)
+(defalias 'bufferlo-bm-frame-load-merge 'bufferlo-bookmark-frame-load-merge)
 
 (provide 'bufferlo)
 
