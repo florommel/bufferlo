@@ -1521,7 +1521,7 @@ this bookmark is embedded in a frame bookmark."
         (when (eq duplicate-policy 'prompt)
           (pcase (let ((read-answer-short t))
                    (with-local-quit
-                     (read-answer "Tab bookmark active in another tab: Allow, Clear bookmark after loading, Raise existing "
+                     (read-answer "Tab bookmark already active: Allow, Clear bookmark after loading, Raise existing "
                                   '(("allow" ?a "Allow duplicate")
                                     ("clear" ?c "Clear the bookmark after loading")
                                     ("raise" ?r "Raise the existing tab bookmark")
@@ -1788,7 +1788,8 @@ buffer list."
    (list (completing-read
           "Save bufferlo tab bookmark: "
           (bufferlo--bookmark-get-names #'bufferlo--bookmark-tab-handler)
-          nil nil nil 'bufferlo-bookmark-tab-history)))
+          nil nil nil 'bufferlo-bookmark-tab-history
+          (alist-get 'bufferlo-bookmark-tab-name (bufferlo--current-tab)))))
   (bufferlo--warn)
   (bookmark-store name (bufferlo-bookmark-set-location (bufferlo--bookmark-tab-get)) no-overwrite)
   (setf (alist-get 'bufferlo-bookmark-tab-name
@@ -1809,7 +1810,8 @@ Specify a prefix argument to force reusing the current tab."
    (list (completing-read
           "Load bufferlo tab bookmark: "
           (bufferlo--bookmark-get-names #'bufferlo--bookmark-tab-handler)
-          nil nil nil 'bufferlo-bookmark-tab-history)))
+          nil nil nil 'bufferlo-bookmark-tab-history
+          (alist-get 'bufferlo-bookmark-tab-name (bufferlo--current-tab)))))
   (bufferlo--warn)
   (let ((bookmark-fringe-mark nil))
     (bookmark-jump name #'ignore)))
