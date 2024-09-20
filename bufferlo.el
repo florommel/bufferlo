@@ -467,12 +467,13 @@ Set to 0 to disable the timer. Units are whole integer seconds."
   "Bufferlo mode-line format to display the current active frame or tab bookmark."
   (when bufferlo-mode
     (let ((fbm (frame-parameter nil 'bufferlo-bookmark-frame-name))
-          (tbm (alist-get 'bufferlo-bookmark-tab-name (tab-bar--current-tab-find))))
+          (tbm (alist-get 'bufferlo-bookmark-tab-name (tab-bar--current-tab-find)))
+          (maybe-space (if (display-graphic-p) "" " "))) ; tty rendering can be off for Ⓕ Ⓣ
       (concat bufferlo-mode-line-lighter-prefix
               "["
-              (if fbm (concat "Ⓕ " fbm)) ; the space accommodates tty rendering
+              (if fbm (concat "Ⓕ" maybe-space fbm)) ; the space accommodates tty rendering
               (if (and fbm tbm) " ")
-              (if tbm (concat "Ⓣ " tbm)) ; the space accommodates tty rendering
+              (if tbm (concat "Ⓣ" maybe-space tbm)) ; the space accommodates tty rendering
               "]"))))
 
 (defcustom bufferlo-mode-line-lighter '(:eval (bufferlo-mode-line-format))
