@@ -536,7 +536,7 @@ and ignore EXCLUDE-TABNUM."
                           (bufferlo--current-buffers f)))
                       (frame-list))))))
     (seq-uniq
-     (append (mapcar get-inactive-tabs-buffers (frame-list))
+     (append (seq-mapcat get-inactive-tabs-buffers (frame-list))
              (funcall get-frames-buffers)))))
 
 (defun bufferlo--get-orphan-buffers ()
