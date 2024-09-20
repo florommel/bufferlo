@@ -735,11 +735,11 @@ If FRAME is nil, the current frame is selected.
 If TABNUM is nil, the current tab is selected.
 If TABNUM is \\='all, all tabs of the frame are selected."
   (cond ((eq tabnum 'all)
-         (seq-uniq (mapcan (lambda (tb)
-                             (if (eq 'current-tab (car tb))
-                                 (bufferlo--current-buffers frame)
-                               (bufferlo--get-tab-buffers tb)))
-                           (funcall tab-bar-tabs-function frame))))
+         (seq-uniq (seq-mapcat (lambda (tb)
+                                 (if (eq 'current-tab (car tb))
+                                     (bufferlo--current-buffers frame)
+                                   (bufferlo--get-tab-buffers tb)))
+                               (funcall tab-bar-tabs-function frame))))
         (tabnum
          (let ((tab (nth tabnum (funcall tab-bar-tabs-function frame))))
            (if (eq 'current-tab (car tab))
@@ -915,31 +915,27 @@ and ignore EXCLUDE-TABNUM."
   (let* ((exclude-tab (when (and exclude-tabnum (not (eq exclude-tabnum 'all)))
                         (nth exclude-tabnum
                              (funcall tab-bar-tabs-function exclude-frame))))
-         (flatten (lambda (list)
-                    (apply #'append (append list '(nil)))))
          (get-inactive-tabs-buffers
           (lambda (f)
-            (funcall flatten
-                     (mapcar
-                      (lambda (tb)
-                        (unless (and (eq f exclude-frame)
-                                     (or (eq exclude-tabnum 'all)
-                                         (eq tb exclude-tab)))
-                          (bufferlo--get-tab-buffers tb)))
-                      (funcall tab-bar-tabs-function f)))))
+            (seq-mapcat
+             (lambda (tb)
+               (unless (and (eq f exclude-frame)
+                            (or (eq exclude-tabnum 'all)
+                                (eq tb exclude-tab)))
+                 (bufferlo--get-tab-buffers tb)))
+             (funcall tab-bar-tabs-function f))))
          (get-frames-buffers
           (lambda ()
-            (funcall flatten
-                     (mapcar
-                      (lambda (f)
-                        (unless (and (eq f exclude-frame)
-                                     (or (eq exclude-tabnum 'all)
-                                         (not exclude-tab)
-                                         (eq 'current-tab (car exclude-tab))))
-                          (bufferlo--current-buffers f)))
-                      (frame-list))))))
+            (seq-mapcat
+             (lambda (f)
+               (unless (and (eq f exclude-frame)
+                            (or (eq exclude-tabnum 'all)
+                                (not exclude-tab)
+                                (eq 'current-tab (car exclude-tab))))
+                 (bufferlo--current-buffers f)))
+             (frame-list)))))
     (seq-uniq
-     (append (mapcar get-inactive-tabs-buffers (frame-list))
+     (append (seq-mapcat get-inactive-tabs-buffers (frame-list))
              (funcall get-frames-buffers)))))
 
 (defun bufferlo--get-orphan-buffers ()
@@ -1084,8 +1080,6 @@ This does not select the buffer -- just the containing frame and tab."
   (interactive "b")
   (bufferlo--warn)
   (let* ((buffer (get-buffer buffer-or-name))
-         (flatten (lambda (list)
-                    (apply #'append (append list '()))))
          (search-tabs (lambda (f)
                         (let ((i 0))
                           (mapcar
@@ -1107,11 +1101,10 @@ This does not select the buffer -- just the containing frame and tab."
                                             (eq f (selected-frame))
                                             nil nil)))))))
          (candidates (seq-filter 'identity
-                                 (funcall flatten
-                                          (mapcar
-                                           (lambda (f)
-                                             (funcall search-frames f))
-                                           (frame-list)))))
+                                 (seq-mapcat
+                                  (lambda (f)
+                                    (funcall search-frames f))
+                                  (frame-list))))
          (candidates (mapcar
                       (lambda (c)
                         (let ((sel (if (nth 2 c) " [this]" ""))
