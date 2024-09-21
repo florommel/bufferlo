@@ -150,9 +150,9 @@ This is a list of regular expressions to filter buffer names."
 
 \\='prompt allows you to select a policy interactively.
 
-\\='disallow prevents accidental overlays on already-bookmarked
-frames, with the exception that a bookmarked frame may be
-reloaded to restore its state.
+\\='disallow-replace prevents accidental replacement of
+already-bookmarked frames, with the exception that a bookmarked
+frame may be reloaded to restore its state.
 
 \\='replace-frame-retain-current-bookmark replaces the frame
 content using the existing frame bookmark name.
@@ -168,7 +168,7 @@ This policy is useful when
 loading is not overridden with a prefix argument that suppresses
 making a new frame."
   :type '(radio (const :tag "Prompt" prompt)
-                (const :tag "Disallow" disallow)
+                (const :tag "Disallow" disallow-replace)
                 (const :tag "Replace frame, retain current bookmark name" replace-frame-retain-current-bookmark)
                 (const :tag "Replace frame, adopt loaded bookmark name" replace-frame-adopt-loaded-bookmark)
                 (const :tag "Merge" merge)))
@@ -207,18 +207,23 @@ undeleted frame."
                 (const :tag "Allow" allow)
                 (const :tag "Disassociate" disassociate)))
 
-(defcustom bufferlo-bookmark-tab-overwrite-policy 'overwrite
-  "Control whether loaded tabs overwrite current tabs or occupy new tabs.
+(defcustom bufferlo-bookmarks-load-tabs-make-frame nil
+  "If non-nil, make a new frame for tabs loaded by `bufferlo-bookmarks-load'.
+If nil, tab bookmarks are loaded into the current frame."
+  :type 'boolean)
+
+(defcustom bufferlo-bookmark-tab-replace-policy 'replace
+  "Control whether loaded tabs replace current tabs or occupy new tabs.
 
 \\='prompt allows you to select a policy interactively.
 
-\\='overwrite clears the current tab and overwrites its content
+\\='replace clears the current tab and overwrites its content
 with the loaded tab.
 
 \\='new loads tab bookmarks into new tabs, honoring the user
 option `tab-bar-new-tab-to'."
   :type '(radio (const :tag "Prompt" prompt)
-                (const :tag "Overwrite)" overwrite)
+                (const :tag "Replace)" replace)
                 (const :tag "New" new)))
 
 (defcustom bufferlo-bookmark-tab-duplicate-policy 'allow
@@ -315,11 +320,6 @@ the first positive result. Set to
 provide your own predicates."
   :type 'hook)
 
-(defcustom bufferlo-bookmarks-load-tabs-make-frame nil
-  "If non-nil, make a new frame for tabs loaded by `bufferlo-bookmarks-load'.
-If nil, tab bookmarks are loaded into the current frame."
-  :type 'boolean)
-
 (defcustom bufferlo-bookmarks-save-at-emacs-exit 'nosave
   "Bufferlo can save active bookmarks at Emacs exit.
 
@@ -352,6 +352,10 @@ Note that `bufferlo-mode' must be enabled before
 (defcustom bufferlo-ibuffer-bind-local-buffer-filter t
   "If non-nil, bind the local buffer filter and the orphan filter in ibuffer.
 The local buffer filter is bound to \"/ l\" and the orphan filter to \"/ L\"."
+  :type 'boolean)
+
+(defcustom bufferlo-ibuffer-bind-keys nil
+  "If non-nil, bind ibuffer convenience keys for bufferlo functions."
   :type 'boolean)
 
 (defcustom bufferlo-local-scratch-buffer-name "*local scratch*"
@@ -1326,14 +1330,19 @@ The parameters OTHER-WINDOW-P NOSELECT SHRINK are passed to `ibuffer'."
 (define-ibuffer-op ibuffer-do-bufferlo-remove ()
   "Remove marked buffers from bufferlo's local buffer list."
   (
-   :active-opstring "remove from bufferlo locals" ; user prompt
-   :opstring "removed from bufferlo locals:" ; upon action completion
+   :active-opstring "remove from bufferlo locals" ; prompt
+   :opstring "removed from bufferlo locals:" ; success
    :modifier-p t
    :dangerous t
    :complex t
+   :after (ibuffer-update nil t)
    )
-  (bufferlo-remove buf) ; always returns nil; TODO: consider it could return t if actually removed, nil if not
-  t)
+  (when bufferlo-mode
+    (bufferlo-remove buf)
+    t))
+
+(when bufferlo-ibuffer-bind-keys
+  (define-key ibuffer-mode-map "-" #'ibuffer-do-bufferlo-remove))
 
 (define-minor-mode bufferlo-anywhere-mode
   "Frame/tab-local buffer lists anywhere you like.
@@ -1553,20 +1562,20 @@ this bookmark is embedded in a frame bookmark."
            (bufferlo--bookmark-raise abm)
            (throw :noload t))))
       (unless embedded-tab
-        (let ((overwrite-policy bufferlo-bookmark-tab-overwrite-policy))
-          (when (eq overwrite-policy 'prompt)
+        (let ((replace-policy bufferlo-bookmark-tab-replace-policy))
+          (when (eq replace-policy 'prompt)
             (pcase (let ((read-answer-short t))
                      (with-local-quit
-                       (read-answer "Overwrite current tab, New tab "
-                                    '(("overwrite" ?o "Overwrite tab")
+                       (read-answer "Replace current tab, New tab "
+                                    '(("replace" ?o "Replace tab")
                                       ("new" ?n "New tab")
                                       ("help" ?h "Help")
                                       ("quit" ?q "Quit with no changes")))))
-              ("overwrite" (setq overwrite-policy 'overwrite))
-              ("new" (setq overwrite-policy 'new))
+              ("replace" (setq replace-policy 'replace))
+              ("new" (setq replace-policy 'new))
               (_ (throw :noload t))))
-          (pcase overwrite-policy
-            ('overwrite)
+          (pcase replace-policy
+            ('replace)
             ('new
              (unless (consp current-prefix-arg) ; user new tab suppression
                (tab-bar-new-tab-to))))))
@@ -1708,7 +1717,7 @@ the message after successfully restoring the bookmark."
                         ("merge" (setq load-policy 'merge))
                         (_ (throw :noload t))))
                     (pcase load-policy
-                      ('disallow
+                      ('disallow-replace
                        (when (not (equal fbm bookmark-name)) ; allow reloads of existing bookmark
                          (unless no-message (message "Frame already bookmarked as %s; not loaded." fbm))
                          (throw :noload t)))
@@ -1813,8 +1822,8 @@ buffer list."
   "Load a tab bookmark.
 NAME is the bookmark's name.
 
-`bufferlo-bookmark-tab-overwrite-policy' controls if the loaded
-bookmark overwrites the current tab or makes a new tab.
+`bufferlo-bookmark-tab-replace-policy' controls if the loaded
+bookmark replaces the current tab or makes a new tab.
 
 Specify a prefix argument to force reusing the current tab."
   (interactive
@@ -1848,12 +1857,12 @@ initially loaded.  Performs an interactive bookmark selection if no
 associated bookmark exists.
 
 This reuses the current tab even if
-`bufferlo-bookmark-tab-overwrite-policy' is set to \\='new."
+`bufferlo-bookmark-tab-replace-policy' is set to \\='new."
   (interactive)
   (bufferlo--warn)
   (if-let (bm (alist-get 'bufferlo-bookmark-tab-name
                          (cdr (bufferlo--current-tab))))
-      (let ((bufferlo-bookmark-tab-overwrite-policy 'overwrite) ; reload reuses current tab
+      (let ((bufferlo-bookmark-tab-replace-policy 'replace) ; reload reuses current tab
             (bufferlo-bookmark-tab-duplicate-policy 'allow)) ; not technically a duplicate
         (bufferlo-bookmark-tab-load bm))
     (call-interactively #'bufferlo-bookmark-tab-load)))
@@ -2120,7 +2129,7 @@ current or new frame according to
 
 ;; TODO: handle option to save? prefix arg to save or not save?
 (defun bufferlo-bookmarks-close-interactive ()
-  "Prompt for active bufferlo bookmarks to close using the minibuffer."
+  "Prompt for active bufferlo bookmarks to close."
   (interactive)
   (let* ((abms (bufferlo--active-bookmarks))
          (abm-names (mapcar #'car abms))
@@ -2140,7 +2149,7 @@ current or new frame according to
     (bufferlo--close-active-bookmarks comps abms)))
 
 (defun bufferlo-bookmarks-save-interactive ()
-  "Prompt for active bufferlo bookmarks to save using the minibuffer."
+  "Prompt for active bufferlo bookmarks to save."
   (interactive)
   (let* ((abms (bufferlo--active-bookmarks))
          (abm-names (mapcar #'car abms))
@@ -2160,7 +2169,7 @@ current or new frame according to
     (bufferlo--bookmarks-save comps abms)))
 
 (defun bufferlo-bookmarks-load-interactive ()
-  "Prompt for bufferlo bookmarks to load using the minibuffer.
+  "Prompt for bufferlo bookmarks to load.
 Use a prefix argument to narrow the candidates to frame tabs, or
 a double prefix argument to narrow to tab bookmark candidates."
   (interactive)
@@ -2191,9 +2200,9 @@ a double prefix argument to narrow to tab bookmark candidates."
 This clears the active bookmark name only if there is another
 active bufferlo bookmark with the same name and FORCE is nil.
 
-This is useful if an active bookmark has been loaded twice, and
-especially if you use auto saving features and want to ensure
-that only one bookmark is active.
+This is useful if an active bookmark has been loaded more than
+once, and especially if you use the auto save feature and want to
+ensure that only one bookmark is active.
 
 FORCE will clear the bookmark even if it is currently unique.
 
@@ -2267,8 +2276,10 @@ transient work."
 (defun bufferlo-bookmarks-close ()
   "Close all active bufferlo frame and tab bookmarks and kill their buffers.
 
-You will be offered to save bookmarks using filter predicates or
-all unless a prefix argument is specified."
+You will be prompted to save bookmarks using filter predicates or
+save all.
+
+A prefix argument inhibits the prompt and bypasses saving."
   (interactive)
   (let* ((close t)
          (abms (bufferlo--active-bookmarks))
