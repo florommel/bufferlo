@@ -404,6 +404,14 @@ enabling ~bufferlo-mode~):
   (setq bufferlo-bookmarks-save-at-emacs-exit-policy 'all) ; save all active bookmarks
 #+end_src
 
+Workflow tip: If you would like to be able to restore a bookmark's
+original state and still benefit from auto-saving its current state,
+simply save two copies. The first one with a base name; e.g.,
+"bufferlo", and the second, which you should save immediately after
+the first, called; e.g., "bufferlo=as". You can restore "bufferlo" and
+get back to your original any time while the "=as" bookmark will save
+your context as you work. Switch between them as you see fit.
+
 **** Automatic bookmark loading
 
 To automatically load some or all bufferlo bookmarks at Emacs startup
