@@ -758,7 +758,7 @@ feature to Emacs 31.
 
   (use-package bufferlo
     :demand t
-    :after (ibuffer consult)
+    :after (ibuffer consult) ; also mark these :demand t or use explicit require
     :bind
     (
      ;; ibuffer
