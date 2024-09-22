@@ -349,6 +349,11 @@ Note that `bufferlo-mode' must be enabled before
                 (const :tag "Predicate-filtered bookmarks" pred)
                 (const :tag "All bookmarks" all)))
 
+(defcustom bufferlo-bookmarks-load-at-emacs-startup-tabs-make-frame nil
+  "If nil, the initial frame is reused for restored tabs.
+If non-nil, a new frame is created for restored tabs."
+  :type 'boolean)
+
 (defcustom bufferlo-ibuffer-bind-local-buffer-filter t
   "If non-nil, bind the local buffer filter and the orphan filter in ibuffer.
 The local buffer filter is bound to \"/ l\" and the orphan filter to \"/ L\"."
@@ -372,8 +377,7 @@ and `bufferlo-toggle-local-scratch-buffer'.
 For example, create a dedicated local scratch buffer for all tabs and frames:
   (setq \\='tab-bar-new-tab-choice #\\='bufferlo-create-local-scratch-buffer)
   (add-hook \\='after-make-frame-functions
-             #\\='bufferlo-switch-to-local-scratch-buffer)
-
+            #\\='bufferlo-switch-to-local-scratch-buffer)
 You can set this to \"*scratch*\"."
   :type 'string)
 
@@ -555,7 +559,7 @@ Set to 0 to disable the timer. Units are whole integer seconds."
         ;; load bookmarks at startup option
         (when (and (not bufferlo--command-line-noload)
                    (not (eq bufferlo-bookmarks-load-at-emacs-startup 'noload)))
-          (add-hook 'window-setup-hook #'bufferlo-bookmarks-load))
+          (add-hook 'window-setup-hook #'bufferlo--bookmarks-load-startup))
         ;; bookmark advice
         (advice-add 'bookmark-rename :around #'bufferlo--bookmark-rename-advice)
         (advice-add 'bookmark-delete :around #'bufferlo--bookmark-delete-advice))
@@ -2090,6 +2094,11 @@ This honors `bufferlo-bookmarks-save-at-emacs-exit' by predicate or
            bufferlo-bookmarks-save-predicate-functions)))
     (bufferlo-bookmarks-save)))
 
+(defun bufferlo--bookmarks-load-startup ()
+  "Load bookmarks at startup."
+  (let ((bufferlo-bookmarks-load-tabs-make-frame bufferlo-bookmarks-load-at-emacs-startup-tabs-make-frame))
+    (bufferlo-bookmarks-load (eq bufferlo-bookmarks-load-at-emacs-startup 'all))))
+
 (defun bufferlo-bookmarks-load (&optional all)
   "Load stored bufferlo bookmarks.
 Invoke manually or via `window-setup-hook' to restore bookmarks
@@ -2107,6 +2116,7 @@ current or new frame according to
         (start-time (current-time))
         (tab-bar-new-tab-choice t)
         (new-tab-frame nil)
+        (bufferlo-bookmark-tab-replace-policy bufferlo-bookmark-tab-replace-policy)
         (bufferlo-bookmarks-load-predicate-functions
          (if (or all (consp current-prefix-arg))
              (list #'bufferlo-bookmarks-load-all-p)
@@ -2114,7 +2124,9 @@ current or new frame according to
     (dolist (bookmark-name (bufferlo--bookmark-get-names #'bufferlo--bookmark-tab-handler))
       (when (run-hook-with-args-until-success 'bufferlo-bookmarks-load-predicate-functions bookmark-name)
         (if (and bufferlo-bookmarks-load-tabs-make-frame (not new-tab-frame))
-            (setq new-tab-frame (make-frame))
+            (progn
+              (setq bufferlo-bookmark-tab-replace-policy 'replace)
+              (select-frame (setq new-tab-frame (make-frame))))
           (tab-bar-new-tab-to))
         (bufferlo-bookmark-tab-load bookmark-name)
         (push bookmark-name bookmarks-loaded)))

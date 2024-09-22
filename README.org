@@ -415,6 +415,13 @@ time:
   (setq bufferlo-bookmarks-load-at-emacs-startup 'all) ; load all bufferlo bookmarks
 #+end_src
 
+To make a new frame to hold restored tabs at startup, or reuse the initial frame:
+
+#+begin_src emacs-lisp
+  (setq bufferlo-bookmarks-load-at-emacs-startup-tabs-make-frame nil) ; reuse the initial frame (this is the default)
+  (setq bufferlo-bookmarks-load-at-emacs-startup-tabs-make-frame t) ; make a new frame
+#+end_src
+
 Example auto-load predicate:
 
 #+begin_src emacs-lisp
