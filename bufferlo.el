@@ -2114,26 +2114,28 @@ current or new frame according to
   (interactive)
   (let ((bookmarks-loaded nil)
         (start-time (current-time))
-        (tab-bar-new-tab-choice t)
-        (new-tab-frame nil)
-        (bufferlo-bookmark-tab-replace-policy bufferlo-bookmark-tab-replace-policy)
+        (orig-frame (selected-frame))
         (bufferlo-bookmarks-load-predicate-functions
          (if (or all (consp current-prefix-arg))
              (list #'bufferlo-bookmarks-load-all-p)
            bufferlo-bookmarks-load-predicate-functions)))
-    (dolist (bookmark-name (bufferlo--bookmark-get-names #'bufferlo--bookmark-tab-handler))
-      (when (run-hook-with-args-until-success 'bufferlo-bookmarks-load-predicate-functions bookmark-name)
-        (if (and bufferlo-bookmarks-load-tabs-make-frame (not new-tab-frame))
-            (progn
-              (setq bufferlo-bookmark-tab-replace-policy 'replace)
-              (select-frame (setq new-tab-frame (make-frame))))
-          (tab-bar-new-tab-to))
-        (bufferlo-bookmark-tab-load bookmark-name)
-        (push bookmark-name bookmarks-loaded)))
+    ;; load tab bookmarks, making a new frame if required
+    (let ((bufferlo-bookmark-tab-replace-policy 'replace) ; we handle making tabs in this loop
+          (tab-bar-new-tab-choice t)
+          (new-tab-frame nil))
+      (dolist (bookmark-name (bufferlo--bookmark-get-names #'bufferlo--bookmark-tab-handler))
+        (when (run-hook-with-args-until-success 'bufferlo-bookmarks-load-predicate-functions bookmark-name)
+          (if (and bufferlo-bookmarks-load-tabs-make-frame (not new-tab-frame))
+              (select-frame (setq new-tab-frame (make-frame)))
+            (tab-bar-new-tab-to))
+          (bufferlo-bookmark-tab-load bookmark-name)
+          (push bookmark-name bookmarks-loaded))))
+    ;; load frame bookmarks
     (dolist (bookmark-name (bufferlo--bookmark-get-names #'bufferlo--bookmark-frame-handler))
       (when (run-hook-with-args-until-success 'bufferlo-bookmarks-load-predicate-functions bookmark-name)
         (bufferlo-bookmark-frame-load bookmark-name)
         (push bookmark-name bookmarks-loaded)))
+    (select-frame orig-frame)
     (when bookmarks-loaded
       (message "Loaded bufferlo bookmarks: %s, in %.2f seconds "
                (mapconcat 'identity bookmarks-loaded " ")
