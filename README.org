@@ -802,7 +802,7 @@ feature to Emacs 31.
     (setq switch-to-prev-buffer-skip-regexp
           (concat "\\` *"
                   "\\(\\*\\(Messages\\|Ibuffer\\|scratch\\|Completions\\|Help\\|Warnings\\|Apropos\\|vc-diff\\)\\*\\)"
-                  "\\|" (rx  "*helpful " (1+ anything) "*")
+                  "\\|" (rx "*helpful " (1+ anything) "*")
                   "\\'"))
     (setq bufferlo-kill-buffers-prompt t)
     (setq bufferlo-bookmark-prefer-saveplace-point t)
