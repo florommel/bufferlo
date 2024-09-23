@@ -2097,7 +2097,9 @@ This honors `bufferlo-bookmarks-save-at-emacs-exit' by predicate or
 (defun bufferlo--bookmarks-load-startup ()
   "Load bookmarks at startup."
   (let ((bufferlo-bookmarks-load-tabs-make-frame bufferlo-bookmarks-load-at-emacs-startup-tabs-make-frame))
-    (bufferlo-bookmarks-load (eq bufferlo-bookmarks-load-at-emacs-startup 'all))))
+    (run-with-idle-timer 0 nil
+                         (lambda ()
+                           (bufferlo-bookmarks-load (eq bufferlo-bookmarks-load-at-emacs-startup 'all))))))
 
 (defun bufferlo-bookmarks-load (&optional all)
   "Load stored bufferlo bookmarks.
