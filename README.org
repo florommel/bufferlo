@@ -1,6 +1,3 @@
-:PROPERTIES:
-:TOC:      :include all :depth 3 :force (depth) :ignore (this) :local (depth)
-:END:
 #+title: bufferlo.el - Frame/Tab Local Buffer Lists with Persistence
 #+author: Florian Rommel, Stephane Marks
 #+email: mail@florommel.de, shipmints@gmail.com
@@ -18,53 +15,11 @@
 # +html_head: <script type="text/javascript" src="https://fniessen.github.io/org-html-themes/src/lib/js/jquery.stickytableheaders.min.js"></script>
 # +html_head: <script type="text/javascript" src="https://fniessen.github.io/org-html-themes/src/readtheorg_theme/js/readtheorg.js"></script>
 
-# toc below works for local rendering but not github boo
-#+toc: headlines 3 local
-
 * bufferlo
-# M-x org-make-toc to refresh the embedded toc for github use
-# below inserted using M-x org-make-toc-insert
-:PROPERTIES:
-:TOC:      :include descendants :force (ignore) :ignore (this) :local (nothing)
-:END:
 
 Easy-to-use buffer management and workspace persistence tools for
 Emacs workflow management. Headbutt your way to productivity and moove
 ahead with bufferlo.
-
-#+html: <img src="img/bufferlo.jpg" style="width: 35vw; min-width: 300px;" align="right">
-:CONTENTS:
-- [[#introduction][Introduction]]
-- [[#installation][Installation]]
-- [[#usage][Usage]]
-  - [[#buffer-selection][Buffer selection]]
-  - [[#manage-local-buffer-lists][Manage local buffer lists]]
-  - [[#bookmark-management-for-frames-and-tabs][Bookmark management for frames and tabs]]
-    - [[#general-bookmark-commands][General bookmark commands]]
-    - [[#frame-bookmark-commands][Frame bookmark commands]]
-    - [[#tab-bookmark-commands][Tab bookmark commands]]
-    - [[#automatic-bookmark-saving][Automatic bookmark saving]]
-    - [[#automatic-bookmark-loading][Automatic bookmark loading]]
-    - [[#filter-saved-bookmark-buffers][Filter saved bookmark buffers]]
-    - [[#bookmark-duplicates][Bookmark duplicates]]
-    - [[#save-current-other-or-all-frame-bookmarks][Save current, other, or all frame bookmarks]]
-    - [[#frame-bookmark-options][Frame bookmark options]]
-    - [[#tab-bookmark-options][Tab bookmark options]]
-    - [[#bookmark-addenda][Bookmark addenda]]
-  - [[#mode-line][mode-line]]
-  - [[#initial-buffer][Initial buffer]]
-  - [[#bufferlo-anywhere][Bufferlo anywhere]]
-- [[#package-integration][Package integration]]
-  - [[#consult][Consult]]
-  - [[#ivy][Ivy]]
-  - [[#shell-mode-bookmarks][shell-mode bookmarks]]
-- [[#complete-configuration-sample][Complete configuration sample]]
-- [[#recommended-packages][Recommended packages]]
-- [[#alternatives][Alternatives]]
-  - [[#desktopel][desktop.el]]
-  - [[#other-emacs-packages][Other Emacs packages]]
-:END:
-
 
 ** Introduction
 
@@ -141,12 +96,6 @@ If you're not a tab-bar user, you likely have this set:
   (setq tab-bar-show nil) ; or use the following method
   (setopt tab-bar-show nil) ; this has a defcusto setter
 #+end_src
-
-Note: The most recent version of bufferlo has had many features added
-since last published. An attempt has been made to maintain backward
-compatibility for existing users. Some of the defaults may now seem
-cumbersome. Please review your configuration in light of these new
-features.
 
 ** Usage
 
@@ -370,7 +319,7 @@ seconds between saves that you prefer, or 0, the default, to disable
 the timer:
 #+begin_src emacs-lisp
   (setq bufferlo-bookmarks-auto-save-idle-interval 120) ; do this in advance of enabling `bufferlo-mode'
-  (setopt bufferlo-bookmarks-auto-save-idle-interval 120) ; use setopt, there is a custom setter
+  (setopt bufferlo-bookmarks-auto-save-idle-interval 120) ; or use setopt, to invoke the custom setter
 #+end_src
 
 By default, bufferlo will save all active bookmarks. To select the
@@ -390,7 +339,7 @@ Example auto-save predicate:
 
 You can control messages produced when bufferlo saves bookmarks:
 #+begin_src emacs-lisp
-  (setq bufferlo-bookmarks-auto-save-messages nil) ; inhibit messages (this is the default)
+  (setq bufferlo-bookmarks-auto-save-messages nil) ; inhibit messages (default)
   (setq bufferlo-bookmarks-auto-save-messages t) ; messages when saving and when there are no bookmarks to save
   (setq bufferlo-bookmarks-auto-save-messages 'saved) ; message only when bookmarks are saved
   (setq bufferlo-bookmarks-auto-save-messages 'notsaved) ; message only when there are no bookmarks to save
@@ -399,7 +348,7 @@ You can control messages produced when bufferlo saves bookmarks:
 To save your bufferlo bookmarks at Emacs exit (set in advance of
 enabling ~bufferlo-mode~):
 #+begin_src emacs-lisp
-  (setq bufferlo-bookmarks-save-at-emacs-exit-policy 'nosave) ; inhibit saving at exit (this is the default)
+  (setq bufferlo-bookmarks-save-at-emacs-exit-policy 'nosave) ; inhibit saving at exit (default)
   (setq bufferlo-bookmarks-save-at-emacs-exit-policy 'pred) ; save active bookmark names that match your predicates
   (setq bufferlo-bookmarks-save-at-emacs-exit-policy 'all) ; save all active bookmarks
 #+end_src
@@ -418,7 +367,7 @@ To automatically load some or all bufferlo bookmarks at Emacs startup
 time:
 
 #+begin_src emacs-lisp
-  (setq bufferlo-bookmarks-load-at-emacs-startup 'noload) ; inhibit loading at startup (this is the default)
+  (setq bufferlo-bookmarks-load-at-emacs-startup 'noload) ; inhibit loading at startup (default)
   (setq bufferlo-bookmarks-load-at-emacs-startup 'pred) ; load bookmark names that match your predicates
   (setq bufferlo-bookmarks-load-at-emacs-startup 'all) ; load all bufferlo bookmarks
 #+end_src
@@ -426,7 +375,7 @@ time:
 To make a new frame to hold restored tabs at startup, or reuse the initial frame:
 
 #+begin_src emacs-lisp
-  (setq bufferlo-bookmarks-load-at-emacs-startup-tabs-make-frame nil) ; reuse the initial frame (this is the default)
+  (setq bufferlo-bookmarks-load-at-emacs-startup-tabs-make-frame nil) ; reuse the initial frame (default)
   (setq bufferlo-bookmarks-load-at-emacs-startup-tabs-make-frame t) ; make a new frame
 #+end_src
 
@@ -480,17 +429,18 @@ filter are added back. For example:
 **** Bookmark duplicates
 
 Bufferlo can discourage you from using multiple duplicate active
-bookmarks, but does not prevent them. Using them is confusing and they
-present a race condition when saving as all copies will be saved,
-overwriting one another without regard to ordering, with the last one
-saved winning the race.
+bookmarks, but does not prevent them. Having duplicates is confusing
+and they present a race condition when saving as all copies will be
+saved, overwriting one another without regard to ordering, with the
+last one saved winning the race.
 
 Note: The options to prevent duplicates are not enabled by default to
 maintain backward compatibility with previous versions of bufferlo,
 but they are likely to be enabled by default in the future.
 
 #+begin_src emacs-lisp
-  (setq bufferlo-bookmarks-save-duplicates-policy 'prompt) ; default is 'allow for backward compatibility
+  (setq bufferlo-bookmarks-save-duplicates-policy 'prompt) ; default
+  (setq bufferlo-bookmarks-save-duplicates-policy 'allow) ; old default behavior
   (setq bufferlo-bookmarks-save-duplicates-policy 'disallow) ; even better
 #+end_src
 
@@ -501,7 +451,7 @@ which frames' bookmarks are saved. For example, some prefer not to
 have their current working set be saved unless and until they choose.
 
 #+begin_src emacs-lisp
-  (setq bufferlo-bookmarks-save-frame-policy 'all) ; this is the default
+  (setq bufferlo-bookmarks-save-frame-policy 'all) ; default
   (setq bufferlo-bookmarks-save-frame-policy 'other) ; saves unselected frames' bookmarks
   (setq bufferlo-bookmarks-save-frame-policy 'current) ; saves only the current frame bookmarks
 #+end_src
@@ -513,20 +463,26 @@ them to suit your workflow as you gain experience with bufferlo. Refer
 to each option's documentation for additional settings.
 
 #+begin_src emacs-lisp
-  ;; make a new frame to hold loaded frame bookmarks (default is nil for backward compatibility)
-  (setq bufferlo-bookmark-frame-load-make-frame t)
+  ;; make a new frame to hold loaded frame bookmarks
+  (setq bufferlo-bookmark-frame-load-make-frame t) ; default is nil for backward compatibility
 #+end_src
 #+begin_src emacs-lisp
-  ;; policy when loading onto an already bookmarked frame (default is 'replace-frame-retain-current-bookmark for backward compatibility)
-  (setq bufferlo-bookmark-frame-load-policy 'prompt)
+  ;; policy when loading onto an already bookmarked frame
+  (setq bufferlo-bookmark-frame-load-policy 'prompt) ; default
+  (setq bufferlo-bookmark-frame-load-policy 'replace-frame-retain-current-bookmark) ; old default behavior
+  (setq bufferlo-bookmark-frame-load-policy 'replace-frame-adopt-loaded-bookmark)
+  (setq bufferlo-bookmark-frame-load-policy 'merge) ; best selected via prompting to merge new tabs into the existing frame
 #+end_src
 #+begin_src emacs-lisp
-  ;; allow duplicate active frame bookmarks in the Emacs session (default is 'allow for backward compatibility)
-  (setq bufferlo-bookmark-frame-duplicate-policy 'prompt)
+  ;; allow duplicate active frame bookmarks in the Emacs session
+  (setq bufferlo-bookmark-frame-duplicate-policy 'prompt) ; default
+  (setq bufferlo-bookmark-frame-duplicate-policy 'allow) ; old default behavior
+  (setq bufferlo-bookmark-frame-duplicate-policy 'raise) ; do not load, raise the existing frame
 #+end_src
 #+begin_src emacs-lisp
-  ;; retain the bookmark when cloning a bookmarked frame via `clone-frame' or C-x 5 c (default is 'allow for backward compatibility)
-  (setq bufferlo-bookmark-frame-clone-policy 'prompt)
+  ;; retain the bookmark when cloning a bookmarked frame via `clone-frame' or C-x 5 c
+  (setq bufferlo-bookmark-frame-clone-policy 'prompt) ; default
+  (setq bufferlo-bookmark-frame-clone-policy 'allow) ; old default behavior
 #+end_src
 
 **** Tab bookmark options
@@ -536,20 +492,29 @@ them to suit your workflow as you gain experience with bufferlo. Refer
 to each option's documentation for additional settings.
 
 #+begin_src emacs-lisp
-  ;; make a new frame when loading a a batch of tab bookmarks (default is nil for backward compatibility and will use the current frame)
-  (setq bufferlo-bookmarks-load-tabs-make-frame t)
+   ;; make a new frame when loading a a batch of tab bookmarks
+   (setq bufferlo-bookmarks-load-tabs-make-frame nil) ; default, it reuses the current frame
+   (setq bufferlo-bookmarks-load-tabs-make-frame t) ; make a new tab when loading a batch of tab bookmarks
 #+end_src
 #+begin_src emacs-lisp
-  ;; load a tab bookmark replacing the current tab or making a new tab (default is 'replace for backward compatibility)
+  ;; load a tab bookmark replacing the current tab or making a new tab
+  (setq bufferlo-bookmark-tab-replace-policy 'replace) ; default (backward compatible behavior)
   (setq bufferlo-bookmark-tab-replace-policy 'new)
 #+end_src
 #+begin_src emacs-lisp
-  ;; allow duplicate active tab bookmarks in the Emacs session (default is 'allow for backward compatibility)
-  (setq bufferlo-bookmark-tab-duplicate-policy 'prompt)
+  ;; allow duplicate active tab bookmarks in the Emacs session
+  (setq bufferlo-bookmark-tab-duplicate-policy 'prompt) ; default
+  (setq bufferlo-bookmark-tab-duplicate-policy 'allow) ; old default behavior
+  (setq bufferlo-bookmark-tab-duplicate-policy 'clear) ; silently clear the loaded tab bookmark
+  (setq bufferlo-bookmark-tab-duplicate-policy 'clear-warn) ; clear the loaded tab bookmark with a message
+  (setq bufferlo-bookmark-tab-duplicate-policy 'raise) ; do not load, raise the existing frame/tab
 #+end_src
 #+begin_src emacs-lisp
-  ;; allow inferior tab bookmark on a bookmarked frame which will supersede the tab when saving (default is 'allow for backward compatibility)
-  (setq bufferlo-bookmark-tab-load-into-bookmarked-frame-policy 'prompt)
+  ;; allow inferior tab bookmark on a bookmarked frame which will supersede the tab when saving
+  (setq bufferlo-bookmark-tab-load-into-bookmarked-frame-policy 'prompt) ; default
+  (setq bufferlo-bookmark-tab-load-into-bookmarked-frame-policy 'allow) ; old default behavior
+  (setq bufferlo-bookmark-tab-load-into-bookmarked-frame-policy 'clear) ; silently clear the loaded tab bookmark
+  (setq bufferlo-bookmark-tab-load-into-bookmarked-frame-policy 'clear-warn) ; clear the loaded tab bookmark with a message
 #+end_src
 
 **** Bookmark addenda
@@ -830,6 +795,7 @@ feature to Emacs 31.
     (setq bufferlo-bookmarks-load-tabs-make-frame t)
     (setq bufferlo-bookmarks-save-at-emacs-exit-policy 'all)
     (setq bufferlo-bookmarks-load-at-emacs-startup 'pred)
+    (setq bufferlo-bookmarks-load-at-emacs-startup-tabs-make-frame nil)
     (setopt bufferlo-bookmarks-auto-save-idle-interval (* 60 5)) ; 5 minutes
     (setq bufferlo-bookmarks-auto-save-messages 'saved)
 

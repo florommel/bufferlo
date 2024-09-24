@@ -145,7 +145,7 @@ This is a list of regular expressions to filter buffer names."
   "If non-nil, confirm before closing the tab and killing buffers."
   :type 'boolean)
 
-(defcustom bufferlo-bookmark-frame-load-policy 'replace-frame-retain-current-bookmark
+(defcustom bufferlo-bookmark-frame-load-policy 'prompt
   "Control loading a frame bookmark into a already-bookmarked frame.
 
 \\='prompt allows you to select a policy interactively.
@@ -173,7 +173,7 @@ making a new frame."
                 (const :tag "Replace frame, adopt loaded bookmark name" replace-frame-adopt-loaded-bookmark)
                 (const :tag "Merge" merge)))
 
-(defcustom bufferlo-bookmark-frame-duplicate-policy 'allow
+(defcustom bufferlo-bookmark-frame-duplicate-policy 'prompt
   "Control duplicate active frame bookmarks.
 Duplicate active bookmarks cause potentially confusing race
 conditions.
@@ -192,7 +192,7 @@ its bookmark.
                 (const :tag "Allow" allow)
                 (const :tag "Raise" raise)))
 
-(defcustom bufferlo-bookmark-frame-clone-policy 'allow
+(defcustom bufferlo-bookmark-frame-clone-policy 'prompt
   "Control bookmark duplication on cloned and undeleted frames.
 Duplicate active bookmarks cause potentially confusing race
 conditions.
@@ -226,7 +226,7 @@ option `tab-bar-new-tab-to'."
                 (const :tag "Replace)" replace)
                 (const :tag "New" new)))
 
-(defcustom bufferlo-bookmark-tab-duplicate-policy 'allow
+(defcustom bufferlo-bookmark-tab-duplicate-policy 'prompt
   "Control duplicate active tab bookmarks.
 Duplicate active bookmarks cause potentially confusing race
 conditions.
@@ -249,7 +249,7 @@ frame."
                 (const :tag "Clear (with message)" clear-warn)
                 (const :tag "Raise" raise)))
 
-(defcustom bufferlo-bookmark-tab-load-into-bookmarked-frame-policy 'allow
+(defcustom bufferlo-bookmark-tab-load-into-bookmarked-frame-policy 'prompt
   "Control when a tab bookmark is loaded into an already-bookmarked frame.
 
 \\='clear will silently clear the tab bookmark which is natural
@@ -266,7 +266,7 @@ bookmark when the frame bookmark is saved."
                 (const :tag "Clear (silently)" clear)
                 (const :tag "Clear (with message)" clear-warn)))
 
-(defcustom bufferlo-bookmarks-save-duplicates-policy 'allow
+(defcustom bufferlo-bookmarks-save-duplicates-policy 'prompt
   "Control duplicates when saving all bookmarks.
 
 \\='prompt allows you to select a policy interactively.
