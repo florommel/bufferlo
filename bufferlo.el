@@ -479,7 +479,7 @@ Set to 0 to disable the timer. Units are whole integer seconds."
   "Bufferlo mode-line format to display the current active frame or tab bookmark."
   (when bufferlo-mode
     (let ((fbm (frame-parameter nil 'bufferlo-bookmark-frame-name))
-          (tbm (alist-get 'bufferlo-bookmark-tab-name (tab-bar--current-tab-find)))
+          (tbm (alist-get 'bufferlo-bookmark-tab-name (tab-bar--current-tab-find (frame-parameter nil 'tabs))))
           (maybe-space (if (display-graphic-p) "" " "))) ; tty rendering can be off for Ⓕ Ⓣ
       (concat bufferlo-mode-line-lighter-prefix
               "["
@@ -1509,7 +1509,7 @@ In contrast to `bufferlo-anywhere-mode', this does not adhere to
                 (mapcar #'bufferlo--bookmark-get-for-buffer
                         (bufferlo--bookmark-filter-buffers frame)))))
 
-(defun bufferlo--bookmark-tab-get (&optional frame)
+(defun bufferlo--bookmark-tab-make (&optional frame)
   "Get the bufferlo tab bookmark for the current tab in FRAME.
 FRAME specifies the frame; the default value of nil selects the current frame."
   `((buffer-bookmarks . ,(bufferlo--bookmark-get-for-buffers-in-tab frame))
@@ -1533,7 +1533,7 @@ FRAME specifies the frame; the default value of nil selects the current frame."
 (defun bufferlo--bookmark-tab-handler (bookmark &optional no-message embedded-tab)
   "Handle bufferlo tab bookmark.
 The argument BOOKMARK is the to-be restored tab bookmark created
-via `bufferlo--bookmark-tab-get'. If the optional argument
+via `bufferlo--bookmark-tab-make'. If the optional argument
 NO-MESSAGE is non-nil, inhibit the message after successfully
 restoring the bookmark. If EMBEDDED-TAB is non-nil, indicate that
 this bookmark is embedded in a frame bookmark."
@@ -1648,7 +1648,7 @@ this bookmark is embedded in a frame bookmark."
 
 (put #'bufferlo--bookmark-tab-handler 'bookmark-handler-type "B-Tab") ; short name here as bookmark-bmenu-list hard codes width of 8 chars
 
-(defun bufferlo--bookmark-frame-get (&optional frame)
+(defun bufferlo--bookmark-frame-make (&optional frame)
   "Get the bufferlo frame bookmark.
 FRAME specifies the frame; the default value of nil selects the current frame."
   (let ((orig-tab (1+ (tab-bar--current-tab-index nil frame)))
@@ -1658,7 +1658,7 @@ FRAME specifies the frame; the default value of nil selects the current frame."
       (let* ((curr (alist-get 'current-tab (funcall tab-bar-tabs-function frame)))
              (name (alist-get 'name curr))
              (explicit-name (alist-get 'explicit-name curr))
-             (tbm (bufferlo--bookmark-tab-get frame)))
+             (tbm (bufferlo--bookmark-tab-make frame)))
         (if explicit-name
             (push (cons 'tab-name name) tbm)
           (push (cons 'tab-name nil) tbm))
@@ -1671,7 +1671,7 @@ FRAME specifies the frame; the default value of nil selects the current frame."
 (defun bufferlo--bookmark-frame-handler (bookmark &optional no-message)
   "Handle bufferlo frame bookmark.
 The argument BOOKMARK is the to-be restored frame bookmark created via
-`bufferlo--bookmark-frame-get'.  The optional argument NO-MESSAGE inhibits
+`bufferlo--bookmark-frame-make'.  The optional argument NO-MESSAGE inhibits
 the message after successfully restoring the bookmark."
   (let ((new-frame)
         (keep-new-frame))
@@ -1777,10 +1777,290 @@ the message after successfully restoring the bookmark."
   (bookmark-prop-set bookmark-name-or-record 'location (or location ""))
   bookmark-name-or-record)
 
+(defcustom bufferlo-frameset-restore-geometry 'bufferlo
+  "Frameset restore geometry handling control.
+
+\\='native uses Emacs built-in geometry handling.
+
+\\='bufferlo uses bufferlo's geometry handling.
+
+Set to nil to ignore geometry handling."
+  :type '(radio (const :tag "Emacs" native)
+                (const :tag "Bufferlo" bufferlo)
+                (const :tag "Ignore" nil)))
+
+(defcustom bufferlo-frameset-save-filter nil
+  "Extra Emacs frame parameters to filter before saving a `frameset'.
+Use this if you define custom frame parameters, or you use
+packages that do, and you want to avoid storing such parameters
+in bufferlo framesets."
+  :type '(repeat symbol))
+
+(defcustom bufferlo-frameset-restore-filter nil
+  "Extra Emacs frame parameters to filter before restoring a `frameset'.
+Use this if you define custom frame parameters, or you use
+packages that do, and you want to ensure they are filtered in
+advance of restoring bufferlo framesets."
+  :type '(repeat symbol))
+
+(defvar bufferlo--frameset-save-filter ; filter out vs. frameset-persistent-filter-alist
+  '(
+    alpha
+    alpha-background
+    auto-lower
+    auto-raise
+    background-color
+    background-mode
+    border-color
+    border-width
+    bottom-divider-width
+    buffer-predicate
+    child-frame-border-width
+    cursor-color
+    cursor-type
+    display
+    display-type
+    environment
+    explicit-name
+    font
+    font-parameter
+    foreground-color
+    horizontal-scroll-bars
+    icon-name
+    icon-type
+    inhibit-double-buffering
+    internal-border-width
+    ;; last-focus-update
+    left-fringe
+    line-spacing
+    menu-bar-lines
+    minibuffer
+    modeline
+    mouse-color
+    ;; name ; ???
+    no-accept-focus
+    no-focus-on-map
+    no-special-glyphs
+    ns-appearance
+    ns-transparent-titlebar
+    outer-window-id
+    override-redirect
+    right-divider-width
+    right-fringe
+    screen-gamma
+    scroll-bar-background
+    scroll-bar-foreground
+    scroll-bar-height
+    scroll-bar-width
+    shaded
+    skip-taskbar
+    sticky
+    tabs
+    tab-bar-lines
+    title
+    tool-bar-lines
+    tool-bar-position
+    tty
+    tty-type
+    undecorated
+    unsplittable
+    use-frame-synchronization
+    vertical-scroll-bars
+    visibility
+    wait-for-wm
+    z-group))
+
+(defvar bufferlo--frameset-restore-filter
+  '(
+    GUI:bottom
+    GUI:font
+    GUI:fullscreen
+    GUI:height
+    GUI:left
+    GUI:right
+    GUI:top
+    GUI:width
+    bottom
+    fontsize
+    frameset--text-pixel-height
+    frameset--text-pixel-width
+    fullscreen
+    height
+    left
+    right
+    top
+    width
+    ))
+
+(defun bufferlo--bookmark-session-make (active-bookmark-names frameset)
+  "Make a bufferlo session bookmark.
+FRAMESET is a filtered frame set with bufferlo properties
+containing ACTIVE-BOOKMARK-NAMES to define the session."
+  (let ((bookmark-record (bookmark-make-record-default t t 0))) ; (&optional no-file no-context posn)
+    (bookmark-prop-set bookmark-record 'bufferlo-bookmark-names (if (consp active-bookmark-names) active-bookmark-names (list active-bookmark-names)))
+    (bookmark-prop-set bookmark-record 'bufferlo-frameset (prin1-to-string frameset))
+    (bookmark-prop-set bookmark-record 'handler #'bufferlo--bookmark-session-handler)
+    bookmark-record))
+
+(defun bufferlo--bookmark-session-handler (bookmark-record &optional no-message)
+  "Handle bufferlo session bookmark.
+The argument BOOKMARK-RECORD is the to-be restored session bookmark created via
+`bufferlo--bookmark-session-make'. The optional argument NO-MESSAGE inhibits
+the message after successfully restoring the bookmark."
+  (let* ((bookmark-name (bookmark-name-from-full-record bookmark-record))
+         (bufferlo-bookmark-names (bookmark-prop-get bookmark-record 'bufferlo-bookmark-names))
+         (abm-names (mapcar #'car (bufferlo--active-bookmarks)))
+         (active-bookmark-names (seq-intersection bufferlo-bookmark-names abm-names)))
+    (if (> (length active-bookmark-names) 0)
+        (message "Close or clear active bufferlo bookmarks: %s" active-bookmark-names)
+      (let* ((frameset-str (bookmark-prop-get bookmark-record 'bufferlo-frameset))
+             (frameset))
+        (if (not (readablep frameset-str))
+            (message "Bufferlo session bookmark %s: unreadable frameset" bookmark-name)
+          (setq frameset (car (read-from-string frameset-str)))
+          (if (not (frameset-valid-p frameset))
+              (message "Bufferlo session bookmark %s: invalid frameset" bookmark-name)
+            (let ((default-frame-alist)
+                  (inhibit-redisplay nil)) ; prevent blinking and redisplay costs REVIEW: buffer loading progress messages will be inhibited and perhaps prompts?
+              (when (ignore-errors
+                      (frameset-restore frameset
+                                        :filters
+                                        (when (memq bufferlo-frameset-restore-geometry '(bufferlo nil))
+                                          (let ((filtered-alist (copy-tree frameset-persistent-filter-alist)))
+                                            (mapc (lambda (sym) (setf (alist-get sym filtered-alist) :never))
+                                                  (seq-union bufferlo--frameset-restore-filter bufferlo-frameset-restore-filter))
+                                            filtered-alist))
+                                        :reuse-frames nil
+                                        :force-display t
+                                        :force-onscreen (display-graphic-p)
+                                        :cleanup-frames nil)
+                      t)
+                (dolist (frame (frame-list))
+                  (with-selected-frame frame
+                    (when (frame-parameter nil 'bufferlo--frame-to-restore)
+                      (when-let (fbm-name (frame-parameter nil 'bufferlo-bookmark-frame-name))
+                        (let ((bufferlo-bookmark-frame-load-make-frame nil)
+                              (bufferlo-bookmark-frame-duplicate-policy 'allow)
+                              (bufferlo-bookmark-frame-load-policy 'replace-frame-adopt-loaded-bookmark)
+                              (bufferlo--bookmark-handler-no-message t))
+                          (bookmark-jump fbm-name #'ignore))
+                        (when (and
+                               (display-graphic-p frame)
+                               (eq bufferlo-frameset-restore-geometry 'bufferlo))
+                          (set-frame-position nil
+                                              (frame-parameter nil 'bufferlo--frame-left)
+                                              (frame-parameter nil 'bufferlo--frame-top))
+                          (set-frame-size nil
+                                          (frame-parameter nil 'bufferlo--frame-pixel-width)
+                                          (frame-parameter nil 'bufferlo--frame-pixel-height)
+                                          'pixelwise))
+                        (set-frame-parameter nil 'bufferlo--frame-to-restore nil))
+                      (raise-frame frame))))))
+            (unless (or no-message bufferlo--bookmark-handler-no-message)
+              (message "Restored bufferlo session bookmark %s %s"
+                       bookmark-name bufferlo-bookmark-names))))))))
+
+(put #'bufferlo--bookmark-session-handler 'bookmark-handler-type "B-Sess") ; short name here as bookmark-bmenu-list hard codes width of 8 chars
+
+(defun bufferlo--session-save (bookmark-name active-bookmark-names active-bookmarks &optional no-overwrite)
+  "Save a bufferlo session bookmark for the specified active bookmarks.
+Store the session in BOOKMARK-NAME for the named bookmarks in
+ACTIVE-BOOKMARK-NAMES represented in ACTIVE-BOOKMARKS.
+
+If NO-OVERWRITE is non-nil, record the new bookmark without
+throwing away the old one. NO-MESSAGE inhibits the save status
+message."
+  (let* ((abms (seq-filter
+                (lambda (x) (member (car x) active-bookmark-names))
+                active-bookmarks))
+         (abm-frames (mapcar (lambda (x) (alist-get 'frame (cadr x))) abms)))
+    (if (= (length abms) 0)
+        (message "Specify at least one active bufferlo frame bookmark")
+      ;; Set a flag we can use to identify restored frames (this is
+      ;; removed in the handler during frame restoration). Save
+      ;; frame geometries for more accurate restoration than
+      ;; frameset-restore provides.
+      (dolist (frame abm-frames)
+        (set-frame-parameter frame 'bufferlo--frame-to-restore t)
+        (set-frame-parameter frame 'bufferlo--frame-left (frame-parameter frame 'left))
+        (set-frame-parameter frame 'bufferlo--frame-top (frame-parameter frame 'top))
+        (set-frame-parameter frame 'bufferlo--frame-pixel-width (frame-text-width frame))
+        (set-frame-parameter frame 'bufferlo--frame-pixel-height (frame-text-height frame)))
+      (let ((frameset (frameset-save
+                       abm-frames
+                       :app 'bufferlo
+                       :name bookmark-name
+                       :predicate (lambda (x) (not (frame-parameter x 'parent-frame)))
+                       :filters
+                       (let ((filtered-alist (copy-tree frameset-persistent-filter-alist)))
+                         (mapc (lambda (sym) (setf (alist-get sym filtered-alist) :never))
+                               (seq-union bufferlo--frameset-save-filter bufferlo-frameset-save-filter))
+                         filtered-alist))))
+        (bookmark-store bookmark-name
+                        (bufferlo--bookmark-set-location
+                         (bufferlo--bookmark-session-make active-bookmark-names frameset))
+                        no-overwrite)))))
+
+(defun bufferlo-session-save-interactive (bookmark-name &optional no-overwrite)
+  "Save a bufferlo session bookmark for the specified active bookmarks.
+The session will be stored under BOOKMARK-NAME.
+Only frame bookmarks can be associated with a session.
+
+If NO-OVERWRITE is non-nil, record the new bookmark without
+throwing away the old one."
+  (interactive
+   (list (completing-read
+          "Save bufferlo session bookmark: "
+          (bufferlo--bookmark-get-names #'bufferlo--bookmark-session-handler)
+          nil nil nil 'bufferlo-bookmark-session-history nil)))
+  (bufferlo--warn)
+  (let* ((abms (bufferlo--active-bookmarks nil 'fbm))
+         (abm-names (mapcar #'car abms))
+         (comps
+          (completion-all-completions
+           (completing-read (format "Add bookmark(s) to %s: " bookmark-name)
+                            (lambda (str pred flag)
+                              (pcase flag
+                                ('metadata
+                                 '(metadata (category . bookmark)))
+                                (_
+                                 (all-completions str abm-names pred)))))
+           abm-names nil nil))
+         (base-size (cdr (last comps))))
+    (when base-size (setcdr (last comps) nil))
+    (setq comps (seq-uniq (mapcar (lambda (x) (substring-no-properties x)) comps)))
+    (bufferlo--session-save bookmark-name comps abms no-overwrite)))
+
+(defun bufferlo-session-load-interactive ()
+  "Prompt for bufferlo session bookmarks to load."
+  (interactive)
+  (let ((current-prefix-arg '(64))) ; emulate C-u C-u C-u
+    (call-interactively 'bufferlo-bookmarks-load-interactive)))
+
+(defun bufferlo-session-close-interactive ()
+  "TODO: WIP: need to decide a few things.
+
+Should we consider a session bookmark an active entity or just
+leave it as an inactive frameset/bookmark container?
+
+If active, we could keep track of which sessions are \"open\" in
+a global. We could enforce a single session at a time or more
+than one. The global would contain the session bookmark name and
+the constituent bookmarks.
+
+There is no infrastructure to track if the constituent bookmarks
+are themselves still open but could be done since we know all
+active bufferlo bookmarks.
+
+Same with renaming. A bufferlo bookmark associated with a session
+does not rename embedded session bookmark names."
+  )
+
 (defvar bufferlo--bookmark-handlers
   (list
    #'bufferlo--bookmark-tab-handler
-   #'bufferlo--bookmark-frame-handler)
+   #'bufferlo--bookmark-frame-handler
+   #'bufferlo--bookmark-session-handler)
   "Bufferlo bookmark handlers.")
 
 (defun bufferlo--bookmark-get-names (&rest handlers)
@@ -1801,15 +2081,15 @@ the message after successfully restoring the bookmark."
 
 (defun bufferlo-bookmark-tab-save (name &optional no-overwrite no-message)
   "Save the current tab as a bookmark.
-NAME is the bookmark's name. If NO-OVERWRITE is non-nil, record
-the new bookmark without throwing away the old one. NO-MESSAGE
-inhibits the save status message.
+  NAME is the bookmark's name. If NO-OVERWRITE is non-nil, record
+  the new bookmark without throwing away the old one. NO-MESSAGE
+  inhibits the save status message.
 
-This function persists the current tab's state:
-The resulting bookmark stores the window configuration and the local
-buffer list of the current tab.  In addition, it saves the bookmark
-state (not the contents) of the bookmarkable buffers in the tab's local
-buffer list."
+  This function persists the current tab's state:
+  The resulting bookmark stores the window configuration and the local
+  buffer list of the current tab.  In addition, it saves the bookmark
+  state (not the contents) of the bookmarkable buffers in the tab's local
+  buffer list."
   (interactive
    (list (completing-read
           "Save bufferlo tab bookmark: "
@@ -1817,7 +2097,7 @@ buffer list."
           nil nil nil 'bufferlo-bookmark-tab-history
           (alist-get 'bufferlo-bookmark-tab-name (bufferlo--current-tab)))))
   (bufferlo--warn)
-  (bookmark-store name (bufferlo--bookmark-set-location (bufferlo--bookmark-tab-get)) no-overwrite)
+  (bookmark-store name (bufferlo--bookmark-set-location (bufferlo--bookmark-tab-make)) no-overwrite)
   (setf (alist-get 'bufferlo-bookmark-tab-name
                    (cdr (bufferlo--current-tab)))
         name)
@@ -1826,12 +2106,12 @@ buffer list."
 
 (defun bufferlo-bookmark-tab-load (name)
   "Load a tab bookmark.
-NAME is the bookmark's name.
+  NAME is the bookmark's name.
 
-`bufferlo-bookmark-tab-replace-policy' controls if the loaded
-bookmark replaces the current tab or makes a new tab.
+  `bufferlo-bookmark-tab-replace-policy' controls if the loaded
+  bookmark replaces the current tab or makes a new tab.
 
-Specify a prefix argument to force reusing the current tab."
+  Specify a prefix argument to force reusing the current tab."
   (interactive
    (list (completing-read
           "Load bufferlo tab bookmark: "
@@ -1844,10 +2124,10 @@ Specify a prefix argument to force reusing the current tab."
 
 (defun bufferlo-bookmark-tab-save-current ()
   "Save the current tab to its associated bookmark.
-The associated bookmark is determined by the name of the bookmark to
-which the tab was last saved or (if not yet saved) from which it was
-initially loaded.  Performs an interactive bookmark selection if no
-associated bookmark exists."
+  The associated bookmark is determined by the name of the bookmark to
+  which the tab was last saved or (if not yet saved) from which it was
+  initially loaded.  Performs an interactive bookmark selection if no
+  associated bookmark exists."
   (interactive)
   (bufferlo--warn)
   (if-let (bm (alist-get 'bufferlo-bookmark-tab-name
@@ -1857,13 +2137,13 @@ associated bookmark exists."
 
 (defun bufferlo-bookmark-tab-load-current ()
   "Load the current tab's associated bookmark.
-The associated bookmark is determined by the name of the bookmark to
-which the tab was last saved or (if not yet saved) from which it was
-initially loaded.  Performs an interactive bookmark selection if no
-associated bookmark exists.
+  The associated bookmark is determined by the name of the bookmark to
+  which the tab was last saved or (if not yet saved) from which it was
+  initially loaded.  Performs an interactive bookmark selection if no
+  associated bookmark exists.
 
-This reuses the current tab even if
-`bufferlo-bookmark-tab-replace-policy' is set to \\='new."
+  This reuses the current tab even if
+  `bufferlo-bookmark-tab-replace-policy' is set to \\='new."
   (interactive)
   (bufferlo--warn)
   (if-let (bm (alist-get 'bufferlo-bookmark-tab-name
@@ -1875,14 +2155,14 @@ This reuses the current tab even if
 
 (defun bufferlo-bookmark-frame-save (name &optional no-overwrite no-message)
   "Save the current frame as a bookmark.
-NAME is the bookmark's name. If NO-OVERWRITE is non-nil, record
-the new bookmark without throwing away the old one. If NO-MESSAGE
-is non-nil, inhibit the save status message.
+  NAME is the bookmark's name. If NO-OVERWRITE is non-nil, record
+  the new bookmark without throwing away the old one. If NO-MESSAGE
+  is non-nil, inhibit the save status message.
 
-This function persists the current frame's state (the \"session\"):
-The resulting bookmark stores the window configurations and the local
-buffer lists of all tabs in the frame.  In addition, it saves the bookmark
-state (not the contents) of the bookmarkable buffers for each tab."
+  This function persists the current frame's state (the \"session\"):
+  The resulting bookmark stores the window configurations and the local
+  buffer lists of all tabs in the frame.  In addition, it saves the bookmark
+  state (not the contents) of the bookmarkable buffers for each tab."
   (interactive
    (list (completing-read
           "Save bufferlo frame bookmark: "
@@ -1890,17 +2170,17 @@ state (not the contents) of the bookmarkable buffers for each tab."
           nil nil nil 'bufferlo-bookmark-frame-history
           (frame-parameter nil 'bufferlo-bookmark-frame-name))))
   (bufferlo--warn)
-  (bookmark-store name (bufferlo--bookmark-set-location (bufferlo--bookmark-frame-get)) no-overwrite)
+  (bookmark-store name (bufferlo--bookmark-set-location (bufferlo--bookmark-frame-make)) no-overwrite)
   (set-frame-parameter nil 'bufferlo-bookmark-frame-name name)
   (unless no-message
     (message "Saved bufferlo frame bookmark: %s" name)))
 
 (defun bufferlo-bookmark-frame-load (name)
   "Load a frame bookmark.
-NAME is the bookmark's name.
+  NAME is the bookmark's name.
 
-Replace the current frame's state if
-`bufferlo-bookmark-frame-load-make-frame' is nil."
+  Replace the current frame's state if
+  `bufferlo-bookmark-frame-load-make-frame' is nil."
   (interactive
    (list (completing-read
           "Load bufferlo frame bookmark: "
@@ -1913,10 +2193,10 @@ Replace the current frame's state if
 
 (defun bufferlo-bookmark-frame-save-current ()
   "Save the current frame to its associated bookmark.
-The associated bookmark is determined by the name of the bookmark to
-which the frame was last saved or (if not yet saved) from which it was
-initially loaded.  Performs an interactive bookmark selection if no
-associated bookmark exists."
+  The associated bookmark is determined by the name of the bookmark to
+  which the frame was last saved or (if not yet saved) from which it was
+  initially loaded.  Performs an interactive bookmark selection if no
+  associated bookmark exists."
   (interactive)
   (bufferlo--warn)
   (if-let (bm (frame-parameter nil 'bufferlo-bookmark-frame-name))
@@ -1925,10 +2205,10 @@ associated bookmark exists."
 
 (defun bufferlo-bookmark-frame-load-current ()
   "Load the current frame's associated bookmark.
-The associated bookmark is determined by the name of the bookmark to
-which the frame was last saved or (if not yet saved) from which it was
-initially loaded.  Performs an interactive bookmark selection if no
-associated bookmark exists."
+  The associated bookmark is determined by the name of the bookmark to
+  which the frame was last saved or (if not yet saved) from which it was
+  initially loaded.  Performs an interactive bookmark selection if no
+  associated bookmark exists."
   (interactive)
   (bufferlo--warn)
   (if-let (bm (frame-parameter nil 'bufferlo-bookmark-frame-name))
@@ -1948,11 +2228,11 @@ associated bookmark exists."
 
 (defun bufferlo--active-bookmarks (&optional frames type)
   "Produces an alist of active bufferlo bookmarks.
-The alist is of the form:
+  The alist is of the form:
   ((bookmark-name .
-    ((\\='type . type) (\\='frame . frame) (\\='tab-number . tab-number))) ...)
-for the specified FRAMES,
-filtered by TYPE, where type is:
+                  ((\\='type . type) (\\='frame . frame) (\\='tab-number . tab-number))) ...)
+  for the specified FRAMES,
+  filtered by TYPE, where type is:
   \\='fbm for frame bookmarks which include frame only or
   \\='tbm for tab bookmarks which include frame and tab numbers."
   (let ((abms))
@@ -1971,12 +2251,12 @@ filtered by TYPE, where type is:
 
 (defun bufferlo-bookmarks-save-all-p (_bookmark-name)
   "This predicate matches all bookmark names.
-It is intended to be used in `bufferlo-bookmarks-save-predicate-functions'."
+  It is intended to be used in `bufferlo-bookmarks-save-predicate-functions'."
   t)
 
 (defun bufferlo-bookmarks-load-all-p (_bookmark-name)
   "This predicate matches all bookmark names.
-It is intended to be used in `bufferlo-bookmarks-load-predicate-functions'."
+  It is intended to be used in `bufferlo-bookmarks-load-predicate-functions'."
   t)
 
 (defun bufferlo--active-bookmark-duplicates()
@@ -1990,7 +2270,7 @@ It is intended to be used in `bufferlo-bookmarks-load-predicate-functions'."
 
 (defun bufferlo--bookmarks-save (active-bookmark-names active-bookmarks &optional no-message)
   "Save the bookmarks in ACTIVE-BOOKMARK-NAMES indexed by ACTIVE-BOOKMARKS.
-Specify NO-MESSAGE to inhibit the bookmark save status message."
+  Specify NO-MESSAGE to inhibit the bookmark save status message."
   (let ((bookmarks-saved nil)
         (start-time (current-time)))
     (let ((bookmark-save-flag nil)) ; inhibit built-in bookmark file saving until we're done
@@ -2023,26 +2303,26 @@ Specify NO-MESSAGE to inhibit the bookmark save status message."
 
 (defun bufferlo-bookmarks-save (&optional all)
   "Save active bufferlo bookmarks.
-This is invoked via an optional idle timer which runs according
-to `bufferlo-bookmarks-auto-save-idle-interval', or and is
-optionally invoked at Emacs exit.
+  This is invoked via an optional idle timer which runs according
+  to `bufferlo-bookmarks-auto-save-idle-interval', or and is
+  optionally invoked at Emacs exit.
 
-You may invoke this manually at any time to save active
-bookmarks; however, doing so does not reset the save interval
-timer.
+  You may invoke this manually at any time to save active
+  bookmarks; however, doing so does not reset the save interval
+  timer.
 
-Each bookmark is filtered according to
-`bufferlo-bookmarks-save-predicate-functions'.
+  Each bookmark is filtered according to
+  `bufferlo-bookmarks-save-predicate-functions'.
 
-Specify ALL to ignore the predicates and save every active
-bufferlo bookmark or use a prefix argument across ALL frames,
-overriding `bufferlo-bookmarks-save-frame-policy'.
+  Specify ALL to ignore the predicates and save every active
+  bufferlo bookmark or use a prefix argument across ALL frames,
+  overriding `bufferlo-bookmarks-save-frame-policy'.
 
-Note: if there are duplicate active bufferlo bookmarks, the last
-one to be saved will take precedence.
+  Note: if there are duplicate active bufferlo bookmarks, the last
+  one to be saved will take precedence.
 
-Duplicate bookmarks are handled according to
-`bufferlo-bookmarks-save-duplicates-policy'."
+  Duplicate bookmarks are handled according to
+  `bufferlo-bookmarks-save-duplicates-policy'."
   (interactive)
   (catch :nosave
     (when-let ((duplicate-bookmarks (bufferlo--active-bookmark-duplicates))
@@ -2053,8 +2333,8 @@ Duplicate bookmarks are handled according to
                    (read-answer (format "Duplicate active bookmarks %s: Allow to save, Disallow to cancel " duplicate-bookmarks)
                                 '(("allow" ?a "Allow duplicate")
                                   ("disallow" ?d "Disallow duplicates; cancel saving")
-                                  ("help" ?h "Help")
-                                  ("quit" ?q "Quit with no changes")))))
+  ("help" ?h "Help")
+  ("quit" ?q "Quit with no changes")))))
           ("allow" (setq duplicate-policy 'allow))
           ("disallow" (setq duplicate-policy 'disallow))
           (_ (throw :nosave t))))
@@ -2162,7 +2442,7 @@ current or new frame according to
            abm-names nil nil))
          (base-size (cdr (last comps))))
     (when base-size (setcdr (last comps) nil))
-    (setq comps (seq-uniq comps))
+    (setq comps (seq-uniq (mapcar (lambda (x) (substring-no-properties x)) comps)))
     (bufferlo--close-active-bookmarks comps abms)))
 
 (defun bufferlo-bookmarks-save-interactive ()
@@ -2182,19 +2462,21 @@ current or new frame according to
            abm-names nil nil))
          (base-size (cdr (last comps))))
     (when base-size (setcdr (last comps) nil))
-    (setq comps (seq-uniq comps))
+    (setq comps (seq-uniq (mapcar (lambda (x) (substring-no-properties x)) comps)))
     (bufferlo--bookmarks-save comps abms)))
 
 (defun bufferlo-bookmarks-load-interactive ()
   "Prompt for bufferlo bookmarks to load.
-Use a prefix argument to narrow the candidates to frame tabs, or
-a double prefix argument to narrow to tab bookmark candidates."
+
+Use a single prefix argument to narrow the candidates to frame
+bookmarks, double for bookmarks, triple for session bookmarks."
   (interactive)
   (let* ((bookmark-names
           (apply 'bufferlo--bookmark-get-names
                  (cond
                   ((and (consp current-prefix-arg) (eq (prefix-numeric-value current-prefix-arg) 4)) (list #'bufferlo--bookmark-frame-handler))
                   ((and (consp current-prefix-arg) (eq (prefix-numeric-value current-prefix-arg) 16)) (list #'bufferlo--bookmark-tab-handler))
+                  ((and (consp current-prefix-arg) (eq (prefix-numeric-value current-prefix-arg) 64)) (list #'bufferlo--bookmark-session-handler))
                   (t bufferlo--bookmark-handlers))))
          (comps
           (completion-all-completions
@@ -2208,7 +2490,7 @@ a double prefix argument to narrow to tab bookmark candidates."
            bookmark-names nil nil))
          (base-size (cdr (last comps))))
     (when base-size (setcdr (last comps) nil))
-    (setq comps (seq-uniq comps))
+    (setq comps (seq-uniq (mapcar (lambda (x) (substring-no-properties x)) comps)))
     (dolist (bookmark-name comps)
       (bookmark-jump bookmark-name #'ignore))))
 
@@ -2350,7 +2632,7 @@ raised."
            abm-names nil nil))
          (base-size (cdr (last comps))))
     (when base-size (setcdr (last comps) nil))
-    (setq comps (seq-uniq comps))
+    (setq comps (seq-uniq (mapcar (lambda (x) (substring-no-properties x)) comps)))
     (if (not (= (length comps) 1))
         (message "Please select a single bookmark to raise")
       (when-let* ((abm (assoc (car comps) abms)))
@@ -2407,6 +2689,9 @@ OLDFN BOOKMARK-NAME BATCH"
 (defalias 'bufferlo-bm-frame-load       'bufferlo-bookmark-frame-load)
 (defalias 'bufferlo-bm-frame-load-curr  'bufferlo-bookmark-frame-load-current)
 (defalias 'bufferlo-bm-frame-load-merge 'bufferlo-bookmark-frame-load-merge)
+(defalias 'bufferlo-sess-save           'bufferlo-session-save-interactive)
+(defalias 'bufferlo-sess-load           'bufferlo-session-load-interactive)
+(defalias 'bufferlo-sess-close          'bufferlo-session-close-interactive)
 
 (provide 'bufferlo)
 
