@@ -167,21 +167,63 @@ when it was last saved."
                 (const :tag "Make a new frame and restore its geometry" restore-geometry)
                 (const :tag "Reuse the current frame" nil)))
 
-(defcustom bufferlo-delete-frame-kill-buffers-save-bookmark-prompt nil
-  "If non-nil, offer to save bookmark before killing the frame and buffers."
-  :type 'boolean)
-
 (defcustom bufferlo-delete-frame-kill-buffers-prompt nil
   "If non-nil, confirm before deleting the frame and killing buffers."
-  :type 'boolean)
-
-(defcustom bufferlo-close-tab-kill-buffers-save-bookmark-prompt nil
-  "If non-nil, offer to save bookmark before closing the tab and killing buffers."
   :type 'boolean)
 
 (defcustom bufferlo-close-tab-kill-buffers-prompt nil
   "If non-nil, confirm before closing the tab and killing buffers."
   :type 'boolean)
+
+(defcustom bufferlo-bookmark-frame-save-on-delete nil
+  "Control automatically saving the frame bookmark on frame deletion.
+
+nil does not save the frame bookmark when deleting the frame.
+
+t always saves the frame bookmark when deleting the frame.
+Prompts for a new bookmark name if the frame is not associated with a bookmark.
+
+\\='when-bookmarked saves the bookmark only if the frame is already associated
+with a current bookmark.
+
+\\='on-kill-buffers behaves like t but only for the function
+`bufferlo-delete-frame-kill-buffers'.
+
+\\='on-kill-buffers-when-bookmarked behaves like \\='when-bookmarked but only
+for `bufferlo-delete-frame-kill-buffers'."
+  :type '(radio (const :tag "Do not save" nil)
+                (const :tag "Always save" t)
+                (const :tag "Only if the frame is already associated with a bookmark"
+                       when-bookmarked)
+                (const :tag "Only if killing buffers"
+                       on-kill-buffers)
+                (const :tag "Only if killing buffers and associated with a bookmark"
+                       on-kill-buffers-when-bookmarked)))
+
+(defcustom bufferlo-bookmark-tab-save-on-close nil
+  "Control automatically saving the tab bookmark on tab deletion.
+
+nil does not save the tab bookmark when closing the tab.
+
+t always saves the tab bookmark when closing the tab.
+Prompts for a new bookmark name if the tab is not associated with a bookmark.
+
+\\='when-bookmarked saves the bookmark only if the tab is already associated with
+a current bookmark.
+
+\\='on-kill-buffers behaves like t but only for the function
+`bufferlo-tab-close-kill-buffers'.
+
+\\='on-kill-buffers-when-bookmarked behaves like \\='when-bookmarked but only
+for `bufferlo-tab-close-kill-buffers'."
+  :type '(radio (const :tag "Do not save" nil)
+                (const :tag "Always save" t)
+                (const :tag "Only if the tab is already associated with a bookmark"
+                       when-bookmarked)
+                (const :tag "Only if killing buffers"
+                       on-kill-buffers)
+                (const :tag "Only if killing buffers and associated with a bookmark"
+                       on-kill-buffers-when-bookmarked)))
 
 (defcustom bufferlo-bookmark-frame-load-policy 'prompt
   "Control loading a frame bookmark into a already-bookmarked frame.
@@ -734,6 +776,11 @@ string, FACE is the face for STR."
         (when (and (not bufferlo--command-line-noload)
                    (not (eq bufferlo-bookmarks-load-at-emacs-startup 'noload)))
           (add-hook 'window-setup-hook #'bufferlo--bookmarks-load-startup))
+        ;; Save bookmark on close-tab and delete-frame
+        (add-hook 'tab-bar-tab-pre-close-functions
+                  #'bufferlo-bookmark--tab-save-on-close)
+        (add-hook 'delete-frame-functions
+                  #'bufferlo-bookmark--frame-save-on-delete)
         ;; bookmark advice
         (advice-add 'bookmark-rename :around #'bufferlo--bookmark-rename-advice)
         (advice-add 'bookmark-delete :around #'bufferlo--bookmark-delete-advice)
@@ -769,6 +816,11 @@ string, FACE is the face for STR."
     (remove-hook 'kill-emacs-hook #'bufferlo--bookmarks-save-at-emacs-exit)
     ;; load bookmarks at startup option
     (remove-hook 'window-setup-hook #'bufferlo-bookmarks-load)
+    ;; Save bookmark on close-tab and delete-frame
+    (remove-hook 'tab-bar-tab-pre-close-functions
+                 #'bufferlo-bookmark--tab-save-on-close)
+    (remove-hook 'delete-frame-functions
+                 #'bufferlo-bookmark--frame-save-on-delete)
     ;; bookmark advice
     (advice-remove 'bookmark-rename #'bufferlo--bookmark-rename-advice)
     (advice-remove 'bookmark-delete #'bufferlo--bookmark-delete-advice)))
@@ -1285,24 +1337,23 @@ Ignores buffers whose names start with a space, unless optional
 argument INTERNAL-TOO is non-nil."
   (interactive "P")
   (bufferlo--warn)
-  (let ((kill t))
-    (when bufferlo-kill-buffers-prompt
-      (setq kill (y-or-n-p "Kill bufferlo local buffers? ")))
-    (when kill
-      (let* ((exclude (bufferlo--merge-regexp-list
-                       (append '("a^") bufferlo-kill-buffers-exclude-filters)))
-             (kill-list (if killall
-                            (bufferlo--get-buffers frame tabnum)
-                          (bufferlo--get-exclusive-buffers frame tabnum)))
-             (buffers (seq-filter
-                       (lambda (b)
-                         (not (and
-                               ;; (or internal-too (/= (aref (buffer-name b) 0) ?\s)) ; NOTE: this can cause null reference errors
-                               (or internal-too (not (string-prefix-p " " (buffer-name b))))
-                               (string-match-p exclude (buffer-name b)))))
-                       kill-list)))
-        (dolist (b buffers)
-          (bufferlo--kill-buffer b))))))
+  (when (or (not bufferlo-kill-buffers-prompt)
+            (y-or-n-p "Kill bufferlo local buffers? "))
+    (let* ((exclude (bufferlo--merge-regexp-list
+                     (append '("a^") bufferlo-kill-buffers-exclude-filters)))
+           (kill-list (if killall
+                          (bufferlo--get-buffers frame tabnum)
+                        (bufferlo--get-exclusive-buffers frame tabnum)))
+           (buffers (seq-filter
+                     (lambda (b)
+                       (not (and
+                             ;; (or internal-too (/= (aref (buffer-name b) 0) ?\s)) ; NOTE: this can cause null reference errors
+                             (or internal-too
+                                 (not (string-prefix-p " " (buffer-name b))))
+                             (string-match-p exclude (buffer-name b)))))
+                     kill-list)))
+      (dolist (b buffers)
+        (bufferlo--kill-buffer b)))))
 
 (defun bufferlo-kill-orphan-buffers (&optional internal-too)
   "Kill all buffers that are not in any local list of a frame or tab.
@@ -1311,21 +1362,20 @@ argument INTERNAL-TOO is non-nil.
 Buffers matching `bufferlo-kill-buffers-exclude-filters' are never killed."
   (interactive)
   (bufferlo--warn)
-  (let ((kill t))
-    (when bufferlo-kill-buffers-prompt
-      (setq kill (y-or-n-p "Kill bufferlo orphan buffers? ")))
-    (when kill
-      (let* ((exclude (bufferlo--merge-regexp-list
-                       (append '("a^") bufferlo-kill-buffers-exclude-filters)))
-             (buffers (seq-filter
-                       (lambda (b)
-                         (not (and
-                               ;; (or internal-too (/= (aref (buffer-name b) 0) ?\s)) ; NOTE: this can cause null reference errors
-                               (or internal-too (not (string-prefix-p " " (buffer-name b))))
-                               (string-match-p exclude (buffer-name b)))))
-                       (bufferlo--get-orphan-buffers))))
-        (dolist (b buffers)
-          (bufferlo--kill-buffer b))))))
+  (when (or (not bufferlo-kill-buffers-prompt)
+            (y-or-n-p "Kill bufferlo local buffers? "))
+    (let* ((exclude (bufferlo--merge-regexp-list
+                     (append '("a^") bufferlo-kill-buffers-exclude-filters)))
+           (buffers (seq-filter
+                     (lambda (b)
+                       (not (and
+                             ;; (or internal-too (/= (aref (buffer-name b) 0) ?\s)) ; NOTE: this can cause null reference errors
+                             (or internal-too
+                                 (not (string-prefix-p " " (buffer-name b))))
+                             (string-match-p exclude (buffer-name b)))))
+                     (bufferlo--get-orphan-buffers))))
+      (dolist (b buffers)
+        (bufferlo--kill-buffer b)))))
 
 (defun bufferlo-delete-frame-kill-buffers (&optional frame internal-too)
   "Delete a frame and kill the local buffers of its tabs.
@@ -1334,31 +1384,35 @@ Ignores buffers whose names start with a space, unless optional
 argument INTERNAL-TOO is non-nil."
   (interactive)
   (bufferlo--warn)
-  (let ((kill t)
-        (frame (or frame (selected-frame))))
-    (let ((fbm (frame-parameter frame 'bufferlo-bookmark-frame-name)))
-      (when (and fbm
-                 bufferlo-delete-frame-kill-buffers-save-bookmark-prompt)
-        (when (y-or-n-p
-               (concat "Save frame bookmark \"" fbm "\"? "))
-          (with-selected-frame frame ; needed if called in a batch
-            (bufferlo-bookmark-frame-save-current))))
-      (when bufferlo-delete-frame-kill-buffers-prompt
-        (setq kill (y-or-n-p "Kill frame and its buffers? ")))
-      (when kill
-        ;; If batch, raise frame in case of prompts for buffers that need saving.
-        (raise-frame frame)
-        ;; kill-buffer calls replace-buffer-in-windows which will
-        ;; delete windows *and* their frame so we have to test if
-        ;; the frame in question is still live.
-        (bufferlo-kill-buffers nil frame 'all internal-too)
-        (when (frame-live-p frame)
-          ;; TODO: Emacs 30 frame-deletable-p
-          ;; account for top-level, non-child frames
-          (when (= 1 (length (seq-filter
-                              (lambda (x) (null (frame-parameter x 'parent-frame)))
-                              (frame-list))))
-            (make-frame)) ; leave one for the user
+  (setq frame (or frame (selected-frame)))
+  (when (or (not bufferlo-delete-frame-kill-buffers-prompt)
+            (y-or-n-p "Kill frame and its buffers? "))
+    (let ((fbm (frame-parameter frame 'bufferlo-bookmark-frame-name))
+          (save-as-current (lambda (frame)
+                             ;; We need this if called in a batch
+                             (with-selected-frame frame
+                               (bufferlo-bookmark-frame-save-current)))))
+      (pcase bufferlo-bookmark-frame-save-on-delete
+        ((or 't 'on-kill-buffers)
+         (when (y-or-n-p (concat "Save frame bookmark \"" fbm "\"? "))
+           (funcall save-as-current frame)))
+        ((or 'when-bookmarked 'on-kill-buffers-when-bookmarked)
+         (when fbm (funcall save-as-current frame))))
+      ;; If batch, raise frame in case of prompts for buffers that need saving.
+      (raise-frame frame)
+      (let ((bufferlo-kill-buffers-prompt nil))
+        (bufferlo-kill-buffers nil frame 'all internal-too))
+      ;; kill-buffer calls replace-buffer-in-windows which will
+      ;; delete windows *and* their frame so we have to test if
+      ;; the frame in question is still live.
+      (when (frame-live-p frame)
+        ;; TODO: Emacs 30 frame-deletable-p
+        ;; account for top-level, non-child frames
+        (when (= 1 (length (seq-filter
+                            (lambda (x) (null (frame-parameter x 'parent-frame)))
+                            (frame-list))))
+          (make-frame)) ; leave one for the user
+        (let ((bufferlo-bookmark-frame-save-on-delete nil))
           (delete-frame frame))))))
 
 (defun bufferlo-tab-close-kill-buffers (&optional killall internal-too)
@@ -1367,19 +1421,20 @@ The optional arguments KILLALL and INTERNAL-TOO are passed to
 `bufferlo-kill-buffers'."
   (interactive "P")
   (bufferlo--warn)
-  (let ((kill t)
-        (tbm (alist-get 'bufferlo-bookmark-tab-name (tab-bar--current-tab-find))))
-    (when (and tbm
-               bufferlo-close-tab-kill-buffers-save-bookmark-prompt)
-      (when (y-or-n-p
-             (concat "Save tab bookmark \"" tbm "\"? "))
-        (bufferlo-bookmark-tab-save-current)))
-    (when bufferlo-close-tab-kill-buffers-prompt
-      (setq kill (y-or-n-p "Kill tab and its buffers? ")))
-    (when kill
-      (bufferlo-kill-buffers killall nil nil internal-too)
-      (let ((tab-bar-close-last-tab-choice 'delete-frame))
-        (ignore-errors (tab-bar-close-tab)))))) ; catch errors in case this is the last tab on the last frame
+  (when (or (not bufferlo-close-tab-kill-buffers-prompt)
+            (y-or-n-p "Kill tab and its buffers? "))
+    (let ((tbm (alist-get 'bufferlo-bookmark-tab-name (tab-bar--current-tab-find))))
+      (pcase bufferlo-bookmark-tab-save-on-close
+        ((or 't 'on-kill-buffers)
+         (when (y-or-n-p (concat "Save tab bookmark \"" tbm "\"? "))
+           (bufferlo-bookmark-tab-save-current)))
+        ((or 'when-bookmarked 'on-kill-buffers-when-bookmarked)
+         (when tbm (bufferlo-bookmark-tab-save tbm))))
+      (let ((bufferlo-kill-buffers-prompt nil))
+        (bufferlo-kill-buffers killall nil nil internal-too))
+      (let ((bufferlo-bookmark-tab-save-on-close nil))
+        ;; Catch errors in case this is the last tab on the last frame
+        (ignore-errors (tab-bar-close-tab))))))
 
 (defun bufferlo-isolate-project (&optional file-buffers-only)
   "Isolate a project in the frame or tab.
@@ -2940,6 +2995,33 @@ Duplicate bookmarks are handled according to
               (push abm-name abm-names-to-save))))
         (bufferlo--bookmarks-save abm-names-to-save abms)))))
 
+(defun bufferlo-bookmark--frame-save-on-delete (frame)
+  "`frame-delete' advice for saving the current frame bookmark on deletion.
+FRAME is the frame being deleted."
+  (let ((fbm (frame-parameter frame 'bufferlo-bookmark-frame-name)))
+    (pcase bufferlo-bookmark-frame-save-on-delete
+      ('t
+       (when (y-or-n-p (if fbm
+                           (concat "Save frame bookmark \"" fbm "\"? ")
+                         "Save new frame bookmark? "))
+         (bufferlo-bookmark-frame-save-current)))
+      ('when-bookmarked
+       (when fbm (bufferlo--bookmark-frame-save fbm))))))
+
+(defun bufferlo-bookmark--tab-save-on-close (tab _only)
+  "Function for saving the current tab bookmark on deletion.
+Intended as a hook function for `tab-bar-tab-pre-close-functions'.
+TAB is the tab being closed. _ONLY is for compatibility with the hook."
+  (let ((tbm (alist-get 'bufferlo-bookmark-tab-name tab)))
+    (pcase bufferlo-bookmark-tab-save-on-close
+      ('t
+       (when (y-or-n-p (if tbm
+                           (concat "Save tab bookmark \"" tbm "\"? ")
+                         "Save new tab bookmark? "))
+         (bufferlo-bookmark-tab-save-current)))
+      ('when-bookmarked
+       (when tbm (bufferlo--bookmark-tab-save tbm))))))
+
 (defun bufferlo--bookmarks-save-at-emacs-exit ()
   "Save bufferlo bookmarks at Emacs exit.
 This honors `bufferlo-bookmarks-save-at-emacs-exit' by predicate or
@@ -3102,7 +3184,7 @@ which defaults to all frames, if not specified."
           (raise-frame) ; if called in a batch, raise frame in case of prompts for buffers that need saving
           (tab-bar-select-tab abm-tab-number)
           (let ((bufferlo-kill-buffers-prompt nil)
-                (bufferlo-close-tab-kill-buffers-save-bookmark-prompt nil)
+                (bufferlo-bookmark-tab-save-on-close nil)
                 (bufferlo-close-tab-kill-buffers-prompt nil))
             (bufferlo-tab-close-kill-buffers)))
         (when (frame-live-p orig-frame)
@@ -3111,7 +3193,7 @@ which defaults to all frames, if not specified."
       (let ((abm-frame (alist-get 'frame (cadr abm))))
         (with-selected-frame abm-frame
           (let ((bufferlo-kill-buffers-prompt nil)
-                (bufferlo-delete-frame-kill-buffers-save-bookmark-prompt nil)
+                (bufferlo-bookmark-frame-save-on-delete nil)
                 (bufferlo-delete-frame-kill-buffers-prompt nil))
             (bufferlo-delete-frame-kill-buffers)))))
     ;; Frame and/or tab could now be gone.
