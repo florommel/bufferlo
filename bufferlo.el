@@ -1920,45 +1920,47 @@ the message after successfully restoring the bookmark."
           (setq frameset (car (read-from-string frameset-str)))
           (if (not (frameset-valid-p frameset))
               (message "Bufferlo session bookmark %s: invalid frameset" bookmark-name)
-            (let ((default-frame-alist)
-                  (inhibit-redisplay nil)) ; prevent blinking and redisplay costs REVIEW: buffer loading progress messages will be inhibited and perhaps prompts?
-              (when (ignore-errors
-                      (frameset-restore frameset
-                                        :filters
-                                        (when (memq bufferlo-frameset-restore-geometry '(bufferlo nil))
-                                          (let ((filtered-alist (copy-tree frameset-persistent-filter-alist)))
-                                            (mapc (lambda (sym) (setf (alist-get sym filtered-alist) :never))
-                                                  (seq-union bufferlo--frameset-restore-filter bufferlo-frameset-restore-filter))
-                                            filtered-alist))
-                                        :reuse-frames nil
-                                        :force-display t
-                                        :force-onscreen (display-graphic-p)
-                                        :cleanup-frames nil)
-                      t)
-                (dolist (frame (frame-list))
-                  (with-selected-frame frame
-                    (when (frame-parameter nil 'bufferlo--frame-to-restore)
-                      (when-let (fbm-name (frame-parameter nil 'bufferlo-bookmark-frame-name))
-                        (let ((bufferlo-bookmark-frame-load-make-frame nil)
-                              (bufferlo-bookmark-frame-duplicate-policy 'allow)
-                              (bufferlo-bookmark-frame-load-policy 'replace-frame-adopt-loaded-bookmark)
-                              (bufferlo--bookmark-handler-no-message t))
-                          (bookmark-jump fbm-name #'ignore))
-                        (when (and
-                               (display-graphic-p frame)
-                               (eq bufferlo-frameset-restore-geometry 'bufferlo))
-                          (set-frame-position nil
-                                              (frame-parameter nil 'bufferlo--frame-left)
-                                              (frame-parameter nil 'bufferlo--frame-top))
-                          (set-frame-size nil
-                                          (frame-parameter nil 'bufferlo--frame-pixel-width)
-                                          (frame-parameter nil 'bufferlo--frame-pixel-height)
-                                          'pixelwise))
-                        (set-frame-parameter nil 'bufferlo--frame-to-restore nil))
-                      (raise-frame frame))))))
-            (unless (or no-message bufferlo--bookmark-handler-no-message)
-              (message "Restored bufferlo session bookmark %s %s"
-                       bookmark-name bufferlo-bookmark-names))))))))
+            (when (ignore-errors
+                    (with-temp-buffer
+                      (let ((default-frame-alist)
+                            (inhibit-redisplay t))
+                        (frameset-restore frameset
+                                          :filters
+                                          (when (memq bufferlo-frameset-restore-geometry '(bufferlo nil))
+                                            (let ((filtered-alist (copy-tree frameset-persistent-filter-alist)))
+                                              (mapc (lambda (sym) (setf (alist-get sym filtered-alist) :never))
+                                                    (seq-union bufferlo--frameset-restore-filter bufferlo-frameset-restore-filter))
+                                              filtered-alist))
+                                          :reuse-frames nil
+                                          :force-display t
+                                          :force-onscreen (display-graphic-p)
+                                          :cleanup-frames nil)))
+                    t)
+              (dolist (frame (frame-list))
+                (with-selected-frame frame
+                  (when (frame-parameter nil 'bufferlo--frame-to-restore)
+                    (lower-frame) ; attempt to reduce visual flashing
+                    (when-let (fbm-name (frame-parameter nil 'bufferlo-bookmark-frame-name))
+                      (let ((bufferlo-bookmark-frame-load-make-frame nil)
+                            (bufferlo-bookmark-frame-duplicate-policy 'allow)
+                            (bufferlo-bookmark-frame-load-policy 'replace-frame-adopt-loaded-bookmark)
+                            (bufferlo--bookmark-handler-no-message t))
+                        (bookmark-jump fbm-name #'ignore))
+                      (when (and
+                             (display-graphic-p frame)
+                             (eq bufferlo-frameset-restore-geometry 'bufferlo))
+                        (set-frame-position nil
+                                            (frame-parameter nil 'bufferlo--frame-left)
+                                            (frame-parameter nil 'bufferlo--frame-top))
+                        (set-frame-size nil
+                                        (frame-parameter nil 'bufferlo--frame-pixel-width)
+                                        (frame-parameter nil 'bufferlo--frame-pixel-height)
+                                        'pixelwise))
+                      (set-frame-parameter nil 'bufferlo--frame-to-restore nil))
+                    (raise-frame))))))
+          (unless (or no-message bufferlo--bookmark-handler-no-message)
+            (message "Restored bufferlo session bookmark %s %s"
+                     bookmark-name bufferlo-bookmark-names)))))))
 
 (put #'bufferlo--bookmark-session-handler 'bookmark-handler-type "B-Sess") ; short name here as bookmark-bmenu-list hard codes width of 8 chars
 
