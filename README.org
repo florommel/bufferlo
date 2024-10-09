@@ -2,7 +2,6 @@
 #+author: Florian Rommel, Stephane Marks
 #+email: mail@florommel.de, shipmints@gmail.com
 #+language: en
-#+startup: indent
 #+options: num:nil
 #+options: toc:nil
 
@@ -15,49 +14,47 @@
 # +html_head: <script type="text/javascript" src="https://fniessen.github.io/org-html-themes/src/lib/js/jquery.stickytableheaders.min.js"></script>
 # +html_head: <script type="text/javascript" src="https://fniessen.github.io/org-html-themes/src/readtheorg_theme/js/readtheorg.js"></script>
 
-* bufferlo
-
 Easy-to-use buffer management and workspace persistence tools for
 Emacs workflow management. Headbutt your way to productivity and moove
 ahead with bufferlo.
 
-** Introduction
+* Introduction
 
-Bufferlo maintains separate buffer lists per frame and/or
-~tab-bar-mode~ tab by curating what buffers are used in each context
-vs. using the default global buffer-list. This helps ease the burden
-associated with a long-lived Emacs session with potentially hundreds
-of buffers, many unrelated to the current frame or tab.
+With bufferlo, every frame and tab (i.e., ~tab-bar-mode~ tab) has an
+additional manageable local buffer list. A buffer is added to the
+local buffer list when displayed in the frame/tab (e.g., by opening a
+new file in the tab or by switching to the buffer from the global
+buffer list).
 
 Using Emacs's built-in buffer-list frame parameter, bufferlo
-integrates seamlessly with standard frame and tab management
+integrates seamlessly with all standard frame and tab management
 facilities, including undeletion of frames and tabs, tab duplication
-and moving, frame cloning, and, if you use it, persisting sessions via
-desktop.el, though bufferlo offers a more efficient persistence
-method.
+and moving, frame cloning, and session persistence with desktop.el
+(though bufferlo frame and tab bookmarks offer an alternative
+persistence method).
 
 Bufferlo provides extensive management functions for its local lists
 and offers features on top of switch-buffer functions, buffer menu,
 and ~ibuffer~. You can configure any command that selects a buffer to
 use the local buffer list via ~bufferlo-anywhere-mode~.
 
-Bufferlo has lightweight Emacs bookmarks-based persistence for frames
-and tabs to help you manage your transient workflows. Bufferlo
-bookmarks are compatible with built-in features such as
-bookmark-bmenu-list and third-party packages such as [[https://github.com/minad/consult][consult]] which
-offers consult-bookmark for interactive bookmark selection.
+In addition, bufferlo offers lightweight Emacs bookmarks-based
+persistence for frames and tabs to help you manage your transient
+workflows. Bufferlo bookmarks are compatible with built-in features
+such as bookmark-bmenu-list and third-party packages such as [[https://github.com/minad/consult][consult]]
+which offers consult-bookmark for interactive bookmark selection.
 
 Bufferlo's mode-line indicator shows the currently active frame and/or
 tab bookmark name.
 
 Note: Code examples use ~setq~ to customize options. You may also use
-~M-x customize-group bufferlo~. Emacs 29 introduced ~setopt~ which is
-works correctly in the presence of ~defcustom~ setters. Currently the
-only bufferlo option with a setter is
+~M-x customize-group bufferlo~. Emacs 29 introduced ~setopt~ which works
+correctly in the presence of ~defcustom~ setters. Currently the only
+bufferlo option with a setter is
 ~bufferlo-bookmarks-auto-save-idle-interval~ so be sure to set that
 interval timer in advance of enabling ~bufferlo-mode~.
 
-** Installation
+* Installation
 
 Bufferlo is available in [[https://elpa.gnu.org/packages/bufferlo.html][GNU ELPA]].
 Install it via ~package-install~ and enable ~bufferlo-mode~
@@ -91,15 +88,9 @@ frame-only workflow. If you use ~tab-line-mode~ without
 ~tab-bar-mode~, your bufferlo experience will be the same as a
 frame-only user.
 
-If you're not a tab-bar user, you likely have this set:
-#+begin_src emacs-lisp
-  (setq tab-bar-show nil) ; or use the following method
-  (setopt tab-bar-show nil) ; this has a defcusto setter
-#+end_src
+* Usage
 
-** Usage
-
-*** Buffer selection
+** Buffer selection
 
 Use bufferlo buffer-list commands as local-buffer alternatives to
 built-in global-buffer commands:
@@ -122,7 +113,7 @@ built-in global-buffer commands:
   a ~buffer-menu~ buffer. Orphan buffers are buffers that are not in any
   frame/tab's local buffer list.
 
-*** Manage local buffer lists
+** Manage local buffer lists
 
 - ~bufferlo-clear~: Clear the frame/tab's local buffer list, retaining
   the current buffer. This is non-destructive to the buffers
@@ -143,23 +134,10 @@ built-in global-buffer commands:
 
 - ~bufferlo-kill-orphan-buffers~: Kill all buffers that are *not* on
   any frame/tab local list.
-  #+begin_src emacs-lisp
-    (setq bufferlo-kill-buffers-prompt t) ; confirm before killing buffers or orphans
-  #+end_src
 
 - ~bufferlo-delete-frame-kill-buffers~: Delete the frame and kill all its local buffers.
-  #+begin_src emacs-lisp
-    (setq bufferlo-delete-frame-kill-buffers-save-bookmark-prompt t) ; if bookmarked, offer to save before killing
-
-    (setq bufferlo-delete-frame-kill-buffers-prompt t) ; confirm before killing the frame
-  #+end_src
 
 - ~bufferlo-tab-close-kill-buffers~: Close the tab and kill its local buffers.
-    #+begin_src emacs-lisp
-      (setq bufferlo-close-tab-kill-buffers-save-bookmark-prompt t) ; if bookmarked, offer to save before killing
-
-      (setq bufferlo-close-tab-kill-buffers-prompt t) ; confirm before killing the tab
-    #+end_src
 
 - ~bufferlo-isolate-project~: Isolate a project.el project in the
   frame or tab. This removes non-project buffers from the local buffer
@@ -172,7 +150,7 @@ built-in global-buffer commands:
 - ~bufferlo-find-buffer-switch~: Switch to a frame/tab that contains
   the buffer in its local list, and select the buffer.
 
-*** Bookmark management for frames and tabs
+** Bookmark management for frames and tabs
 
 Bufferlo can bookmark the buffers and windows belonging to individual
 frames and tabs for later recall between Emacs sessions or within a
@@ -183,12 +161,12 @@ A tab bookmark includes the tab's window configuration, the state (not
 the contents) of all bookmarkable local buffers, and the bufferlo
 local buffer list. Tabs can be restored into any frame.
 
-A frame bookmark saves the every tab on a frame, each with the tab
+A frame bookmark saves every tab on a frame, each with the tab
 contents stated above. Frames can be restored into the current frame,
 replacing all tabs, into a new frame, or merged with the current
 frame's tabs.
 
-**** General bookmark commands
+*** General bookmark commands
 
 The first three of these commands accept multiple selected bookmarks.
 This can be made easier by leveraging Emacs completion packages such
@@ -262,7 +240,7 @@ in combination with a package like [[https://github.com/minad/vertico][vertico]]
   clear it and then delete). This function is also available via
   ~bookmark-bmenu-list~.
 
-**** Frame bookmark commands
+*** Frame bookmark commands
 
 - ~bufferlo-bookmark-frame-save~ (alias ~bufferlo-bm-frame-save~):
   Save a bookmark for the current frame under a new name or pick an
@@ -287,7 +265,7 @@ in combination with a package like [[https://github.com/minad/vertico][vertico]]
   of creating a new frame or overwriting the current frame content,
   this adds the loaded tabs into the current frame.
 
-**** Tab bookmark commands
+*** Tab bookmark commands
 
 - ~bufferlo-bookmark-tab-save~ (alias ~bufferlo-bm-tab-save~): Save a
   bookmark for the current tab under a new name or pick an existing
@@ -307,7 +285,7 @@ in combination with a package like [[https://github.com/minad/vertico][vertico]]
   current tab. This will overwrite your current tab content (no
   buffers are killed).
 
-**** Automatic bookmark saving
+*** Automatic bookmark saving
 
 You can configure bufferlo to automatically save some or all bookmarks
 based on an interval timer and/or at Emacs exit. Similarly, you can
@@ -338,6 +316,7 @@ Example auto-save predicate:
 #+end_src
 
 You can control messages produced when bufferlo saves bookmarks:
+
 #+begin_src emacs-lisp
   (setq bufferlo-bookmarks-auto-save-messages nil) ; inhibit messages (default)
   (setq bufferlo-bookmarks-auto-save-messages t) ; messages when saving and when there are no bookmarks to save
@@ -345,8 +324,17 @@ You can control messages produced when bufferlo saves bookmarks:
   (setq bufferlo-bookmarks-auto-save-messages 'notsaved) ; message only when there are no bookmarks to save
 #+end_src
 
+To save your bufferlo bookmarks when frames and tabs are closed:
+
+#+BEGIN_SRC emacs-lisp
+  (setq bufferlo-bookmark-frame-save-on-delete 'if-current)
+  (setq bufferlo-bookmark-tab-save-on-close 'if-current)
+  ;; See the variables' documentation for more options
+#+END_SRC
+
 To save your bufferlo bookmarks at Emacs exit (set in advance of
 enabling ~bufferlo-mode~):
+
 #+begin_src emacs-lisp
   (setq bufferlo-bookmarks-save-at-emacs-exit-policy 'nosave) ; inhibit saving at exit (default)
   (setq bufferlo-bookmarks-save-at-emacs-exit-policy 'pred) ; save active bookmark names that match your predicates
@@ -361,11 +349,10 @@ the first, called; e.g., "bufferlo=as". You can restore "bufferlo" and
 get back to your original any time while the "=as" bookmark will save
 your context as you work. Switch between them as you see fit.
 
-**** Automatic bookmark loading
+*** Automatic bookmark loading
 
 To automatically load some or all bufferlo bookmarks at Emacs startup
 time:
-
 #+begin_src emacs-lisp
   (setq bufferlo-bookmarks-load-at-emacs-startup 'noload) ; inhibit loading at startup (default)
   (setq bufferlo-bookmarks-load-at-emacs-startup 'pred) ; load bookmark names that match your predicates
@@ -373,14 +360,12 @@ time:
 #+end_src
 
 To make a new frame to hold restored tabs at startup, or reuse the initial frame:
-
 #+begin_src emacs-lisp
   (setq bufferlo-bookmarks-load-at-emacs-startup-tabs-make-frame nil) ; reuse the initial frame (default)
   (setq bufferlo-bookmarks-load-at-emacs-startup-tabs-make-frame t) ; make a new frame
 #+end_src
 
 Example auto-load predicate:
-
 #+begin_src emacs-lisp
   (setq 'bufferlo-bookmarks-load-predicate-functions #'bufferlo-bookmarks-load-all-p) ; loads all bookmarks
 
@@ -393,13 +378,12 @@ Example auto-load predicate:
 You can inhibit bufferlo bookmarks from loading at Emacs startup
 without changing your configuration by either using the command line
 or a semaphore file in your ~user-emacs-directory~:
-
 #+begin_src shell
 $ emacs --bufferlo-noload
 $ touch ~/.emacs.d/bufferlo-noload # remove it to reenable automatic loading
 #+end_src
 
-**** Filter saved bookmark buffers
+*** Filter saved bookmark buffers
 
 By default, bufferlo will save all buffers in the local frame/tab
 buffer list, using Emacs facilities to bookmark what's bookmarkable
@@ -426,7 +410,7 @@ filter are added back. For example:
          ))
 #+end_src
 
-**** Bookmark duplicates
+*** Bookmark duplicates
 
 Bufferlo can discourage you from using multiple duplicate active
 bookmarks, but does not prevent them. Having duplicates is confusing
@@ -444,7 +428,7 @@ but they are likely to be enabled by default in the future.
   (setq bufferlo-bookmarks-save-duplicates-policy 'disallow) ; even better
 #+end_src
 
-**** Save current, other, or all frame bookmarks
+*** Save current, other, or all frame bookmarks
 
 If you use batch or automatic saving, this option lets you control
 which frames' bookmarks are saved. For example, some prefer not to
@@ -456,7 +440,7 @@ have their current working set be saved unless and until they choose.
   (setq bufferlo-bookmarks-save-frame-policy 'current) ; saves only the current frame bookmarks
 #+end_src
 
-**** Frame bookmark options
+*** Frame bookmark options
 
 What follows is a good, basic set of frame bookmark policies. Refine
 them to suit your workflow as you gain experience with bufferlo. Refer
@@ -485,7 +469,7 @@ to each option's documentation for additional settings.
   (setq bufferlo-bookmark-frame-clone-policy 'allow) ; old default behavior
 #+end_src
 
-**** Tab bookmark options
+*** Tab bookmark options
 
 What follows is a good, basic set of tab bookmark policies. Refine
 them to suit your workflow as you gain experience with bufferlo. Refer
@@ -517,7 +501,7 @@ to each option's documentation for additional settings.
   (setq bufferlo-bookmark-tab-load-into-bookmarked-frame-policy 'clear-warn) ; clear the loaded tab bookmark with a message
 #+end_src
 
-**** Bookmark addenda
+*** Bookmark addenda
 
 Emacs bookmarks do not store your file or buffer contents, only
 references to your files and buffers. Many Emacs modes support Emacs
@@ -558,7 +542,7 @@ among colleagues. Bookmarks can be made more "portable" with the following assum
   (setq bufferlo-mode-line-lighter #'my/bufferlo-mode-line-lighter) ; use your own
 #+end_src
 
-*** Initial buffer
+** Initial buffer
 
 By default, the currently-active buffer is shown in a newly created
 tab so this buffer inevitably ends up in the new tab's local buffer
@@ -595,7 +579,7 @@ You can also set an arbitrary buffer as the initial frame buffer:
   (add-hook 'after-make-frame-functions #'my/set-initial-frame-buffer)
 #+end_src
 
-*** Bufferlo anywhere
+** Bufferlo anywhere
 
 "Bufferlo anywhere" lets you have bufferlo's frame/tab-local buffer
 list anywhere you like, i.e. in any command with interactive buffer
@@ -615,9 +599,9 @@ Instead of the minor mode, you can use the command prefix
 ~bufferlo-anywhere-enable-prefix~, which only temporarily enables
 bufferlo's local buffer list for the next command.
 
-** Package integration
+* Package integration
 
-*** Consult
+** Consult
 
 You can integrate bufferlo with ~consult-buffer~.
 
@@ -705,7 +689,7 @@ A good alternative is to bind space to "All Buffers" (via ~:narrow
 list, you can make a new source for it, for example, with period as
 the narrowing key (~:narrow ?.~).
 
-*** Ivy
+** Ivy
 
 You can also integrate bufferlo with ~ivy~.
 
@@ -725,11 +709,21 @@ You can also integrate bufferlo with ~ivy~.
                   :caller 'ivy-switch-buffer)))
 #+end_src
 
-*** shell-mode bookmarks
+** shell-mode bookmarks
 
 We may post some code on the bufferlo wiki illustrate how to enable
 bookmarks for ~shell-mode~ buffers. We will help contribute this
 feature to Emacs 31.
+
+** save-place-mode
+
+If you use ~save-place-mode~, and prefer to *always* use its
+buffer-position history, overriding bufferlo's saved bookmark
+positions, add this to your configuration:
+
+#+begin_src emacs-lisp
+  (setq bufferlo-bookmark-prefer-saveplace-point t)
+#+end_src
 
 ** Complete configuration sample
 
@@ -779,9 +773,7 @@ feature to Emacs 31.
                   "\\'"))
     (setq bufferlo-kill-buffers-prompt t)
     (setq bufferlo-bookmark-prefer-saveplace-point t)
-    (setq bufferlo-delete-frame-kill-buffers-save-bookmark-prompt t)
     (setq bufferlo-delete-frame-kill-buffers-prompt t)
-    (setq bufferlo-close-tab-kill-buffers-save-bookmark-prompt t)
     (setq bufferlo-close-tab-kill-buffers-prompt t)
     (setq bufferlo-bookmark-frame-load-make-frame t)
     (setq bufferlo-bookmark-frame-load-policy 'prompt)
@@ -871,35 +863,9 @@ feature to Emacs 31.
     )
 #+end_src
 
-** Recommended packages
+* Alternatives
 
-In general, we recommend using these additional Emacs features which
-help remember state between Emacs sessions: ~recentf~, ~savehist~,
-~saveplace~, and ~uniquify~ which helps with buffer naming conflicts.
-
-If you use ~saveplace~, and prefer to use its buffer-position history
-and want to ignore bookmark positions, put this in your bufferlo
-configuration:
-#+begin_src emacs-lisp
-  (setq bufferlo-bookmark-prefer-saveplace-point t)
-#+end_src
-
-There are several mature packages that enhance Emacs completion
-functions in the ~minibuffer~ and "in-region." Working with Emacs
-under enhanced completion is almost a must-have over the defaults.
-
-Some people prefer [[https://company-mode.github.io/][company]], some [[https://github.com/abo-abo/swiper][ivy]], and some [[https://emacs-helm.github.io/helm/][helm]]. One bufferlo
-author uses the following combination of completion packages which are
-built using native shared Emacs completion APIs for more universal
-operation: [[https://github.com/oantolin/orderless][orderless]] which provides regexp among other completion
-styles, [[https://github.com/minad/vertico][vertico]] which enhances ~minibuffer~ completion candidate
-selection into vertical or tabular lists, [[https://github.com/minad/corfu][corfu]] which offers rich
-"in-region" completion for GUI or tty, and [[https://github.com/minad/consult][consult]] which, along with
-[[https://github.com/minad/marginalia/][marginalia]] make ~minibuffer~ completions even richer.
-
-** Alternatives
-
-*** desktop.el
+** desktop.el
 
 In contrast to ~desktop.el~, Emacs's built-in persistence feature,
 bufferlo's persistence is lightweight. ~desktop.el~ is an
@@ -918,7 +884,7 @@ This can be more convenient than ~desktop.el~ when you use multiple
 Emacs sessions; e.g., GUI and tty sessions where your frames and tabs
 will have different geometries.
 
-*** Other Emacs packages
+** Other Emacs packages
 
 The packages [[https://github.com/alpaker/frame-bufs][frame-bufs]] (unmaintained) and [[https://protesilaos.com/emacs/beframe][beframe]] provide similar
 functionality, but only at the frame level, and without support for
