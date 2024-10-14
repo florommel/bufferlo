@@ -788,6 +788,7 @@ suboptimal results for your platform."
     ("Session Bookmarks"
      ["Create..."           bufferlo-sess-save           :help "Create a new session bookmark"]
      ["Load..."             bufferlo-sess-load           :help "Load a session bookmark"]
+     ["Save Current..."     bufferlo-sess-save-curr      :help "Save the specified session bookmarks"]
      ["Close/Kill..."       bufferlo-sess-close          :help "Close the specified session bookmarks (kills frames, tabs, buffers)"]
      ["Clear..."            bufferlo-sess-clear          :help "Clear the specified session bookmark (does not kill frames, tabs, buffers)"]
      )
@@ -2340,6 +2341,23 @@ throwing away the old one."
          (comps (bufferlo--bookmark-completing-read (format "Add bookmark(s) to %s: " bookmark-name) abm-names)))
     (bufferlo--session-save bookmark-name comps abms no-overwrite)))
 
+(defun bufferlo-session-save-current-interactive ()
+  "Save the active bookmark constituents in selected sessions."
+  (interactive)
+  (let* ((candidates (mapcar #'car bufferlo--active-sessions))
+         (comps (bufferlo--bookmark-completing-read "Select sessions to save: " candidates)))
+    (let* ((abms (bufferlo--active-bookmarks))
+           (abm-names (mapcar #'car abms))
+           (abm-names-to-save))
+      (dolist (sess-name comps)
+        (setq abm-names-to-save
+              (append abm-names-to-save
+                      (seq-intersection
+                       (alist-get 'bufferlo-bookmark-names (assoc sess-name bufferlo--active-sessions))
+                       abm-names))))
+      (setq abm-names-to-save (seq-uniq abm-names-to-save))
+      (bufferlo--bookmarks-save abm-names-to-save abms))))
+
 (defun bufferlo-session-load-interactive ()
   "Prompt for bufferlo session bookmarks to load."
   (interactive)
@@ -3187,6 +3205,7 @@ OLDFN BOOKMARK-NAME BATCH"
 (defalias 'bufferlo-bm-frame-load-merge 'bufferlo-bookmark-frame-load-merge)
 (defalias 'bufferlo-bm-frame-close-curr 'bufferlo-delete-frame-kill-buffers)
 (defalias 'bufferlo-sess-save           'bufferlo-session-save-interactive)
+(defalias 'bufferlo-sess-save-curr      'bufferlo-session-save-current-interactive)
 (defalias 'bufferlo-sess-load           'bufferlo-session-load-interactive)
 (defalias 'bufferlo-sess-close          'bufferlo-session-close-interactive)
 (defalias 'bufferlo-sess-clear          'bufferlo-session-clear-interactive)
