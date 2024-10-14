@@ -468,7 +468,7 @@ This is controlled by `bufferlo-bookmarks-auto-save-idle-interval'.")
   (bufferlo--bookmarks-auto-save-timer-maybe-cancel)
   (when (> bufferlo-bookmarks-auto-save-idle-interval 0)
     (setq bufferlo--bookmarks-auto-save-timer
-          (run-with-idle-timer bufferlo-bookmarks-auto-save-idle-interval t #'bufferlo-bookmarks-save))))
+          (run-with-idle-timer bufferlo-bookmarks-auto-save-idle-interval nil #'bufferlo--bookmarks-save-timer-cb))))
 
 (defcustom bufferlo-bookmarks-auto-save-idle-interval 0
   "Save bufferlo bookmarks when Emacs has been idle this many seconds.
@@ -2743,6 +2743,14 @@ Specify NO-MESSAGE to inhibit the bookmark save status message."
       (when (and (not no-message)
                  (memq bufferlo-bookmarks-auto-save-messages (list 'notsaved t)))
         (message "No bufferlo bookmarks saved."))))))
+
+(defun bufferlo--bookmarks-save-timer-cb ()
+  "Save active bufferlo bookmarks per an optional idle timer.
+`bufferlo-bookmarks-auto-save-idle-interval' is treated as a
+one-shot timer to prevent reentrancy."
+  (bufferlo-bookmarks-save)
+  ;; reschedule the save timer as soon as Emacs allows
+  (run-with-timer 0 nil #'bufferlo--bookmarks-auto-save-timer-maybe-start))
 
 (defun bufferlo-bookmarks-save (&optional all)
   "Save active bufferlo bookmarks.
