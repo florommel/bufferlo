@@ -2787,8 +2787,9 @@ Specify NO-MESSAGE to inhibit the bookmark save status message."
   "Save active bufferlo bookmarks per an optional idle timer.
 `bufferlo-bookmarks-auto-save-idle-interval' is treated as a
 one-shot timer to prevent reentrancy."
-  (when (current-idle-time)
-    (bufferlo-bookmarks-save))
+  (if (current-idle-time)
+      (bufferlo-bookmarks-save)
+    (run-with-idle-timer 0.1 nil #'bufferlo-bookmarks-save))
   (bufferlo--bookmarks-auto-save-timer-maybe-start))
 
 (defun bufferlo-bookmarks-save (&optional all)
