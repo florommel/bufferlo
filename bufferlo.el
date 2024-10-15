@@ -553,8 +553,8 @@ Replace this function with your own if the default produces
 suboptimal results for your platform."
   :type 'function)
 
-(defcustom bufferlo-mode-line-lighter-prefix " Bfl"
-  "Bufferlo mode-line lighter prefix."
+(defcustom bufferlo-mode-line-prefix " Bfl"
+  "Bufferlo mode-line prefix."
   :type 'string)
 
 (defvar bufferlo-mode) ; byte compiler
@@ -567,7 +567,7 @@ suboptimal results for your platform."
            (bm (or fbm tbm ""))
            (maybe-space (if (display-graphic-p) "" " "))) ; tty rendering can be off for Ⓕ Ⓣ
       `(:propertize
-        ,(concat bufferlo-mode-line-lighter-prefix
+        ,(concat bufferlo-mode-line-prefix
                  "["
                  (if fbm (concat "Ⓕ" maybe-space fbm)) ; the space accommodates tty rendering
                  (if (and fbm tbm) " ")
@@ -592,7 +592,7 @@ suboptimal results for your platform."
                          (describe-function 'bufferlo-mode)))
            map)))))
 
-(defcustom bufferlo-mode-line-lighter '(:eval (bufferlo-mode-line-format))
+(defcustom bufferlo-mode-line '(:eval (bufferlo-mode-line-format))
   "Bufferlo mode line definition."
   :type 'sexp
   :risky t)
@@ -628,7 +628,6 @@ suboptimal results for your platform."
   :global t
   :require 'bufferlo
   :init-value nil
-  :lighter bufferlo-mode-line-lighter
   :keymap bufferlo-mode-map
   (if bufferlo-mode
       (progn
@@ -669,7 +668,9 @@ suboptimal results for your platform."
           (add-hook 'window-setup-hook #'bufferlo--bookmarks-load-startup))
         ;; bookmark advice
         (advice-add 'bookmark-rename :around #'bufferlo--bookmark-rename-advice)
-        (advice-add 'bookmark-delete :around #'bufferlo--bookmark-delete-advice))
+        (advice-add 'bookmark-delete :around #'bufferlo--bookmark-delete-advice)
+        ;; mode line
+        (setq mode-line-misc-info (cons bufferlo-mode-line mode-line-misc-info)))
     ;; Prefer local buffers
     (dolist (frame (frame-list))
       (bufferlo--reset-buffer-predicate frame))
@@ -702,7 +703,9 @@ suboptimal results for your platform."
     (remove-hook 'window-setup-hook #'bufferlo-bookmarks-load)
     ;; bookmark advice
     (advice-remove 'bookmark-rename #'bufferlo--bookmark-rename-advice)
-    (advice-remove 'bookmark-delete #'bufferlo--bookmark-delete-advice)))
+    (advice-remove 'bookmark-delete #'bufferlo--bookmark-delete-advice)
+    ;; mode line
+    (setq mode-line-misc-info (delete bufferlo-mode-line mode-line-misc-info))))
 
 (defun bufferlo--current-bookmark-name ()
   "Current bufferlo bookmark name, where frame beats tab."
