@@ -126,6 +126,25 @@ This is a list of regular expressions that match buffer names."
   "If non-nil, confirm before killing local or orphan buffers."
   :type 'boolean)
 
+(defcustom bufferlo-kill-modified-buffers-policy 'kill-modified
+  "Bufferlo behavior when killing modified or process buffers.
+
+This policy is useful when `shell-mode' or `eshell-mode' buffers
+are active in a bufferlo-controlled frame or tab.
+
+nil means default Emacs behavior which may prompt. This may have
+side effects when killing frames.
+
+\\='ignore-modified means bufferlo will leave modified buffers as
+is.
+
+\\='kill-modified instructs bufferlo to kill modified buffers
+without remorse including those with running processes such as
+`shell-mode' buffers."
+  :type '(radio (const :tag "Do not kill modified buffers" ignore-modified)
+                (const :tag "Kill modified buffers without prompting" kill-modified)
+                (const :tag "Default Emacs behavior (will prompt)" nil)))
+
 (defcustom bufferlo-bookmark-prefer-saveplace-point nil
   "If non-nil, and `save-place-mode' mode is on, inhibit point in bookmarks."
   :type 'boolean)
@@ -1193,6 +1212,19 @@ If INVERT is non-nil, return the non-exclusive buffers instead."
                   (lambda (b) (not (memq b other-bufs))))
                 this-bufs)))
 
+(defun bufferlo--kill-buffer (buffer)
+  "Kill BUFFER respecting `bufferlo-kill-modified-buffers-policy'."
+  (pcase bufferlo-kill-modified-buffers-policy
+    ('ignore-modified
+     (unless (buffer-modified-p buffer)
+       (kill-buffer buffer)))
+    ('kill-modified
+     (let ((kill-buffer-query-functions nil))
+       (with-current-buffer buffer
+       (set-buffer-modified-p nil)
+       (kill-buffer))))
+    (_ (kill-buffer buffer))))
+
 (defun bufferlo-kill-buffers (&optional killall frame tabnum internal-too)
   "Kill the buffers of the frame/tab-local buffer list.
 By default, this will only kill buffers that are exclusive to the frame/tab.
@@ -1223,7 +1255,7 @@ argument INTERNAL-TOO is non-nil."
                                (string-match-p exclude (buffer-name b)))))
                        kill-list)))
         (dolist (b buffers)
-          (kill-buffer b))))))
+          (bufferlo--kill-buffer b))))))
 
 (defun bufferlo-kill-orphan-buffers (&optional internal-too)
   "Kill all buffers that are not in any local list of a frame or tab.
@@ -1246,7 +1278,7 @@ Buffers matching `bufferlo-kill-buffers-exclude-filters' are never killed."
                                (string-match-p exclude (buffer-name b)))))
                        (bufferlo--get-orphan-buffers))))
         (dolist (b buffers)
-          (kill-buffer b))))))
+          (bufferlo--kill-buffer b))))))
 
 (defun bufferlo-delete-frame-kill-buffers (&optional frame internal-too)
   "Delete a frame and kill the local buffers of its tabs.
@@ -1256,25 +1288,31 @@ argument INTERNAL-TOO is non-nil."
   (interactive)
   (bufferlo--warn)
   (let ((kill t)
-        (fbm (frame-parameter nil 'bufferlo-bookmark-frame-name)))
-    (when (and fbm
-               bufferlo-delete-frame-kill-buffers-save-bookmark-prompt)
-      (when (y-or-n-p
-             (concat "Save frame bookmark \"" fbm "\"? "))
-        (bufferlo-bookmark-frame-save-current)))
-    (when bufferlo-delete-frame-kill-buffers-prompt
-      (setq kill (y-or-n-p "Kill frame and its buffers? ")))
-    (when kill
-      (raise-frame frame) ; if called in a batch, raise frame in case of prompts for buffers that need saving
-      (bufferlo-kill-buffers nil frame 'all internal-too)
-      ;; TODO: Emacs 30 frame-deletable-p
-      ;; account for top-level, non-child frames
-      (setq frame (or frame (selected-frame)))
-      (when (= 1 (length (seq-filter
-                          (lambda (x) (null (frame-parameter x 'parent-frame)))
-                          (frame-list))))
-        (make-frame)) ; leave one for the user
-      (delete-frame frame))))
+        (frame (or frame (selected-frame))))
+    (let ((fbm (frame-parameter frame 'bufferlo-bookmark-frame-name)))
+      (when (and fbm
+                 bufferlo-delete-frame-kill-buffers-save-bookmark-prompt)
+        (when (y-or-n-p
+               (concat "Save frame bookmark \"" fbm "\"? "))
+          (with-selected-frame frame ; needed if called in a batch
+            (bufferlo-bookmark-frame-save-current))))
+      (when bufferlo-delete-frame-kill-buffers-prompt
+        (setq kill (y-or-n-p "Kill frame and its buffers? ")))
+      (when kill
+        ;; If batch, raise frame in case of prompts for buffers that need saving.
+        (raise-frame frame)
+        ;; kill-buffer calls replace-buffer-in-windows which will
+        ;; delete windows *and* their frame so we have to test if
+        ;; the frame in question is still live.
+        (bufferlo-kill-buffers nil frame 'all internal-too)
+        (when (frame-live-p frame)
+          ;; TODO: Emacs 30 frame-deletable-p
+          ;; account for top-level, non-child frames
+          (when (= 1 (length (seq-filter
+                              (lambda (x) (null (frame-parameter x 'parent-frame)))
+                              (frame-list))))
+            (make-frame)) ; leave one for the user
+          (delete-frame frame))))))
 
 (defun bufferlo-tab-close-kill-buffers (&optional killall internal-too)
   "Close the current tab and kill the local buffers.
@@ -1817,7 +1855,7 @@ this bookmark is embedded in a frame bookmark."
              (unless (consp current-prefix-arg) ; user new tab suppression
                (tab-bar-new-tab-to))))))
       (let* ((ws (copy-tree (alist-get 'window bookmark)))
-             (dummy (generate-new-buffer " *bufferlo dummy buffer*")) ; TODO: needs unwind-protect or make-finalizer?
+             (dummy (generate-new-buffer " *bufferlo dummy buffer*")) ; TODO: needs unwind-protect or make-finalizer or with-temp-buffer?
              (renamed
               (mapcar
                (lambda (bm)
