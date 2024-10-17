@@ -648,6 +648,7 @@ suboptimal results for your platform."
   :require 'bufferlo
   :init-value nil
   :keymap bufferlo-mode-map
+  (setq mode-line-misc-info (delete bufferlo-mode-line mode-line-misc-info))
   (if bufferlo-mode
       (progn
         (bufferlo--parse-command-line) ; parse user-provided settings first
@@ -722,9 +723,7 @@ suboptimal results for your platform."
     (remove-hook 'window-setup-hook #'bufferlo-bookmarks-load)
     ;; bookmark advice
     (advice-remove 'bookmark-rename #'bufferlo--bookmark-rename-advice)
-    (advice-remove 'bookmark-delete #'bufferlo--bookmark-delete-advice)
-    ;; mode line
-    (setq mode-line-misc-info (delete bufferlo-mode-line mode-line-misc-info))))
+    (advice-remove 'bookmark-delete #'bufferlo--bookmark-delete-advice)))
 
 (defun bufferlo--current-bookmark-name ()
   "Current bufferlo bookmark name, where frame beats tab."
