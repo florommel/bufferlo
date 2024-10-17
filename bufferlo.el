@@ -581,11 +581,15 @@ suboptimal results for your platform."
   :type 'boolean)
 
 (defcustom bufferlo-mode-line-frame-prefix "Ⓕ"
-  "Display bufferlo mode-line frame icon."
+  "Display bufferlo mode-line frame prefix."
   :type 'string)
 
 (defcustom bufferlo-mode-line-tab-prefix "Ⓣ"
-  "Display bufferlo mode-line tab icon."
+  "Display bufferlo mode-line tab prefix."
+  :type 'string)
+
+(defcustom bufferlo-mode-line-session-active-prefix "Ⓢ"
+  "Display bufferlo mode-line frame prefix."
   :type 'string)
 
 (defvar bufferlo-mode) ; byte compiler
@@ -613,16 +617,19 @@ string, FACE is the face for STR."
                            (describe-function 'bufferlo-mode)))
              map)))
 
+(defvar bufferlo--active-sessions) ; byte compiler
 (defun bufferlo-mode-line-format ()
   "Bufferlo mode-line format to display the current active frame or tab bookmark."
   (when bufferlo-mode
     (let* ((fbm (frame-parameter nil 'bufferlo-bookmark-frame-name))
            (tbm (alist-get 'bufferlo-bookmark-tab-name (tab-bar--current-tab-find (frame-parameter nil 'tabs))))
            (abm (or fbm tbm ""))
+           (sess-active (> (length bufferlo--active-sessions) 0))
            (maybe-space (if (display-graphic-p) "" " "))) ; tty rendering can be off for Ⓕ Ⓣ
       (concat
        (bufferlo--mode-line-format-helper abm bufferlo-mode-line-prefix 'bufferlo-mode-line-face)
        (when bufferlo-mode-line-brackets (bufferlo--mode-line-format-helper abm "[" 'bufferlo-mode-line-face))
+       (when sess-active (bufferlo--mode-line-format-helper abm bufferlo-mode-line-session-active-prefix 'bufferlo-mode-line-session-face))
        (when fbm (bufferlo--mode-line-format-helper
                   abm
                   (concat bufferlo-mode-line-frame-prefix maybe-space fbm) 'bufferlo-mode-line-frame-bookmark-face))
@@ -652,6 +659,10 @@ string, FACE is the face for STR."
 (defface bufferlo-mode-line-tab-bookmark-face
   '((t :inherit bufferlo-mode-line-face))
   "`bufferlo-mode' mode-line tab bookmark indicator face.")
+
+(defface bufferlo-mode-line-session-face
+  '((t :inherit bufferlo-mode-line-face))
+  "`bufferlo-mode' mode-line session active indicator face.")
 
 (defconst bufferlo--command-line-noload-prefix "--bufferlo-noload")
 (defvar bufferlo--command-line-noload nil)
