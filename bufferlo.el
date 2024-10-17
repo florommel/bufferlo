@@ -572,49 +572,86 @@ Replace this function with your own if the default produces
 suboptimal results for your platform."
   :type 'function)
 
-(defcustom bufferlo-mode-line-prefix " Bfl"
+(defcustom bufferlo-mode-line-prefix "Bfl"
   "Bufferlo mode-line prefix."
+  :type 'string)
+
+(defcustom bufferlo-mode-line-brackets nil
+  "Display bufferlo mode-line brackets."
+  :type 'boolean)
+
+(defcustom bufferlo-mode-line-frame-prefix "Ⓕ"
+  "Display bufferlo mode-line frame icon."
+  :type 'string)
+
+(defcustom bufferlo-mode-line-tab-prefix "Ⓣ"
+  "Display bufferlo mode-line tab icon."
   :type 'string)
 
 (defvar bufferlo-mode) ; byte compiler
 (defvar bufferlo-mode-line-menu) ; byte compiler
+(defun bufferlo--mode-line-format-helper (abm str face)
+  "Bufferlo mode-line helper to add face and mouse features.
+Where ABM is the current active bookmark, STR is the mode-line
+string, FACE is the face for STR."
+  (propertize
+   str 'face face
+   'mouse-face 'mode-line-highlight
+   'help-echo (lambda (&rest _)
+                (concat
+                 (format "Active bufferlo bookmark: %s\n" abm)
+                 "mouse-1: Display minor mode menu\n"
+                 "mouse-2: Show help for minor mode"))
+   'keymap (let ((map (make-sparse-keymap)))
+             (define-key map [mode-line down-mouse-1]
+                         bufferlo-mode-line-menu)
+             (define-key map [mode-line down-mouse-3]
+                         bufferlo-mode-line-menu)
+             (define-key map [mode-line mouse-2]
+                         (lambda ()
+                           (interactive)
+                           (describe-function 'bufferlo-mode)))
+             map)))
+
 (defun bufferlo-mode-line-format ()
   "Bufferlo mode-line format to display the current active frame or tab bookmark."
   (when bufferlo-mode
     (let* ((fbm (frame-parameter nil 'bufferlo-bookmark-frame-name))
            (tbm (alist-get 'bufferlo-bookmark-tab-name (tab-bar--current-tab-find (frame-parameter nil 'tabs))))
-           (bm (or fbm tbm ""))
+           (abm (or fbm tbm ""))
            (maybe-space (if (display-graphic-p) "" " "))) ; tty rendering can be off for Ⓕ Ⓣ
-      `(:propertize
-        ,(concat bufferlo-mode-line-prefix
-                 "["
-                 (if fbm (concat "Ⓕ" maybe-space fbm)) ; the space accommodates tty rendering
-                 (if (and fbm tbm) " ")
-                 (if tbm (concat "Ⓣ" maybe-space tbm)) ; the space accommodates tty rendering
-                 "]")
-        mouse-face mode-line-highlight
-        help-echo
-        ,(lambda (&rest _)
-           (concat
-            (format "Active bufferlo bookmark: %s\n" bm)
-            "mouse-1: Display minor mode menu\n"
-            "mouse-2: Show help for minor mode"))
-        keymap
-        ,(let ((map (make-sparse-keymap)))
-           (define-key map [mode-line down-mouse-1]
-                       bufferlo-mode-line-menu)
-           (define-key map [mode-line down-mouse-3]
-                       bufferlo-mode-line-menu)
-           (define-key map [mode-line mouse-2]
-                       (lambda ()
-                         (interactive)
-                         (describe-function 'bufferlo-mode)))
-           map)))))
+      (concat
+       (bufferlo--mode-line-format-helper abm bufferlo-mode-line-prefix 'bufferlo-mode-line-face)
+       (when bufferlo-mode-line-brackets (bufferlo--mode-line-format-helper abm "[" 'bufferlo-mode-line-face))
+       (when fbm (bufferlo--mode-line-format-helper
+                  abm
+                  (concat bufferlo-mode-line-frame-prefix maybe-space fbm) 'bufferlo-mode-line-frame-bookmark-face))
+       (when (and fbm tbm) (bufferlo--mode-line-format-helper abm " " 'bufferlo-mode-line-face)) ; the space accommodates tty rendering
+       (when tbm (bufferlo--mode-line-format-helper
+                  abm
+                  (concat bufferlo-mode-line-tab-prefix maybe-space tbm) 'bufferlo-mode-line-tab-bookmark-face))
+       (when bufferlo-mode-line-brackets (bufferlo--mode-line-format-helper abm "]" 'bufferlo-mode-line-face))))))
 
 (defcustom bufferlo-mode-line '(:eval (bufferlo-mode-line-format))
   "Bufferlo mode line definition."
   :type 'sexp
   :risky t)
+
+(defgroup bufferlo-faces nil
+  "Faces used in `bufferlo-mode'."
+  :group 'bufferlo
+  :group 'faces)
+
+(defface bufferlo-mode-line-face nil
+  "`bufferlo-mode' mode-line base face.")
+
+(defface bufferlo-mode-line-frame-bookmark-face
+  '((t :inherit bufferlo-mode-line-face))
+  "`bufferlo-mode' mode-line frame bookmark indicator face.")
+
+(defface bufferlo-mode-line-tab-bookmark-face
+  '((t :inherit bufferlo-mode-line-face))
+  "`bufferlo-mode' mode-line tab bookmark indicator face.")
 
 (defconst bufferlo--command-line-noload-prefix "--bufferlo-noload")
 (defvar bufferlo--command-line-noload nil)
