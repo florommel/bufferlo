@@ -2702,10 +2702,12 @@ This reuses the current tab even if
 (defun bufferlo--clear-tab-bookmarks-by-name (bookmark-name)
   "Clear BOOKMARK-NAME frame bookmarks across all frames and their tabs."
   (dolist (frame (frame-list))
-    (dolist (tab (funcall tab-bar-tabs-function frame))
-      (when-let ((tbm (alist-get 'bufferlo-bookmark-tab-name tab)))
-        (when (equal tbm bookmark-name)
-          (assq-delete-all 'bufferlo-bookmark-tab-name tab))))))
+    (let* ((filter (lambda (tab)
+                     (not (equal bookmark-name
+                                 (alist-get 'bufferlo-bookmark-tab-name tab)))))
+           (old-tabs (funcall tab-bar-tabs-function frame))
+           (new-tabs (seq-filter filter old-tabs)))
+      (tab-bar-tabs-set new-tabs frame))))
 
 (defun bufferlo--clear-frame-bookmarks-by-name (bookmark-name)
   "Clear BOOKMARK-NAME frame bookmarks across all frames."
