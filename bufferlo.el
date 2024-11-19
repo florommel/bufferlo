@@ -1633,10 +1633,10 @@ If the prefix argument is given, include all buffers."
           (name (or
                  (seq-find (lambda (b)
                              (string-match-p
-                              "\\`\\*Local Buffer List\\*\\(<[0-9]*>\\)?\\'"
+                              "\\`\\*Bufferlo Local Buffer List\\*\\(<[0-9]*>\\)?\\'"
                               (buffer-name b)))
                            (bufferlo-buffer-list))
-                 (generate-new-buffer-name "*Local Buffer List*")))
+                 (generate-new-buffer-name "*Bufferlo Local Buffer List*")))
           (buffer (get-buffer-create name)))
      (with-current-buffer buffer
        (Buffer-menu-mode)
@@ -1655,7 +1655,7 @@ If the prefix argument is given, include all buffers."
   (bufferlo--warn)
   (display-buffer
    (let* ((old-buffer (current-buffer))
-          (name "*Orphan Buffer List*")
+          (name "*Bufferlo Orphan Buffer List*")
           (buffer (get-buffer-create name)))
      (with-current-buffer buffer
        (Buffer-menu-mode)
