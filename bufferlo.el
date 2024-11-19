@@ -624,9 +624,13 @@ suboptimal results for your platform."
   "Bufferlo mode-line prefix."
   :type 'string)
 
-(defcustom bufferlo-mode-line-brackets nil
-  "Display bufferlo mode-line brackets."
-  :type 'boolean)
+(defcustom bufferlo-mode-line-left-prefix "["
+  "Bufferlo mode-line left-hand string prefix."
+  :type 'string)
+
+(defcustom bufferlo-mode-line-right-suffix "]"
+  "Bufferlo mode-line right-hand string suffix."
+  :type 'string)
 
 (defcustom bufferlo-mode-line-frame-prefix "Ⓕ"
   "Display bufferlo mode-line frame prefix."
@@ -676,16 +680,20 @@ string, FACE is the face for STR."
            (maybe-space (if (display-graphic-p) "" " "))) ; tty rendering can be off for Ⓕ Ⓣ
       (concat
        (bufferlo--mode-line-format-helper abm bufferlo-mode-line-prefix 'bufferlo-mode-line-face)
-       (when bufferlo-mode-line-brackets (bufferlo--mode-line-format-helper abm "[" 'bufferlo-mode-line-face))
-       (when sess-active (bufferlo--mode-line-format-helper abm bufferlo-mode-line-session-active-prefix 'bufferlo-mode-line-session-face))
-       (when fbm (bufferlo--mode-line-format-helper
-                  abm
-                  (concat bufferlo-mode-line-frame-prefix maybe-space fbm) 'bufferlo-mode-line-frame-bookmark-face))
-       (when (and fbm tbm) (bufferlo--mode-line-format-helper abm " " 'bufferlo-mode-line-face)) ; the space accommodates tty rendering
-       (when tbm (bufferlo--mode-line-format-helper
-                  abm
-                  (concat bufferlo-mode-line-tab-prefix maybe-space tbm) 'bufferlo-mode-line-tab-bookmark-face))
-       (when bufferlo-mode-line-brackets (bufferlo--mode-line-format-helper abm "]" 'bufferlo-mode-line-face))))))
+       (when bufferlo-mode-line-left-prefix
+         (bufferlo--mode-line-format-helper abm bufferlo-mode-line-left-prefix 'bufferlo-mode-line-face))
+       (when sess-active
+         (bufferlo--mode-line-format-helper abm bufferlo-mode-line-session-active-prefix 'bufferlo-mode-line-session-face))
+       (when fbm
+         (bufferlo--mode-line-format-helper
+          abm
+          (concat bufferlo-mode-line-frame-prefix maybe-space fbm) 'bufferlo-mode-line-frame-bookmark-face))
+       (when tbm
+         (bufferlo--mode-line-format-helper
+          abm
+          (concat bufferlo-mode-line-tab-prefix maybe-space tbm) 'bufferlo-mode-line-tab-bookmark-face))
+       (when bufferlo-mode-line-right-suffix
+         (bufferlo--mode-line-format-helper abm bufferlo-mode-line-right-suffix 'bufferlo-mode-line-face))))))
 
 (defcustom bufferlo-mode-line '(:eval (bufferlo-mode-line-format))
   "Bufferlo mode line definition."
@@ -1460,7 +1468,7 @@ Buffers matching `bufferlo-include-buffer-filters' are not removed."
   (bufferlo--warn)
   (if-let* ((curr-project (project-current))
             (include (bufferlo--merge-regexp-list
-                     (append '("a^") bufferlo-include-buffer-filters))))
+                      (append '("a^") bufferlo-include-buffer-filters))))
       (dolist (buffer (bufferlo-buffer-list))
         (when (and (not (string-match-p include (buffer-name buffer)))
                    (not (equal curr-project
@@ -1543,7 +1551,7 @@ If the buffer is already visible in a non-selected window, select it."
   (when (bufferlo-find-buffer buffer-or-name)
     (if-let* ((w (seq-find
                   (lambda (w)
-                   (eq (get-buffer buffer-or-name) (window-buffer w)))
+                    (eq (get-buffer buffer-or-name) (window-buffer w)))
                   (window-list))))
         (select-window w)
       (switch-to-buffer buffer-or-name))))
