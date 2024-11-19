@@ -716,7 +716,7 @@ string, FACE is the face for STR."
 
 (defun bufferlo--parse-command-line ()
   "Process bufferlo Emacs command-line arguments."
-  (when-let (pos (seq-position command-line-args bufferlo--command-line-noload-prefix #'string-equal))
+  (when-let* ((pos (seq-position command-line-args bufferlo--command-line-noload-prefix #'string-equal)))
     (setq bufferlo--command-line-noload pos)
     (setq command-line-args (seq-remove-at-position command-line-args pos)))
   (when (file-exists-p (expand-file-name "bufferlo-noload" user-emacs-directory))
@@ -832,10 +832,10 @@ string, FACE is the face for STR."
 
 (defun bufferlo--current-bookmark-name ()
   "Current bufferlo bookmark name, where frame beats tab."
-  (if-let ((fbm (frame-parameter nil 'bufferlo-bookmark-frame-name)))
+  (if-let* ((fbm (frame-parameter nil 'bufferlo-bookmark-frame-name)))
       fbm
-    (if-let ((tbm (alist-get 'bufferlo-bookmark-tab-name
-                             (cdr (bufferlo--current-tab)))))
+    (if-let* ((tbm (alist-get 'bufferlo-bookmark-tab-name
+                              (cdr (bufferlo--current-tab)))))
         tbm
       nil)))
 
@@ -1457,8 +1457,8 @@ prefix argument is given, remove only buffers that visit a file.
 Buffers matching `bufferlo-include-buffer-filters' are not removed."
   (interactive "P")
   (bufferlo--warn)
-  (if-let ((curr-project (project-current))
-           (include (bufferlo--merge-regexp-list
+  (if-let* ((curr-project (project-current))
+            (include (bufferlo--merge-regexp-list
                      (append '("a^") bufferlo-include-buffer-filters))))
       (dolist (buffer (bufferlo-buffer-list))
         (when (and (not (string-match-p include (buffer-name buffer)))
@@ -1540,10 +1540,10 @@ If the buffer is already visible in a non-selected window, select it."
   (interactive "b")
   (bufferlo--warn)
   (when (bufferlo-find-buffer buffer-or-name)
-    (if-let (w (seq-find
-                (lambda (w)
-                  (eq (get-buffer buffer-or-name) (window-buffer w)))
-                (window-list)))
+    (if-let* ((w (seq-find
+                  (lambda (w)
+                   (eq (get-buffer buffer-or-name) (window-buffer w)))
+                  (window-list))))
         (select-window w)
       (switch-to-buffer buffer-or-name))))
 
@@ -1904,12 +1904,12 @@ FRAME specifies the frame; the default value of nil selects the current frame."
 (defun bufferlo--ws-replace-buffer-names (ws replace-alist)
   "Replace buffer names according to REPLACE-ALIST in the window state WS."
   (dolist (el ws)
-    (when-let (type (and (listp el) (car el)))
+    (when-let* ((type (and (listp el) (car el))))
       (cond ((memq type '(vc hc))
              (bufferlo--ws-replace-buffer-names (cdr el) replace-alist))
             ((eq type 'leaf)
              (let ((bc (assq 'buffer (cdr el))))
-               (when-let (replace (assoc (cadr bc) replace-alist))
+               (when-let* ((replace (assoc (cadr bc) replace-alist)))
                  (setf (cadr bc) (cdr replace)))))))))
 
 (defun bufferlo--bookmark-get-duplicate-policy (thing default-policy mode)
@@ -2063,8 +2063,8 @@ this bookmark is embedded in a frame bookmark."
                               (cons orig-name (buffer-name)))))))
              (renamed (mapcar restore (alist-get 'buffer-bookmarks bookmark)))
              (replace-renamed (lambda (b)
-                                (if-let (replace
-                                         (assoc b renamed))
+                                (if-let* ((replace
+                                           (assoc b renamed)))
                                     (cdr replace) b)))
              (bl (mapcar replace-renamed (alist-get 'buffer-list bookmark)))
              (bl (seq-filter #'get-buffer bl))
@@ -2198,7 +2198,7 @@ the message after successfully restoring the bookmark."
                  (setq first nil)
                (tab-bar-new-tab-to))
              (bufferlo--bookmark-tab-handler tbm t 'embedded-tab)
-             (when-let (tab-name (alist-get 'tab-name tbm))
+             (when-let* ((tab-name (alist-get 'tab-name tbm)))
                (tab-bar-rename-tab tab-name)))
            (alist-get 'tabs bookmark)))
         (tab-bar-select-tab (alist-get 'current bookmark))
@@ -2218,7 +2218,7 @@ the message after successfully restoring the bookmark."
         (when (and new-frame-p
                    (display-graphic-p)
                    (eq bufferlo-bookmark-frame-load-make-frame 'restore-geometry))
-          (when-let ((fg (alist-get 'bufferlo--frame-geometry bookmark)))
+          (when-let* ((fg (alist-get 'bufferlo--frame-geometry bookmark)))
             (let-alist fg
               (set-frame-position nil .left .top)
               (set-frame-size nil .width .height 'pixelwise))))
@@ -2408,7 +2408,7 @@ the message after successfully restoring the bookmark."
                   (with-temp-buffer
                     (select-frame (make-frame))))
                 ;; (lower-frame) ; attempt to reduce visual flashing
-                (when-let ((fg (alist-get 'bufferlo--frame-geometry tab-group)))
+                (when-let* ((fg (alist-get 'bufferlo--frame-geometry tab-group)))
                   (when (and
                          (display-graphic-p)
                          (memq bufferlo-session-restore-geometry-policy '(all tab-frames))
@@ -2417,7 +2417,7 @@ the message after successfully restoring the bookmark."
                     (let-alist fg
                       (set-frame-position nil .left .top)
                       (set-frame-size nil .width .height 'pixelwise))))
-                (when-let ((tbm-names (alist-get 'bufferlo--tbms tab-group)))
+                (when-let* ((tbm-names (alist-get 'bufferlo--tbms tab-group)))
                   (let ((bufferlo-bookmark-tab-replace-policy 'replace) ; we handle making tabs in this loop
                         (tab-bar-new-tab-choice t)
                         (first-tab (or
@@ -2457,7 +2457,7 @@ the message after successfully restoring the bookmark."
                   (with-selected-frame frame
                     (when (frame-parameter nil 'bufferlo--frame-to-restore)
                       ;; (lower-frame) ; attempt to reduce visual flashing
-                      (when-let (fbm-name (frame-parameter nil 'bufferlo-bookmark-frame-name))
+                      (when-let* ((fbm-name (frame-parameter nil 'bufferlo-bookmark-frame-name)))
                         (let ((bufferlo-bookmark-frame-load-make-frame nil)
                               (bufferlo-bookmark-frame-duplicate-policy 'allow)
                               (bufferlo-bookmark-frame-load-policy 'replace-frame-adopt-loaded-bookmark)
@@ -2744,8 +2744,8 @@ initially loaded.  Performs an interactive bookmark selection if no
 associated bookmark exists."
   (interactive)
   (bufferlo--warn)
-  (if-let (bm (alist-get 'bufferlo-bookmark-tab-name
-                         (cdr (bufferlo--current-tab))))
+  (if-let* ((bm (alist-get 'bufferlo-bookmark-tab-name
+                           (cdr (bufferlo--current-tab)))))
       (bufferlo--bookmark-tab-save bm)
     (call-interactively #'bufferlo-bookmark-tab-save)))
 
@@ -2760,8 +2760,8 @@ This reuses the current tab even if
 `bufferlo-bookmark-tab-replace-policy' is set to \\='new."
   (interactive)
   (bufferlo--warn)
-  (if-let (bm (alist-get 'bufferlo-bookmark-tab-name
-                         (cdr (bufferlo--current-tab))))
+  (if-let* ((bm (alist-get 'bufferlo-bookmark-tab-name
+                           (cdr (bufferlo--current-tab)))))
       (let ((bufferlo-bookmark-tab-replace-policy 'replace) ; reload reuses current tab
             (bufferlo-bookmark-tab-duplicate-policy 'allow)) ; not technically a duplicate
         (bufferlo-bookmark-tab-load bm))
@@ -2880,7 +2880,7 @@ initially loaded.  Performs an interactive bookmark selection if no
 associated bookmark exists."
   (interactive)
   (bufferlo--warn)
-  (if-let (bm (frame-parameter nil 'bufferlo-bookmark-frame-name))
+  (if-let* ((bm (frame-parameter nil 'bufferlo-bookmark-frame-name)))
       (bufferlo--bookmark-frame-save bm)
     (call-interactively #'bufferlo-bookmark-frame-save)))
 
@@ -2892,7 +2892,7 @@ initially loaded.  Performs an interactive bookmark selection if no
 associated bookmark exists."
   (interactive)
   (bufferlo--warn)
-  (if-let (bm (frame-parameter nil 'bufferlo-bookmark-frame-name))
+  (if-let* ((bm (frame-parameter nil 'bufferlo-bookmark-frame-name)))
       (let ((bufferlo-bookmark-frame-load-make-frame nil) ; reload reuses the current frame
             (bufferlo-bookmark-frame-load-policy 'replace-frame-retain-current-bookmark)
             (bufferlo-bookmark-frame-duplicate-policy 'allow)) ; not technically a duplicate
@@ -2918,12 +2918,12 @@ filtered by TYPE, where type is:
 \\='tbm for tab bookmarks which include frame and tab numbers."
   (let ((abms))
     (dolist (frame (or frames (frame-list)))
-      (when-let ((fbm (frame-parameter frame 'bufferlo-bookmark-frame-name)))
+      (when-let* ((fbm (frame-parameter frame 'bufferlo-bookmark-frame-name)))
         (when (or (null type) (eq type 'fbm))
           (push (list fbm `((type . fbm)
                             (frame . ,frame))) abms)))
       (dolist (tab (funcall tab-bar-tabs-function frame))
-        (when-let ((tbm (alist-get 'bufferlo-bookmark-tab-name tab)))
+        (when-let* ((tbm (alist-get 'bufferlo-bookmark-tab-name tab)))
           (when (or (null type) (eq type 'tbm))
             (push (list tbm `((type . tbm)
                               (frame . ,frame)
@@ -3017,8 +3017,8 @@ Duplicate bookmarks are handled according to
 `bufferlo-bookmarks-save-duplicates-policy'."
   (interactive)
   (catch :abort
-    (when-let ((duplicate-bookmarks (bufferlo--active-bookmark-duplicates))
-               (duplicate-policy bufferlo-bookmarks-save-duplicates-policy))
+    (when-let* ((duplicate-bookmarks (bufferlo--active-bookmark-duplicates))
+                (duplicate-policy bufferlo-bookmarks-save-duplicates-policy))
       (when (eq duplicate-policy 'prompt)
         (pcase (let ((read-answer-short t))
                  (with-local-quit
@@ -3297,8 +3297,8 @@ A prefix argument inhibits the prompt and bypasses saving."
 
 (defun bufferlo--bookmark-raise (abm)
   "Raise ABM's frame/tab."
-  (when-let ((abm-type (alist-get 'type (cadr abm)))
-             (abm-frame (alist-get 'frame (cadr abm))))
+  (when-let* ((abm-type (alist-get 'type (cadr abm)))
+              (abm-frame (alist-get 'frame (cadr abm))))
     (with-selected-frame abm-frame
       (raise-frame)
       (when (eq abm-type 'tbm)
@@ -3308,7 +3308,7 @@ A prefix argument inhibits the prompt and bypasses saving."
 (defun bufferlo--bookmark-raise-by-name (abm-name &optional abms)
   "Raise bookmark's frame/tab by ABM-NAME in ABMS."
   (setq abms (or abms (bufferlo--active-bookmarks)))
-  (when-let ((abm (assoc abm-name abms)))
+  (when-let* ((abm (assoc abm-name abms)))
     (bufferlo--bookmark-raise abm)))
 
 (defun bufferlo-bookmark-raise ()
@@ -3336,10 +3336,10 @@ Unlike, `bufferlo-bookmark-frame-save-current' and
 save a new bookmark."
   (interactive)
   (bufferlo--warn)
-  (if-let (bm (frame-parameter nil 'bufferlo-bookmark-frame-name))
+  (if-let* ((bm (frame-parameter nil 'bufferlo-bookmark-frame-name)))
       (bufferlo-bookmark-frame-save bm)
-    (if-let (bm (alist-get 'bufferlo-bookmark-tab-name
-                           (cdr (bufferlo--current-tab))))
+    (if-let* ((bm (alist-get 'bufferlo-bookmark-tab-name
+                             (cdr (bufferlo--current-tab)))))
         (bufferlo--bookmark-tab-save bm)
       (message "No active bufferlo frame or tab bookmark to save."))))
 
@@ -3354,13 +3354,13 @@ Unlike, `bufferlo-bookmark-frame-load-current' and
 load a new bookmark."
   (interactive)
   (bufferlo--warn)
-  (if-let (bm (frame-parameter nil 'bufferlo-bookmark-frame-name))
+  (if-let* ((bm (frame-parameter nil 'bufferlo-bookmark-frame-name)))
       (let ((bufferlo-bookmark-frame-load-make-frame nil) ; reload reuses the current frame
             (bufferlo-bookmark-frame-load-policy 'replace-frame-retain-current-bookmark)
             (bufferlo-bookmark-frame-duplicate-policy 'allow)) ; not technically a duplicate
         (bufferlo-bookmark-frame-load bm))
-    (if-let (bm (alist-get 'bufferlo-bookmark-tab-name
-                           (cdr (bufferlo--current-tab))))
+    (if-let* ((bm (alist-get 'bufferlo-bookmark-tab-name
+                             (cdr (bufferlo--current-tab)))))
         (let ((bufferlo-bookmark-tab-replace-policy 'replace) ; reload reuses current tab
               (bufferlo-bookmark-tab-duplicate-policy 'allow)) ; not technically a duplicate
           (bufferlo-bookmark-tab-load bm))
@@ -3373,10 +3373,10 @@ prioritizing frame bookmarks over tab bookmarks, should both
 exist."
   (interactive)
   (bufferlo--warn)
-  (if-let (bm (frame-parameter nil 'bufferlo-bookmark-frame-name))
+  (if-let* ((bm (frame-parameter nil 'bufferlo-bookmark-frame-name)))
       (bufferlo-delete-frame-kill-buffers)
-    (if-let (bm (alist-get 'bufferlo-bookmark-tab-name
-                           (cdr (bufferlo--current-tab))))
+    (if-let* ((bm (alist-get 'bufferlo-bookmark-tab-name
+                             (cdr (bufferlo--current-tab)))))
         (bufferlo-tab-close-kill-buffers)
       (message "No active bufferlo frame or tab bookmark to close."))))
 
@@ -3393,7 +3393,7 @@ OLDFN OLD-NAME NEW-NAME"
   (interactive)
   (if (called-interactively-p 'interactive)
       (setq old-name (bookmark-completing-read "Old bookmark name")))
-  (if-let ((abm (assoc old-name (bufferlo--active-bookmarks))))
+  (if-let* ((abm (assoc old-name (bufferlo--active-bookmarks))))
       (user-error "%s is an active bufferlo bookmark--close its frame/tab, or clear it before renaming" old-name)
     (if (called-interactively-p 'interactive)
         (funcall-interactively oldfn old-name new-name)
@@ -3407,7 +3407,7 @@ OLDFN BOOKMARK-NAME BATCH"
   (if (called-interactively-p 'interactive)
       (setq bookmark-name (bookmark-completing-read "Delete bookmark"
                                                     bookmark-current-bookmark)))
-  (if-let ((abm (assoc bookmark-name (bufferlo--active-bookmarks))))
+  (if-let* ((abm (assoc bookmark-name (bufferlo--active-bookmarks))))
       (user-error "%s is an active bufferlo bookmark--close its frame/tab, or clear it before deleting" bookmark-name)
     (if (called-interactively-p 'interactive)
         (funcall-interactively oldfn bookmark-name batch)
