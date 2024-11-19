@@ -135,13 +135,18 @@ are active in a bufferlo-controlled frame or tab.
 nil means default Emacs behavior which may prompt. This may have
 side effects when killing frames.
 
-\\='ignore-modified means bufferlo will leave modified buffers as
+\\='retain-modified means bufferlo will leave modified buffers as
 is.
+
+\\='retain-modified-kill-without-file-name will leave modified buffers
+as is BUT will kill buffers that have no file name; this includes shell,
+hidden, and special buffers that can not normally be saved.
 
 \\='kill-modified instructs bufferlo to kill modified buffers
 without remorse including those with running processes such as
 `shell-mode' buffers."
-  :type '(radio (const :tag "Do not kill modified buffers" ignore-modified)
+  :type '(radio (const :tag "Retain modified buffers" retain-modified)
+                (const :tag "Retain modified buffers BUT kill buffers without file names" retain-modified-kill-without-file-name)
                 (const :tag "Kill modified buffers without prompting" kill-modified)
                 (const :tag "Default Emacs behavior (will prompt)" nil)))
 
@@ -1311,17 +1316,25 @@ If INVERT is non-nil, return the non-exclusive buffers instead."
                   (lambda (b) (not (memq b other-bufs))))
                 this-bufs)))
 
+(defun bufferlo--kill-buffer-forced (buffer)
+  (let ((kill-buffer-query-functions nil))
+    (with-current-buffer buffer
+      (set-buffer-modified-p nil)
+      (kill-buffer))))
+
 (defun bufferlo--kill-buffer (buffer)
   "Kill BUFFER respecting `bufferlo-kill-modified-buffers-policy'."
   (pcase bufferlo-kill-modified-buffers-policy
-    ('ignore-modified
+    ('retain-modified
      (unless (buffer-modified-p buffer)
        (kill-buffer buffer)))
+    ('retain-modified-kill-without-file-name
+     (if (not (buffer-file-name buffer))
+         (bufferlo--kill-buffer-forced buffer)
+       (unless (buffer-modified-p buffer)
+         (kill-buffer buffer))))
     ('kill-modified
-     (let ((kill-buffer-query-functions nil))
-       (with-current-buffer buffer
-       (set-buffer-modified-p nil)
-       (kill-buffer))))
+     (bufferlo--kill-buffer-forced buffer))
     (_ (kill-buffer buffer))))
 
 (defun bufferlo-kill-buffers (&optional killall frame tabnum internal-too)
