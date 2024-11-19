@@ -150,8 +150,9 @@ without remorse including those with running processes such as
                 (const :tag "Kill modified buffers without prompting" kill-modified)
                 (const :tag "Default Emacs behavior (will prompt)" nil)))
 
-(defcustom bufferlo-bookmark-prefer-saveplace-point nil
-  "If non-nil, and `save-place-mode' mode is on, inhibit point in bookmarks."
+(defcustom bufferlo-bookmark-inhibit-bookmark-point nil
+  "If non-nil, inhibit point in bookmarks.
+This is useful when `save-place-mode' mode is enabled."
   :type 'boolean)
 
 (defcustom bufferlo-bookmark-buffers-exclude-filters nil
@@ -1861,10 +1862,8 @@ In contrast to `bufferlo-anywhere-mode', this does not adhere to
       (dolist (fn bufferlo-bookmark-map-functions)
         (setq record (funcall fn record)))
       (when (and
-             bufferlo-bookmark-prefer-saveplace-point
-             record
-             (featurep 'saveplace)
-             save-place-mode)
+             bufferlo-bookmark-inhibit-bookmark-point
+             record)
         (bookmark-set-position record nil))
       (list (buffer-name buffer) record))))
 
