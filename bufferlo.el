@@ -1977,7 +1977,7 @@ This functions throws :abort when the user quits."
 Ask the user if `bufferlo-bookmark-tab-replace-policy' is set to \\='prompt.
 This functions throws :abort when the user quits."
   (if (not (eq bufferlo-bookmark-tab-replace-policy 'prompt))
-      bufferlo-bookmark-frame-load-policy
+      bufferlo-bookmark-tab-replace-policy
     (pcase (let ((read-answer-short t))
              (with-local-quit
                (read-answer "Replace current tab, New tab "
@@ -1996,7 +1996,7 @@ set to \\='prompt.  This functions throws :abort when the user quits.
 MODE is either \\='load, \\='save, or \\='save-frame, depending on the
 invoking action.  This functions throws :abort when the user quits."
   (if (not (eq bufferlo-bookmark-tab-in-bookmarked-frame-policy 'prompt))
-      bufferlo-bookmark-frame-load-policy
+      bufferlo-bookmark-tab-in-bookmarked-frame-policy
     (pcase (let ((read-answer-short t))
              (with-local-quit
                (read-answer
