@@ -608,6 +608,28 @@ packages that do, and you want to ensure they are filtered in
 advance of restoring bufferlo framesets."
   :type '(repeat symbol))
 
+(defcustom bufferlo-frameset-restore-function #'bufferlo-frameset-restore-default
+  "Function to restore a frameset, which see `frameset-restore'.
+It defaults to `bufferlo-frameset-restore-default'.
+
+The function accepts a single parameter, the `frameset' to restore."
+  :type 'function)
+
+(defcustom bufferlo-frameset-restore-parameters-function #'bufferlo-frameset-restore-parameters-default
+  "Function to create parameters for `frameset-restore', which see.
+
+The function should create a plist of the form:
+
+  (list :reuse-frames value
+        :force-display value
+        :force-onscreen value
+        :cleanup-frames value)
+
+where each property is as documented by `frameset-restore'.
+
+It defaults to `bufferlo-frameset-restore-parameters-default'."
+  :type 'function)
+
 (defcustom bufferlo-frame-geometry-function #'bufferlo-frame-geometry-default
   "Function to produce a bufferlo-frame-geometry alist.
 It defaults to `bufferlo-frame-geometry-default'.
@@ -1326,6 +1348,7 @@ If INVERT is non-nil, return the non-exclusive buffers instead."
                 this-bufs)))
 
 (defun bufferlo--kill-buffer-forced (buffer)
+  "Forcibly kill BUFFER, even if modified."
   (let ((kill-buffer-query-functions nil))
     (with-current-buffer buffer
       (set-buffer-modified-p nil)
@@ -2226,9 +2249,7 @@ the message after successfully restoring the bookmark."
                    (display-graphic-p)
                    (eq bufferlo-bookmark-frame-load-make-frame 'restore-geometry))
           (when-let* ((fg (alist-get 'bufferlo--frame-geometry bookmark)))
-            (let-alist fg
-              (set-frame-position nil .left .top)
-              (set-frame-size nil .width .height 'pixelwise))))
+            (bufferlo--set-frame-geometry fg)))
 
         (raise-frame))
 
@@ -2353,16 +2374,36 @@ CANDIDATES are the prompt options to select."
     ))
 
 (defun bufferlo-frame-geometry-default (frame)
-  "Produce an alist for FRAME's geometry.
+  "Produce an alist for FRAME pixel-level geometry.
 The alist is of the form:
+
   ((left . pixels)
    (top . pixels)
    (width . pixels)
-   (height . pixels))"
-  `((left . ,(frame-parameter frame 'left))
-    (top . ,(frame-parameter frame 'top))
-    (width . ,(frame-text-width frame))
-    (height .,(frame-text-height frame))))
+   (height . pixels))
+
+Return nil if no pixel-level geometry is available; for example, if the
+display is a tty."
+  (if (display-graphic-p frame)
+      `((left . ,(frame-parameter frame 'left))
+        (top . ,(frame-parameter frame 'top))
+        (width . ,(frame-text-width frame))
+        (height .,(frame-text-height frame)))
+    nil))
+
+(defun bufferlo--set-frame-geometry (frame-geometry &optional frame)
+  "Set FRAME-GEOMETRY as produced by `bufferlo-frame-geometry-default'.
+Geometry set for FRAME or the current frame, if nil."
+  ;; Some window managers need an extra display cycle for frame
+  ;; changes to take effect from Emacs's perspective, so we add
+  ;; needed redisplay calls.
+  (setq frame (or frame (selected-frame)))
+  (let-alist frame-geometry
+    (when (and .left .top .width .height) ; defensive in case geometry stored from a tty
+      (set-frame-position nil .left .top)
+      (redisplay)
+      (set-frame-size nil .width .height 'pixelwise)
+      (redisplay))))
 
 (defvar bufferlo--active-sessions nil
   "Global active bufferlo sessions.
@@ -2390,6 +2431,33 @@ FRAMESET is a bufferlo-filtered `frameset'."
                        'handler #'bufferlo--bookmark-session-handler)
     bookmark-record))
 
+(defun bufferlo-frameset-restore-parameters-default ()
+  "Function to create parameters for `frameset-restore', which see."
+  (list :reuse-frames nil
+        :force-display t
+        :force-onscreen (display-graphic-p)
+        :cleanup-frames nil))
+
+(defun bufferlo-frameset-restore-default (frameset)
+  "Invoke `frameset-restore' with FRAMESET, which see."
+  (let ((params (funcall bufferlo-frameset-restore-parameters-function))
+        (default-frame-alist))
+    (with-temp-buffer
+      (when (ignore-errors
+              (frameset-restore frameset
+                                :filters
+                                (when (memq bufferlo-frameset-restore-geometry '(bufferlo nil))
+                                  (let ((filtered-alist (copy-tree frameset-persistent-filter-alist)))
+                                    (mapc (lambda (sym) (setf (alist-get sym filtered-alist) :never))
+                                          (seq-union bufferlo--frameset-restore-filter bufferlo-frameset-restore-filter))
+                                    filtered-alist))
+                                :reuse-frames (plist-get params :reuse-frames)
+                                :force-display (plist-get params :force-display)
+                                :force-onscreen (plist-get params :force-onscreen)
+                                :cleanup-frames (plist-get params :cleanup-frames))
+              t) ; frameset-restore returns neither a status nor a list of restored frames
+        ))))
+
 (defun bufferlo--bookmark-session-handler (bookmark-record &optional no-message)
   "Handle bufferlo session bookmark.
 The argument BOOKMARK-RECORD is the to-be restored session bookmark created via
@@ -2403,63 +2471,48 @@ the message after successfully restoring the bookmark."
         (message "Bufferlo session %s is already active" bookmark-name)
       (if (> (length active-bookmark-names) 0)
           (message "Close or clear active bufferlo bookmarks: %s" active-bookmark-names)
-        (let* ((tabsets-str (bookmark-prop-get bookmark-record 'bufferlo-tabsets))
-               (tabsets))
+        (let ((tabsets-str (bookmark-prop-get bookmark-record 'bufferlo-tabsets))
+              (tabsets))
           (if (not (readablep tabsets-str))
               (message "Bufferlo session bookmark %s: unreadable tabsets" bookmark-name)
             (setq tabsets (car (read-from-string tabsets-str)))
-            (let ((first-tab-frame t))
-              (dolist (tab-group tabsets)
-                (when (or (not first-tab-frame)
-                          (and first-tab-frame (not bufferlo-session-restore-tabs-reuse-init-frame)))
-                  (with-temp-buffer
-                    (select-frame (make-frame))))
-                ;; (lower-frame) ; attempt to reduce visual flashing
-                (when-let* ((fg (alist-get 'bufferlo--frame-geometry tab-group)))
-                  (when (and
-                         (display-graphic-p)
-                         (memq bufferlo-session-restore-geometry-policy '(all tab-frames))
-                         (or (not first-tab-frame)
-                             (and first-tab-frame (eq bufferlo-session-restore-tabs-reuse-init-frame 'reuse-reset-geometry))))
-                    (let-alist fg
-                      (set-frame-position nil .left .top)
-                      (set-frame-size nil .width .height 'pixelwise))))
-                (when-let* ((tbm-names (alist-get 'bufferlo--tbms tab-group)))
-                  (let ((bufferlo-bookmark-tab-replace-policy 'replace) ; we handle making tabs in this loop
-                        (tab-bar-new-tab-choice t)
-                        (first-tab (or
-                                    (not first-tab-frame)
-                                    (and first-tab-frame (not bufferlo-session-restore-tabs-reuse-init-frame)))))
-                    (dolist (tbm-name tbm-names)
-                      (unless first-tab
-                        (tab-bar-new-tab-to))
-                      (bufferlo--bookmark-jump tbm-name)
-                      (setq first-tab nil))))
-                (setq first-tab-frame nil))
-              (raise-frame))))
-        (let* ((frameset-str (bookmark-prop-get bookmark-record 'bufferlo-frameset))
-               (frameset))
+            (when tabsets ; could be readable and nil
+              (let ((first-tab-frame t))
+                (dolist (tab-group tabsets)
+                  (when (or (not first-tab-frame)
+                            (and first-tab-frame (not bufferlo-session-restore-tabs-reuse-init-frame)))
+                    (with-temp-buffer
+                      (select-frame (make-frame))))
+                  ;; (lower-frame) ; attempt to reduce visual flashing
+                  (when-let* ((fg (alist-get 'bufferlo--frame-geometry tab-group)))
+                    (when (and
+                           (display-graphic-p)
+                           (memq bufferlo-session-restore-geometry-policy '(all tab-frames))
+                           (or (not first-tab-frame)
+                               (and first-tab-frame (eq bufferlo-session-restore-tabs-reuse-init-frame 'reuse-reset-geometry))))
+                      (bufferlo--set-frame-geometry fg)))
+                  (when-let* ((tbm-names (alist-get 'bufferlo--tbms tab-group)))
+                    (let ((bufferlo-bookmark-tab-replace-policy 'replace) ; we handle making tabs in this loop
+                          (tab-bar-new-tab-choice t)
+                          (first-tab (or
+                                      (not first-tab-frame)
+                                      (and first-tab-frame (not bufferlo-session-restore-tabs-reuse-init-frame)))))
+                      (dolist (tbm-name tbm-names)
+                        (unless first-tab
+                          (tab-bar-new-tab-to))
+                        (bufferlo--bookmark-jump tbm-name)
+                        (setq first-tab nil))))
+                  (setq first-tab-frame nil))
+                (raise-frame)))))
+        (let ((frameset-str (bookmark-prop-get bookmark-record 'bufferlo-frameset))
+              (frameset))
           (if (not (readablep frameset-str))
               (message "Bufferlo session bookmark %s: unreadable frameset" bookmark-name)
             (setq frameset (car (read-from-string frameset-str)))
             (if (and frameset (not (frameset-valid-p frameset)))
                 (message "Bufferlo session bookmark %s: invalid frameset" bookmark-name)
-              (when (ignore-errors
-                      (with-temp-buffer
-                        (let ((default-frame-alist)
-                              (inhibit-redisplay t))
-                          (frameset-restore frameset
-                                            :filters
-                                            (when (memq bufferlo-frameset-restore-geometry '(bufferlo nil))
-                                              (let ((filtered-alist (copy-tree frameset-persistent-filter-alist)))
-                                                (mapc (lambda (sym) (setf (alist-get sym filtered-alist) :never))
-                                                      (seq-union bufferlo--frameset-restore-filter bufferlo-frameset-restore-filter))
-                                                filtered-alist))
-                                            :reuse-frames nil
-                                            :force-display t
-                                            :force-onscreen (display-graphic-p)
-                                            :cleanup-frames nil)))
-                      t)
+              (when frameset ; could be readable and nil
+                (funcall bufferlo-frameset-restore-function frameset)
                 (dolist (frame (frame-list))
                   (with-selected-frame frame
                     (when (frame-parameter nil 'bufferlo--frame-to-restore)
@@ -2473,9 +2526,8 @@ the message after successfully restoring the bookmark."
                         (when (and
                                (display-graphic-p frame)
                                (memq bufferlo-session-restore-geometry-policy '(all frames)))
-                          (let-alist (frame-parameter nil 'bufferlo--frame-geometry)
-                            (set-frame-position nil .left .top)
-                            (set-frame-size nil .width .height 'pixelwise)))
+                          (when-let* ((fg (frame-parameter nil 'bufferlo--frame-geometry)))
+                            (bufferlo--set-frame-geometry fg)))
                         (set-frame-parameter nil 'bufferlo--frame-to-restore nil))
                       (raise-frame))))))
             (push
