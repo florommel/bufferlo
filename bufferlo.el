@@ -2187,26 +2187,29 @@ the message after successfully restoring the bookmark."
           (bufferlo--bookmark-raise abm)
           (throw :abort t)))
 
-      ;; No currently active bookmark in the frame?
-      (if (not fbm)
-          ;; Set active bookmark
+      ;; If new frame, no conflict; go with the bookmark's name.
+      (if new-frame-p
           (setq fbm bookmark-name)
-        ;; Handle existing bookmark according to the load policy
-        (setq load-policy (bufferlo--bookmark-frame-get-load-policy))
-        (pcase load-policy
-          ('disallow-replace
-           (when (not (equal fbm bookmark-name)) ; allow reloads of existing bookmark
-             (unless no-message
-               (message "Frame already bookmarked as %s; not loaded." fbm))
-             (throw :abort t)))
-          ('replace-frame-retain-current-bookmark
-           (funcall msg-append (format "retained existing bookmark %s." fbm)))
-          ('replace-frame-adopt-loaded-bookmark
-           (funcall msg-append (format "adopted loaded bookmark %s." fbm))
-           (setq fbm bookmark-name))
-          ('merge
-           (funcall msg-append (format "merged tabs from bookmark %s."
-                                       bookmark-name)))))
+        ;; No currently active bookmark in the frame?
+        (if (not fbm)
+            ;; Set active bookmark
+            (setq fbm bookmark-name)
+          ;; Handle existing bookmark according to the load policy
+          (setq load-policy (bufferlo--bookmark-frame-get-load-policy))
+          (pcase load-policy
+            ('disallow-replace
+             (when (not (equal fbm bookmark-name)) ; allow reloads of existing bookmark
+               (unless no-message
+                 (message "Frame already bookmarked as %s; not loaded." fbm))
+               (throw :abort t)))
+            ('replace-frame-retain-current-bookmark
+             (funcall msg-append (format "retained existing bookmark %s." fbm)))
+            ('replace-frame-adopt-loaded-bookmark
+             (funcall msg-append (format "adopted loaded bookmark %s." fbm))
+             (setq fbm bookmark-name))
+            ('merge
+             (funcall msg-append (format "merged tabs from bookmark %s."
+                                         bookmark-name))))))
 
       ;; Do the real work with the target frame selected (current or newly created)
       ;; NOTE: No :abort throws after this point
