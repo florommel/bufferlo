@@ -2213,48 +2213,50 @@ the message after successfully restoring the bookmark."
 
       ;; Do the real work with the target frame selected (current or newly created)
       ;; NOTE: No :abort throws after this point
-      (with-selected-frame (if new-frame-p
-                               (with-temp-buffer (make-frame))
-                             (selected-frame))
-        ;; Clear existing tabs unless merging
-        (unless (eq load-policy 'merge)
-          (if (>= emacs-major-version 28)
-              (tab-bar-tabs-set nil)
-            (set-frame-parameter nil 'tabs nil)))
+      (let ((frame (if new-frame-p
+                       (with-temp-buffer (make-frame))
+                     (selected-frame))))
+        (with-selected-frame frame
+          ;; Clear existing tabs unless merging
+          (unless (eq load-policy 'merge)
+            (if (>= emacs-major-version 28)
+                (tab-bar-tabs-set nil)
+              (set-frame-parameter nil 'tabs nil)))
 
-        ;; Load tabs
-        (let ((first (if (eq load-policy 'merge) nil t))
-              (tab-bar-new-tab-choice t))
-          (mapc
-           (lambda (tbm)
-             (if first
-                 (setq first nil)
-               (tab-bar-new-tab-to))
-             (bufferlo--bookmark-tab-handler tbm t 'embedded-tab)
-             (when-let* ((tab-name (alist-get 'tab-name tbm)))
-               (tab-bar-rename-tab tab-name)))
-           (alist-get 'tabs bookmark)))
-        (tab-bar-select-tab (alist-get 'current bookmark))
+          ;; Load tabs
+          (let ((first (if (eq load-policy 'merge) nil t))
+                (tab-bar-new-tab-choice t))
+            (mapc
+             (lambda (tbm)
+               (if first
+                   (setq first nil)
+                 (tab-bar-new-tab-to))
+               (bufferlo--bookmark-tab-handler tbm t 'embedded-tab)
+               (when-let* ((tab-name (alist-get 'tab-name tbm)))
+                 (tab-bar-rename-tab tab-name)))
+             (alist-get 'tabs bookmark)))
+          (tab-bar-select-tab (alist-get 'current bookmark))
 
-        ;; Handle duplicate frame bookmark
-        (pcase duplicate-policy
-          ;; Do nothing for 'allow or nil
-          ('clear
-           (setq fbm nil))
-          ('clear-warn
-           (setq fbm nil)
-           (funcall msg-append "cleared frame bookmark")))
+          ;; Handle duplicate frame bookmark
+          (pcase duplicate-policy
+            ;; Do nothing for 'allow or nil
+            ('clear
+             (setq fbm nil))
+            ('clear-warn
+             (setq fbm nil)
+             (funcall msg-append "cleared frame bookmark")))
 
-        (set-frame-parameter nil 'bufferlo-bookmark-frame-name fbm)
+          (set-frame-parameter nil 'bufferlo-bookmark-frame-name fbm)
 
-        ;; Restore geometry
-        (when (and new-frame-p
-                   (display-graphic-p)
-                   (eq bufferlo-bookmark-frame-load-make-frame 'restore-geometry))
-          (when-let* ((fg (alist-get 'bufferlo--frame-geometry bookmark)))
-            (bufferlo--set-frame-geometry fg)))
+          ;; Restore geometry
+          (when (and new-frame-p
+                     (display-graphic-p)
+                     (eq bufferlo-bookmark-frame-load-make-frame 'restore-geometry))
+            (when-let* ((fg (alist-get 'bufferlo--frame-geometry bookmark)))
+              (bufferlo--set-frame-geometry fg))))
 
-        (raise-frame))
+        ;; Select and raise the restored frame outside the context of with-selected-frame
+        (select-frame-set-input-focus frame))
 
       ;; Log message
       (unless (or no-message bufferlo--bookmark-handler-no-message)
