@@ -2449,8 +2449,7 @@ FRAMESET is a bufferlo-filtered `frameset'."
 
 (defun bufferlo-frameset-restore-default (frameset)
   "Invoke `frameset-restore' with FRAMESET, which see."
-  (let ((params (funcall bufferlo-frameset-restore-parameters-function))
-        (default-frame-alist))
+  (let ((params (funcall bufferlo-frameset-restore-parameters-function)))
     (with-temp-buffer
       (when (ignore-errors
               (frameset-restore frameset
