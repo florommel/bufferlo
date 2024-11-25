@@ -1477,7 +1477,8 @@ The optional arguments KILLALL and INTERNAL-TOO are passed to
          (when tbm (bufferlo-bookmark-tab-save tbm))))
       (let ((bufferlo-kill-buffers-prompt nil))
         (bufferlo-kill-buffers killall nil nil internal-too))
-      (let ((bufferlo-bookmark-tab-save-on-close nil))
+      (let ((bufferlo-bookmark-tab-save-on-close nil)
+            (tab-bar-close-last-tab-choice 'delete-frame))
         ;; Catch errors in case this is the last tab on the last frame
         (ignore-errors (tab-bar-close-tab))))))
 
@@ -1878,8 +1879,11 @@ In contrast to `bufferlo-anywhere-mode', this does not adhere to
   "Guarded `bookmark-jump' for BOOKMARK."
   (condition-case err
       (let ((bookmark-fringe-mark nil))
-        (bookmark-jump bookmark #'ignore))
-    (message (delay-warning 'bufferlo (format "Error %S when jumping to bookmark %S" err bookmark)))))
+        (bookmark-jump bookmark #'ignore)
+        t)
+    (progn
+      (message (delay-warning 'bufferlo (format "Error %S when jumping to bookmark %S" err bookmark)))
+      nil)))
 
 (defun bufferlo--bookmark-get-for-buffer (buffer)
   "Get `buffer-name' and bookmark for BUFFER."
@@ -2652,8 +2656,14 @@ throwing away the old one."
   (let ((current-prefix-arg '(64))) ; emulate C-u C-u C-u
     (call-interactively 'bufferlo-bookmarks-load-interactive)))
 
+(defun bufferlo--session-clear-all ()
+  "Clear all active sessions.
+This does not close active frame and tab bookmarks."
+  (setq bufferlo--active-sessions nil))
+
 (defun bufferlo--session-clear (names)
-  "Clear active session NAMES."
+  "Clear active session NAMES.
+This does not close associated active frame and tab bookmarks."
   (mapc (lambda (x)
           (setq bufferlo--active-sessions
                 (assoc-delete-all x bufferlo--active-sessions)))
@@ -3178,13 +3188,30 @@ all stored bufferlo bookmarks. Tab bookmarks are loaded into the
 current or new frame according to
 `bufferlo-bookmarks-load-tabs-make-frame'."
   (interactive)
-  (let ((bookmarks-loaded nil)
-        (start-time (current-time))
-        (orig-frame (selected-frame))
-        (bufferlo-bookmarks-load-predicate-functions
-         (if (or all (consp current-prefix-arg))
-             (list #'bufferlo-bookmarks-load-all-p)
-           bufferlo-bookmarks-load-predicate-functions)))
+  (let* ((bookmarks-loaded nil)
+         (bookmarks-failed nil)
+         (start-time (current-time))
+         (orig-frame (selected-frame))
+         ;; NOTE: We might need a policy that controls how strict or
+         ;; lax bulk bookmark loading can be. Via below, users get what
+         ;; they implicitly ask for by loading all bookmarks.
+         (bufferlo-bookmark-frame-duplicate-policy 'allow)
+         (bufferlo-bookmark-tab-duplicate-policy 'allow)
+         (bufferlo-bookmark-tab-in-bookmarked-frame-policy 'allow)
+         (bufferlo-bookmarks-load-predicate-functions
+          (if (or all (consp current-prefix-arg))
+              (list #'bufferlo-bookmarks-load-all-p)
+            bufferlo-bookmarks-load-predicate-functions))
+         ;; Reset current-prefix-arg to allow
+         ;; `bufferlo--bookmark-frame-handler' to create frames should
+         ;; that policy be set to do so.
+         (current-prefix-arg nil))
+    ;; load session bookmarks
+    (dolist (bookmark-name (bufferlo--bookmark-get-names #'bufferlo--bookmark-session-handler))
+      (when (run-hook-with-args-until-success 'bufferlo-bookmarks-load-predicate-functions bookmark-name)
+        (if (bufferlo--bookmark-jump bookmark-name)
+            (push bookmark-name bookmarks-loaded)
+          (push bookmark-name bookmarks-failed))))
     ;; load tab bookmarks, making a new frame if required
     (let ((bufferlo-bookmark-tab-replace-policy 'replace) ; we handle making tabs in this loop
           (tab-bar-new-tab-choice t)
@@ -3194,18 +3221,24 @@ current or new frame according to
           (if (and bufferlo-bookmarks-load-tabs-make-frame (not new-tab-frame))
               (select-frame (setq new-tab-frame (make-frame)))
             (tab-bar-new-tab-to))
-          (bufferlo-bookmark-tab-load bookmark-name)
-          (push bookmark-name bookmarks-loaded))))
+          (if (bufferlo--bookmark-jump bookmark-name)
+              (push bookmark-name bookmarks-loaded)
+            (push bookmark-name bookmarks-failed)))))
     ;; load frame bookmarks
     (dolist (bookmark-name (bufferlo--bookmark-get-names #'bufferlo--bookmark-frame-handler))
       (when (run-hook-with-args-until-success 'bufferlo-bookmarks-load-predicate-functions bookmark-name)
-        (bufferlo-bookmark-frame-load bookmark-name)
-        (push bookmark-name bookmarks-loaded)))
+        (if (bufferlo--bookmark-jump bookmark-name)
+            (push bookmark-name bookmarks-loaded)
+          (push bookmark-name bookmarks-failed))))
     (select-frame orig-frame)
     (when bookmarks-loaded
-      (message "Loaded bufferlo bookmarks: %s, in %.2f seconds "
-               (mapconcat 'identity bookmarks-loaded " ")
-               (float-time (time-subtract (current-time) start-time))))))
+      (message "Loaded bufferlo bookmarks: %s, in %.2f seconds%s"
+               (mapconcat #'identity bookmarks-loaded " ")
+               (float-time (time-subtract (current-time) start-time))
+               (if bookmarks-failed
+                   (concat "; failed to load: "
+                           (mapconcat #'identity bookmarks-failed " "))
+                 "")))))
 
 ;; TODO: handle option to save? prefix arg to save or not save?
 (defun bufferlo-bookmarks-close-interactive ()
@@ -3330,6 +3363,7 @@ which defaults to all frames, if not specified."
 
 (defun bufferlo-bookmarks-close ()
   "Close all active bufferlo frame and tab bookmarks and kill their buffers.
+Bufferlo sessions are cleared.
 
 You will be prompted to save bookmarks using filter predicates or
 save all.
@@ -3357,7 +3391,8 @@ A prefix argument inhibits the prompt and bypasses saving."
           ("nosave")
           (_ (setq close nil))))
       (when close
-        (bufferlo--close-active-bookmarks abm-names abms)))))
+        (bufferlo--close-active-bookmarks abm-names abms)
+        (bufferlo--session-clear-all)))))
 
 (defun bufferlo--bookmark-raise (abm)
   "Raise ABM's frame/tab."
