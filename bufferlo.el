@@ -2609,7 +2609,10 @@ message."
         (bookmark-store bookmark-name
                         (bufferlo--bookmark-set-location
                          (bufferlo--bookmark-session-make active-bookmark-names tabsets frameset))
-                        no-overwrite)))))
+                        no-overwrite)
+        (message "Saved session bookmark %s containing %s"
+                 bookmark-name
+                 (mapconcat #'identity active-bookmark-names " "))))))
 
 (defun bufferlo-session-save-interactive (bookmark-name &optional no-overwrite)
   "Save a bufferlo session bookmark for the specified active bookmarks.
