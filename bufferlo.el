@@ -2409,7 +2409,7 @@ Geometry set for FRAME or the current frame, if nil."
       (set-frame-position nil .left .top)
       (sit-for 0 t)
       (set-frame-size nil .width .height 'pixelwise)
-      (sit-for 0 t))))
+      (sit-for 0))))
 
 (defvar bufferlo--active-sessions nil
   "Global active bufferlo sessions.
