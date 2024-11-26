@@ -2294,8 +2294,7 @@ CANDIDATES are the prompt options to select."
     (setq comps (seq-uniq (mapcar (lambda (x) (substring-no-properties x)) comps)))))
 
 (defvar bufferlo--frameset-save-filter ; filter out vs. frameset-persistent-filter-alist
-  '(
-    alpha
+  '(alpha
     alpha-background
     auto-lower
     auto-raise
@@ -2361,8 +2360,7 @@ CANDIDATES are the prompt options to select."
     z-group))
 
 (defvar bufferlo--frameset-restore-filter
-  '(
-    GUI:bottom
+  '(GUI:bottom
     GUI:font
     GUI:fullscreen
     GUI:height
@@ -2379,8 +2377,7 @@ CANDIDATES are the prompt options to select."
     left
     right
     top
-    width
-    ))
+    width))
 
 (defun bufferlo-frame-geometry-default (frame)
   "Produce an alist for FRAME pixel-level geometry.
@@ -2410,9 +2407,9 @@ Geometry set for FRAME or the current frame, if nil."
   (let-alist frame-geometry
     (when (and .left .top .width .height) ; defensive in case geometry stored from a tty
       (set-frame-position nil .left .top)
-      (redisplay)
+      (sit-for 0 t)
       (set-frame-size nil .width .height 'pixelwise)
-      (redisplay))))
+      (sit-for 0 t))))
 
 (defvar bufferlo--active-sessions nil
   "Global active bufferlo sessions.
@@ -2449,22 +2446,25 @@ FRAMESET is a bufferlo-filtered `frameset'."
 
 (defun bufferlo-frameset-restore-default (frameset)
   "Invoke `frameset-restore' with FRAMESET, which see."
-  (let ((params (funcall bufferlo-frameset-restore-parameters-function)))
+  (let ((params (funcall bufferlo-frameset-restore-parameters-function))
+        ;; frameset-restore checks for fullscreen in frame parameters
+        ;; and its handling is wonky and the restore filter has no
+        ;; effect, so we remove it locally.
+        (default-frame-alist (assq-delete-all 'fullscreen default-frame-alist)))
     (with-temp-buffer
-      (when (ignore-errors
-              (frameset-restore frameset
-                                :filters
-                                (when (memq bufferlo-frameset-restore-geometry '(bufferlo nil))
-                                  (let ((filtered-alist (copy-tree frameset-persistent-filter-alist)))
-                                    (mapc (lambda (sym) (setf (alist-get sym filtered-alist) :never))
-                                          (seq-union bufferlo--frameset-restore-filter bufferlo-frameset-restore-filter))
-                                    filtered-alist))
-                                :reuse-frames (plist-get params :reuse-frames)
-                                :force-display (plist-get params :force-display)
-                                :force-onscreen (plist-get params :force-onscreen)
-                                :cleanup-frames (plist-get params :cleanup-frames))
-              t) ; frameset-restore returns neither a status nor a list of restored frames
-        ))))
+      (ignore-errors
+        ;; Sadly, frameset-restore returns neither a status nor a list of restored frames.
+        (frameset-restore frameset
+                          :filters
+                          (when (memq bufferlo-frameset-restore-geometry '(bufferlo nil))
+                            (let ((filtered-alist (copy-tree frameset-persistent-filter-alist)))
+                              (mapc (lambda (sym) (setf (alist-get sym filtered-alist) :never))
+                                    (seq-union bufferlo--frameset-restore-filter bufferlo-frameset-restore-filter))
+                              filtered-alist))
+                          :reuse-frames (plist-get params :reuse-frames)
+                          :force-display (plist-get params :force-display)
+                          :force-onscreen (plist-get params :force-onscreen)
+                          :cleanup-frames (plist-get params :cleanup-frames))))))
 
 (defun bufferlo--bookmark-session-handler (bookmark-record &optional no-message)
   "Handle bufferlo session bookmark.
