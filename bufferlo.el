@@ -2595,17 +2595,20 @@ message."
           (dolist (frame fbm-frames)
             (set-frame-parameter frame 'bufferlo--frame-to-restore t)
             (set-frame-parameter frame 'bufferlo--frame-geometry (funcall bufferlo-frame-geometry-function frame)))
-          (setq frameset
-                (frameset-save
-                 fbm-frames
-                 :app 'bufferlo
-                 :name bookmark-name
-                 :predicate (lambda (x) (not (frame-parameter x 'parent-frame)))
-                 :filters
-                 (let ((filtered-alist (copy-tree frameset-persistent-filter-alist)))
-                   (mapc (lambda (sym) (setf (alist-get sym filtered-alist) :never))
-                         (seq-union bufferlo--frameset-save-filter bufferlo-frameset-save-filter))
-                   filtered-alist))))
+          ;; frameset-save squirrels away width/height text-pixels iff
+          ;; fullscreen is not nil and frame-resize-pixelwise is t.
+          (let ((frame-resize-pixelwise t))
+            (setq frameset
+                  (frameset-save
+                   fbm-frames
+                   :app 'bufferlo
+                   :name bookmark-name
+                   :predicate (lambda (x) (not (frame-parameter x 'parent-frame)))
+                   :filters
+                   (let ((filtered-alist (copy-tree frameset-persistent-filter-alist)))
+                     (mapc (lambda (sym) (setf (alist-get sym filtered-alist) :never))
+                           (seq-union bufferlo--frameset-save-filter bufferlo-frameset-save-filter))
+                     filtered-alist)))))
         (bookmark-store bookmark-name
                         (bufferlo--bookmark-set-location
                          (bufferlo--bookmark-set-make active-bookmark-names tabsets frameset))
