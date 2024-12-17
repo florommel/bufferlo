@@ -39,20 +39,27 @@ and ~ibuffer~. You can configure any command that selects a buffer to
 use the local buffer list via ~bufferlo-anywhere-mode~.
 
 In addition, bufferlo offers lightweight Emacs bookmarks-based
-persistence for frames and tabs to help you manage your transient
-workflows. Bufferlo bookmarks are compatible with built-in features
-such as bookmark-bmenu-list and third-party packages such as [[https://github.com/minad/consult][consult]]
-which offers consult-bookmark for interactive bookmark selection.
+persistence for frames, tabs, and sets of frames/tabs to help you
+manage your transient workflows. Bufferlo bookmarks are compatible
+with built-in features such as ~bookmark-bmenu-list~ and third-party
+packages such as [[https://github.com/minad/consult][consult]] which offers consult-bookmark for interactive
+bookmark selection.
 
 Bufferlo's mode-line indicator shows the currently active frame and/or
-tab bookmark name.
+tab bookmark name and indicates if a set is active.
 
 Note: Code examples use ~setq~ to customize options. You may also use
-~M-x customize-group bufferlo~. Emacs 29 introduced ~setopt~ which works
-correctly in the presence of ~defcustom~ setters. Currently the only
-bufferlo option with a setter is
+~M-x customize-group bufferlo~. Emacs 29 introduced ~setopt~ which
+works correctly in the presence of ~defcustom~ setters. Currently the
+only bufferlo option with such a setter is
 ~bufferlo-bookmarks-auto-save-idle-interval~ so be sure to set that
 interval timer in advance of enabling ~bufferlo-mode~.
+
+Note: Many bufferlo commands have short-hand aliases to accommodate
+the helpful ~which-key~ display (now a built-in for Emacs 30+).
+Bufferlo's menu references these aliases and not the main commands. We
+recommend that you use the short-hand aliases when binding your
+preferred keys to ensure the bufferlo menu reflects your key bindings.
 
 * Installation
 
@@ -62,11 +69,11 @@ Install it via ~package-install~ and enable ~bufferlo-mode~
   (bufferlo-mode)
 #+end_src
 
-Or via ~use-package~
+Or via ~use-package~ (see below for a more comprehensive configuration example)
 #+begin_src emacs-lisp
   (use-package bufferlo
     :ensure t
-    :config
+    :init
     ;; To install ibuffer filters, set the below in advance of enabling
     ;; bufferlo-mode
     (setq bufferlo-ibuffer-bind-local-buffer-filter t)
@@ -74,6 +81,7 @@ Or via ~use-package~
     ;; frame or tab buffer lists, pick one of:
     (setq bufferlo-prefer-local-buffers t) ; frame locals
     (setq bufferlo-prefer-local-buffers 'tabs) ; frame + tab locals
+    :config
     (setq switch-to-prev-buffer-skip-regexp ; set this to filter out buffers in previous/next-buffer
           (concat "\\` *" ; ignore hidden buffers
                   "\\(\\*\\(Messages\\|Ibuffer\\|scratch\\|Completions\\|Help\\|Warnings\\|Apropos\\|vc-diff\\)\\*\\)"
@@ -86,7 +94,8 @@ Note: Although the Emacs ~tab-bar-mode~ is fully supported, you do not
 have to use tabs to benefit from bufferlo; you can stick to a
 frame-only workflow. If you use ~tab-line-mode~ without
 ~tab-bar-mode~, your bufferlo experience will be the same as a
-frame-only user.
+frame-only user. Tab-oriented functions are active even if the tab-bar
+is hidden.
 
 * Usage
 
@@ -150,12 +159,13 @@ built-in global-buffer commands:
 - ~bufferlo-find-buffer-switch~: Switch to a frame/tab that contains
   the buffer in its local list, and select the buffer.
 
-** Bookmark management for frames and tabs
+** Bookmark management for frames, tabs, and sets
 
 Bufferlo can bookmark the buffers and windows belonging to individual
 frames and tabs for later recall between Emacs sessions or within a
-long-running session. All you need to do is provide a name for a
-bookmark and save it for later recall.
+long-running session. Sets can be defined as collections of frames
+and/or tabs to be recalled as a group. All you need to do is provide a
+name for a bookmark and save it for later recall.
 
 A tab bookmark includes the tab's window configuration, the state (not
 the contents) of all bookmarkable local buffers, and the bufferlo
@@ -164,7 +174,12 @@ local buffer list. Tabs can be restored into any frame.
 A frame bookmark saves every tab on a frame, each with the tab
 contents stated above. Frames can be restored into the current frame,
 replacing all tabs, into a new frame, or merged with the current
-frame's tabs.
+frame's tabs. Frames can also store their geometry for later
+restoration.
+
+A set bookmark saves a list of frame and tab bookmark names where
+constituent bookmarks behave as above. Sets can also store frame
+geometry.
 
 *** General bookmark commands
 
@@ -176,9 +191,10 @@ in combination with a package like [[https://github.com/minad/vertico][vertico]]
 - ~bufferlo-bookmarks-load-interactive~ (alias ~bufferlo-bms-load~):
   Load one or more stored saved bufferlo frame or tab bookmarks.
 
-- ~bufferlo-bookmarks-load~: load stored bufferlo bookmarks that match your
-  load predicates, or load all when using a prefix argument or when
-  you call the function using passing t as its sole argument.
+- ~bufferlo-bookmarks-load~: load stored bufferlo bookmarks that match
+  your load predicates, or load all when using a prefix argument or
+  when you call the function using passing t as its sole argument.
+  Bookmarks already loaded are ignored.
 
 - ~bufferlo-bookmarks-save-interactive~ (alias ~bufferlo-bms-save~):
   Save one or more currently active bufferlo frame or tab bookmarks.
@@ -239,6 +255,9 @@ in combination with a package like [[https://github.com/minad/vertico][vertico]]
   command will refuse to delete an active bufferlo bookmark (close or
   clear it and then delete). This function is also available via
   ~bookmark-bmenu-list~.
+
+Note: Bookmarks that are embedded in bufferlo bookmark sets will not
+be removed or renamed in the respective bookmark sets.
 
 *** Frame bookmark commands
 
@@ -520,8 +539,15 @@ similar to this can be found in your ~*Messages*~ buffer:
 
 ~Bufferlo tab: Could not restore emacs-todo.md (error (bookmark-error-no-filename stringp ~/.emacs/emacs-todo.md))~
 
+Please note: Emacs ~bookmark-jump-other-frame~ and
+~bookmark-jump-other-window~ commands are not compatible with bufferlo
+bookmarks. A future version of bufferlo might wrap these functions for
+convenience to either provide a warning or provide alternative jump
+functionality.
+
 It can be convenient to share bookmark files among your computers or
-among colleagues. Bookmarks can be made more "portable" with the following assumptions:
+among colleagues. Bookmarks can be made more "portable" with the
+following assumptions:
 
 - You share an Emacs configuration including packages, mode settings,
   etc.
@@ -607,38 +633,35 @@ You can integrate bufferlo with ~consult-buffer~.
 
 This is an example configuration:
 #+begin_src emacs-lisp
-  (defvar my-consult--source-buffer
-    `(:name "Other Buffers"
-      :narrow   ?b
-      :category buffer
-      :face     consult-buffer
-      :history  buffer-name-history
-      :state    ,#'consult--buffer-state
-      :items ,(lambda () (consult--buffer-query
-                          :predicate #'bufferlo-non-local-buffer-p
-                          :sort 'visibility
-                          :as #'buffer-name)))
-      "Non-local buffer candidate source for `consult-buffer'.")
+  (defvar my:bufferlo-consult--source-local-buffer
+    (list :name "Bufferlo Local Buffers"
+          :narrow   ?l
+          :category 'buffer
+          :face     'consult-buffer
+          :history  'buffer-name-history
+          :state    #'consult--buffer-state
+          :default  t
+          :items    (lambda () (consult--buffer-query
+                                :predicate #'bufferlo-local-buffer-p
+                                :sort 'visibility
+                                :as #'buffer-name)))
+    "Local Bufferlo buffer candidate source for `consult-buffer'.")
 
-  (defvar my-consult--source-local-buffer
-    `(:name "Local Buffers"
-      :narrow   ?l
-      :category buffer
-      :face     consult-buffer
-      :history  buffer-name-history
-      :state    ,#'consult--buffer-state
-      :default  t
-      :items ,(lambda () (consult--buffer-query
-                          :predicate #'bufferlo-local-buffer-p
-                          :sort 'visibility
-                          :as #'buffer-name)))
-      "Local buffer candidate source for `consult-buffer'.")
+  (defvar my:bufferlo-consult--source-buffer
+    (list :name "Bufferlo Other Buffers"
+          :narrow   ?b
+          :category 'buffer
+          :face     'consult-buffer
+          :history  'buffer-name-history
+          :state    #'consult--buffer-state
+          :items    (lambda () (consult--buffer-query
+                                :predicate #'bufferlo-non-local-buffer-p
+                                :sort 'visibility
+                                :as #'buffer-name)))
+    "Non-local Bufferlo buffer candidate source for `consult-buffer'.")
 
-  (setq consult-buffer-sources '(consult--source-hidden-buffer
-                                 my-consult--source-local-buffer
-                                 my-consult--source-buffer
-                                 ;; ... other sources ...
-                                 ))
+  (add-to-list 'consult-buffer-sources 'my:bufferlo-consult--source-local-buffers)
+  (add-to-list 'consult-buffer-sources 'my:bufferlo-consult--source-other-buffers)
 #+end_src
 
 [[./img/consult1.svg]]
@@ -646,38 +669,36 @@ Fig.1: All buffers are shown; the local buffers are grouped separately.
 
 You can also configure ~consult-buffer~ to hide the non-local buffers by default:
 #+begin_src emacs-lisp
-  (defvar my-consult--source-buffer
-    `(:name "All Buffers"
-      :narrow   ?a
-      :hidden   t
-      :category buffer
-      :face     consult-buffer
-      :history  buffer-name-history
-      :state    ,#'consult--buffer-state
-      :items ,(lambda () (consult--buffer-query
-                          :sort 'visibility
-                          :as #'buffer-name)))
-    "All buffer candidate source for `consult-buffer'.")
+  (defvar my:bufferlo-consult--source-all-buffers
+    (list :name "Bufferlo All Buffers"
+          :narrow   ?a
+          :hidden   t
+          :category 'buffer
+          :face     'consult-buffer
+          :history  'buffer-name-history
+          :state    #'consult--buffer-state
+          :items    (lambda () (consult--buffer-query
+                                :sort 'visibility
+                                :as #'buffer-name)))
+    "All Bufferlo buffer candidate source for `consult-buffer'.")
 
-  (defvar my-consult--source-local-buffer
-    `(:name nil
-      :narrow   ?b
-      :category buffer
-      :face     consult-buffer
-      :history  buffer-name-history
-      :state    ,#'consult--buffer-state
-      :default  t
-      :items ,(lambda () (consult--buffer-query
-                          :predicate #'bufferlo-local-buffer-p
-                          :sort 'visibility
-                          :as #'buffer-name)))
-    "Local buffer candidate source for `consult-buffer'.")
+  (defvar my:bufferlo-consult--source-local-buffers
+    (list :name "Bufferlo Local Buffers"
+          :narrow   ?l
+          :category 'buffer
+          :face     'consult-buffer
+          :history  'buffer-name-history
+          :state    #'consult--buffer-state
+          :default  t
+          :items    (lambda () (consult--buffer-query
+                                :predicate #'bufferlo-local-buffer-p
+                                :sort 'visibility
+                                :as #'buffer-name)))
+    "Local Bufferlo buffer candidate source for `consult-buffer'.")
 
-  (setq consult-buffer-sources '(consult--source-hidden-buffer
-                                 my-consult--source-buffer
-                                 my-consult--source-local-buffer
-                                 ;; ... other sources ...
-                                 ))
+  (add-to-list 'consult-buffer-sources #'consult--source-hidden-buffer)
+  (add-to-list 'consult-buffer-sources #'my:bufferlo-consult--source-all-buffers)
+  (add-to-list 'consult-buffer-sources #'my:bufferlo-consult--source-local-buffers)
 #+end_src
 
 [[./img/consult2.svg]]
@@ -722,8 +743,12 @@ buffer-position history, overriding bufferlo's saved bookmark
 positions, add this to your configuration:
 
 #+begin_src emacs-lisp
-  (setq bufferlo-bookmark-prefer-saveplace-point t)
+  (setq bufferlo-bookmark-inhibit-bookmark-point t)
 #+end_src
+
+This takes effect when saving or updating a Bufferlo bookmark.
+Existing bookmarks with embedded point will remain in force until
+saved.
 
 ** Complete configuration sample
 
@@ -735,53 +760,93 @@ positions, add this to your configuration:
     :after (ibuffer consult) ; also mark these :demand t or use explicit require
     :bind
     (
-     ;; ibuffer
-     ("C-z i i" . bufferlo-ibuffer)
-     ("C-z i b" . bufferlo-ibuffer)
-     ("C-z i B" . bufferlo-ibuffer-orphans)
+     ;; buffer / ibuffer
+     ("C-z C-b" . bufferlo-ibuffer)
+     ("C-z M-C-b" . bufferlo-ibuffer-orphans)
+     ("C-z b -" . bufferlo-remove)
      ;; interactive
      ("C-z i l" . bufferlo-bms-load)
      ("C-z i s" . bufferlo-bms-save)
      ("C-z i c" . bufferlo-bms-close)
-     ("C-z i -" . bufferlo-remove)
      ("C-z i r" . bufferlo-bm-raise)
+     ;; dwim frame or tab bookmarks
+     ("C-z d s" . bufferlo-bm-save)
+     ("C-z d l" . bufferlo-bm-load)
+     ("C-z d 0" . bufferlo-bm-close)
      ;; tabs
      ("C-z t s" . bufferlo-bm-tab-save)               ; save
      ("C-z t u" . bufferlo-bm-tab-save-curr)          ; update
      ("C-z t l" . bufferlo-bm-tab-load)               ; load
      ("C-z t r" . bufferlo-bm-tab-load-curr)          ; reload
-     ("C-z t 0" . bufferlo-tab-close-kill-buffers)    ; kill
+     ("C-z t 0" . bufferlo-bm-tab-close-curr)         ; kill
      ;; frames
      ("C-z f s" . bufferlo-bm-frame-save)             ; save
      ("C-z f u" . bufferlo-bm-frame-save-curr)        ; update
      ("C-z f l" . bufferlo-bm-frame-load)             ; load
      ("C-z f r" . bufferlo-bm-frame-load-curr)        ; reload
      ("C-z f m" . bufferlo-bm-frame-load-merge)       ; merge
-     ("C-z f 0" . bufferlo-delete-frame-kill-buffers) ; kill
+     ("C-z f 0" . bufferlo-bm-frame-close-curr)       ; kill
+     ;; sets
+     ("C-z s s" . bufferlo-set-save)                  ; save
+     ("C-z s u" . bufferlo-set-save-curr)             ; update
+     ("C-z s l" . bufferlo-set-load)                  ; load
+     ("C-z s 0" . bufferlo-set-close)                 ; kill
+     ("C-z s c" . bufferlo-set-clear)                 ; clear
      )
     :init
     ;; these must be set before the bufferlo package is loaded
+    (setq bufferlo-menu-bar-show t)
+    (setq bufferlo-menu-bar-list-buffers 'ibuffer)
     (setq bufferlo-prefer-local-buffers 'tabs)
     (setq bufferlo-ibuffer-bind-local-buffer-filter t)
     (setq bufferlo-ibuffer-bind-keys t)
     :config
-    (setq bufferlo-mode-line-lighter-prefix " 🐮")
+    (setq bufferlo-mode-line-prefix "🐃") ; "🐮"
+    (setq bufferlo-mode-line-set-active-prefix "Ⓢ")
+    (setq bufferlo-mode-line-frame-prefix "Ⓕ")
+    (setq bufferlo-mode-line-tab-prefix "Ⓣ")
+    (setq bufferlo-mode-line-left-prefix nil)
+    (setq bufferlo-mode-line-right-suffix nil)
     (setq switch-to-prev-buffer-skip-regexp
           (concat "\\` *"
-                  "\\(\\*\\(Messages\\|Ibuffer\\|scratch\\|Completions\\|Help\\|Warnings\\|Apropos\\|vc-diff\\)\\*\\)"
+                  "\\(\\*\\(" ; earmuffs
+                  (mapconcat #'identity
+                             '("Messages"
+                               "Buffer List"
+                               "Ibuffer"
+                               "Local Buffer List" ; bufferlo
+                               "scratch"
+                               "Occur"
+                               "Completions"
+                               "Help"
+                               "Warnings"
+                               "Apropos"
+                               "Bookmark List"
+                               "Async-native-compile-log"
+                               "Flymake log"
+                               "ruff-format errors"
+                               "vc-diff")
+                             "\\|")
+                  "\\)\\*\\)"
+                  "\\|" (rx "*" (1+ anything) " Ibuffer*")
                   "\\|" (rx "*helpful " (1+ anything) "*")
+                  "\\|" (rx "magit" (* anything) ": " (1+ anything))
                   "\\'"))
     (setq bufferlo-kill-buffers-prompt t)
-    (setq bufferlo-bookmark-prefer-saveplace-point t)
+    (setq bufferlo-kill-modified-buffers-policy 'retain-modified-kill-without-file-name) ; nil 'retain-modified 'retain-modified-kill-without-file-name 'kill-modified
+    (setq bufferlo-bookmark-inhibit-bookmark-point t)
     (setq bufferlo-delete-frame-kill-buffers-prompt t)
+    (setq bufferlo-bookmark-frame-save-on-delete 'when-bookmarked)
+    (setq bufferlo-bookmark-tab-save-on-close 'when-bookmarked)
     (setq bufferlo-close-tab-kill-buffers-prompt t)
-    (setq bufferlo-bookmark-frame-load-make-frame t)
+    (setq bufferlo-bookmark-frame-load-make-frame 'restore-geometry)
     (setq bufferlo-bookmark-frame-load-policy 'prompt)
     (setq bufferlo-bookmark-frame-duplicate-policy 'prompt)
     (setq bufferlo-bookmark-frame-clone-policy 'prompt)
     (setq bufferlo-bookmark-tab-replace-policy 'new)
     (setq bufferlo-bookmark-tab-duplicate-policy 'prompt)
-    (setq bufferlo-bookmark-tab-load-into-bookmarked-frame-policy 'prompt)
+    (setq bufferlo-bookmark-tab-in-bookmarked-frame-policy 'prompt)
+    ;; +++ (setq bufferlo-bookmark-tab-load-into-bookmarked-frame-policy 'prompt)
     (setq bufferlo-bookmarks-save-duplicates-policy 'prompt)
     (setq bufferlo-bookmarks-save-frame-policy 'all)
     (setq bufferlo-bookmarks-load-tabs-make-frame t)
@@ -790,6 +855,32 @@ positions, add this to your configuration:
     (setq bufferlo-bookmarks-load-at-emacs-startup-tabs-make-frame nil)
     (setopt bufferlo-bookmarks-auto-save-idle-interval (* 60 5)) ; 5 minutes
     (setq bufferlo-bookmarks-auto-save-messages 'saved)
+    (setq bufferlo-set-restore-geometry-policy 'all)
+    (setq bufferlo-set-restore-tabs-reuse-init-frame 'reuse) ; nil 'reuse 'reuse-reset-geometry
+    (setq bufferlo-frameset-restore-geometry 'bufferlo)
+    (setq bufferlo-frame-geometry-function #'bufferlo-frame-geometry-default)
+
+    (defun my/bufferlo-frameset-restore-parameters ()
+      "Function to create parameters for `frameset-restore', which see."
+      (cond (my:on-linux-gnome
+             (list :reuse-frames nil
+                   :force-display nil ; default t
+                   :force-onscreen (display-graphic-p)
+                   :cleanup-frames nil))
+            (t
+             (bufferlo-frameset-restore-parameters-default))))
+    (setq bufferlo-frameset-restore-parameters-function #'my/bufferlo-frameset-restore-parameters)
+
+    (setq bufferlo-frameset-save-filter
+          '(my:frame-id
+            zoom--frame-snapshot))
+
+    (setq bufferlo-frameset-restore-filter nil)
+
+    (defun my/bufferlo-frameset-restore-function (frameset)
+      (let ((my:frame-maximize nil))
+        (bufferlo-frameset-restore-default frameset)))
+    (setq bufferlo-frameset-restore-function #'my/bufferlo-frameset-restore-function)
 
     (setq bufferlo-bookmark-buffers-exclude-filters
           (list
@@ -814,49 +905,49 @@ positions, add this to your configuration:
       (string-match-p (rx "=al") bookmark-name))
     (add-hook 'bufferlo-bookmarks-load-predicate-functions #'my/bufferlo-bookmarks-load-p)
 
-    (defvar my:bufferlo-consult--source-all-buffers
-      `(:name "All Buffers"
-              :narrow   ?a
-              :hidden   t
-              :category buffer
-              :face     consult-buffer
-              :history  buffer-name-history
-              :state    ,#'consult--buffer-state
-              :items ,(lambda () (consult--buffer-query
-                                  :sort 'visibility
-                                  :as #'buffer-name)))
-      "All buffer candidate source for `consult-buffer'.")
-
-    (defvar my:bufferlo-consult--source-other-buffers
-      `(:name "Other Buffers"
-              :narrow   ?b
-              :category buffer
-              :face     consult-buffer
-              :history  buffer-name-history
-              :state    ,#'consult--buffer-state
-              :items ,(lambda () (consult--buffer-query
-                                  :predicate #'bufferlo-non-local-buffer-p
-                                  :sort 'visibility
-                                  :as #'buffer-name)))
-      "Non-local buffer candidate source for `consult-buffer'.")
-
     (defvar my:bufferlo-consult--source-local-buffers
-      `(:name "Local Buffers"
-              :narrow   ?l
-              :category buffer
-              :face     consult-buffer
-              :history  buffer-name-history
-              :state    ,#'consult--buffer-state
-              :default  t
-              :items ,(lambda () (consult--buffer-query
+      (list :name "Bufferlo Local Buffers"
+            :narrow   ?l
+            :category 'buffer
+            :face     'consult-buffer
+            :history  'buffer-name-history
+            :state    #'consult--buffer-state
+            :default  t
+            :items    (lambda () (consult--buffer-query
                                   :predicate #'bufferlo-local-buffer-p
                                   :sort 'visibility
                                   :as #'buffer-name)))
-      "Local buffer candidate source for `consult-buffer'.")
+      "Local Bufferlo buffer candidate source for `consult-buffer'.")
 
-    (add-to-list 'consult-buffer-sources 'my:bufferlo-consult--source-all-buffers)
-    (add-to-list 'consult-buffer-sources 'my:bufferlo-consult--source-other-buffers)
+    (defvar my:bufferlo-consult--source-other-buffers
+      (list :name "Bufferlo Other Buffers"
+            :narrow   ?o
+            :category 'buffer
+            :face     'consult-buffer
+            :history  'buffer-name-history
+            :state    #'consult--buffer-state
+            :items    (lambda () (consult--buffer-query
+                                  :predicate #'bufferlo-non-local-buffer-p
+                                  :sort 'visibility
+                                  :as #'buffer-name)))
+      "Non-local Bufferlo buffer candidate source for `consult-buffer'.")
+
+    (defvar my:bufferlo-consult--source-all-buffers
+      (list :name "Bufferlo All Buffers"
+            :narrow   ?a
+            :hidden   t
+            :category 'buffer
+            :face     'consult-buffer
+            :history  'buffer-name-history
+            :state    #'consult--buffer-state
+            :items    (lambda () (consult--buffer-query
+                                  :sort 'visibility
+                                  :as #'buffer-name)))
+      "All Bufferlo buffer candidate source for `consult-buffer'.")
+
     (add-to-list 'consult-buffer-sources 'my:bufferlo-consult--source-local-buffers)
+    (add-to-list 'consult-buffer-sources 'my:bufferlo-consult--source-other-buffers)
+    (add-to-list 'consult-buffer-sources 'my:bufferlo-consult--source-all-buffers)
 
     (bufferlo-mode)
     (bufferlo-anywhere-mode)
