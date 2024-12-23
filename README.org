@@ -660,8 +660,9 @@ This is an example configuration:
                                 :as #'buffer-name)))
     "Non-local Bufferlo buffer candidate source for `consult-buffer'.")
 
-  (add-to-list 'consult-buffer-sources 'my:bufferlo-consult--source-local-buffers)
+  ;; add in the reverse order of display preference
   (add-to-list 'consult-buffer-sources 'my:bufferlo-consult--source-other-buffers)
+  (add-to-list 'consult-buffer-sources 'my:bufferlo-consult--source-local-buffers)
 #+end_src
 
 [[./img/consult1.svg]]
@@ -696,6 +697,7 @@ You can also configure ~consult-buffer~ to hide the non-local buffers by default
                                 :as #'buffer-name)))
     "Local Bufferlo buffer candidate source for `consult-buffer'.")
 
+  ;; add in the reverse order of display preference
   (add-to-list 'consult-buffer-sources #'consult--source-hidden-buffer)
   (add-to-list 'consult-buffer-sources #'my:bufferlo-consult--source-all-buffers)
   (add-to-list 'consult-buffer-sources #'my:bufferlo-consult--source-local-buffers)
@@ -945,9 +947,10 @@ saved.
                                   :as #'buffer-name)))
       "All Bufferlo buffer candidate source for `consult-buffer'.")
 
-    (add-to-list 'consult-buffer-sources 'my:bufferlo-consult--source-local-buffers)
-    (add-to-list 'consult-buffer-sources 'my:bufferlo-consult--source-other-buffers)
+    ;; add in the reverse order of display preference
     (add-to-list 'consult-buffer-sources 'my:bufferlo-consult--source-all-buffers)
+    (add-to-list 'consult-buffer-sources 'my:bufferlo-consult--source-other-buffers)
+    (add-to-list 'consult-buffer-sources 'my:bufferlo-consult--source-local-buffers)
 
     (bufferlo-mode)
     (bufferlo-anywhere-mode)
