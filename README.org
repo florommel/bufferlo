@@ -45,8 +45,9 @@ with built-in features such as ~bookmark-bmenu-list~ and third-party
 packages such as [[https://github.com/minad/consult][consult]] which offers consult-bookmark for interactive
 bookmark selection.
 
-Bufferlo's mode-line indicator shows the currently active frame and/or
-tab bookmark name and indicates if a set is active.
+Bufferlo's default mode-line indicator shows the currently active
+frame- and/or tab-bookmark name and also indicates if a bookmark set
+is active.
 
 Note: Code examples use ~setq~ to customize options. You may also use
 ~M-x customize-group bufferlo~. Emacs 29 introduced ~setopt~ which
@@ -177,9 +178,11 @@ replacing all tabs, into a new frame, or merged with the current
 frame's tabs. Frames can also store their geometry for later
 restoration.
 
-A set bookmark saves a list of frame and tab bookmark names where
-constituent bookmarks behave as above. Sets can also store frame
-geometry.
+A bookmark set saves a list of frame and tab bookmark names, where
+constituent bookmarks behave as above, and optionally stores each
+frame's geometry. Bufferlo frame and tab bookmarks may be referenced
+by more than one bookmark set which is useful for buffers that are
+common across workflows.
 
 *** General bookmark commands
 
@@ -244,7 +247,8 @@ in combination with a package like [[https://github.com/minad/vertico][vertico]]
 - ~bookmark-bmenu-list~: Typically bound to ~C-x r l~, this loads the
   standard Emacs bookmark menu to select a bookmark and manage the
   bookmark list including non-bufferlo bookmarks. Bufferlo frame
-  bookmarks are identified as "B-Frame" and tab bookmarks as "B-Tab".
+  bookmarks are identified as "B-Frame", tab bookmarks as "B-Tab", and
+  bookmark sets as "B-Set".
 
 - ~bookmark-rename~: Invoke this command to rename a bookmark. This
   command will refuse to rename an active bufferlo bookmark (close or
@@ -256,8 +260,9 @@ in combination with a package like [[https://github.com/minad/vertico][vertico]]
   clear it and then delete). This function is also available via
   ~bookmark-bmenu-list~.
 
-Note: Bookmarks that are embedded in bufferlo bookmark sets will not
-be removed or renamed in the respective bookmark sets.
+Note: Renaming or deleting a bufferlo tab or frame bookmark does not
+rename or delete references to those bookmarks within bufferlo
+bookmark sets.
 
 *** Frame bookmark commands
 
@@ -303,6 +308,11 @@ be removed or renamed in the respective bookmark sets.
   ~bufferlo-bm-tab-load-curr~): Reload the existing bookmark for the
   current tab. This will overwrite your current tab content (no
   buffers are killed).
+
+*** Bookmark set commands
+
++++
+
 
 *** Automatic bookmark saving
 
@@ -533,9 +543,9 @@ bookmarks.
 Restoring bookmarks correctly handles renamed buffers with unchanged
 file association (e.g., when Emacs had to "uniquify" buffer names).
 
-If files are deleted between sessions and a bookmarked buffer cannot
-be restored, after loading a bookmark with a missing file, a message
-similar to this can be found in your ~*Messages*~ buffer:
+If files are deleted between Emacs sessions and a bookmarked buffer
+cannot be restored, after loading a bookmark with a missing file, a
+message similar to this can be found in your ~*Messages*~ buffer:
 
 ~Bufferlo tab: Could not restore emacs-todo.md (error (bookmark-error-no-filename stringp ~/.emacs/emacs-todo.md))~
 
@@ -967,16 +977,21 @@ all-or-nothing solution saving your entire Emacs environment for
 future recall. When you have a long-lived Emacs session that may
 include hundreds of buffers that may not relate to one another or are
 not relevant to your current tasks, ~desktop.el~ is cumbersome and
-slow to restore an entire context. Bufferlo gives you finer-grained
-control over what collections of frames and tabs to save and load.
+slow restoring an entire session when you may need only a subset.
+Bufferlo gives you finer-grained control over what collections of
+frames and tabs to save and load.
 
-Also in contrast to ~desktop.el~, Bufferlo does not store "framesets"
-(though we may concoct a lightweight "session" persistence feature in
-the future), instead relying on your Emacs configuration to create
-frames as you prefer them when restoring bufferlo-managed content.
-This can be more convenient than ~desktop.el~ when you use multiple
-Emacs sessions; e.g., GUI and tty sessions where your frames and tabs
-will have different geometries.
+Similar to ~desktop.el~, bufferlo supports storing "framesets" using
+bufferlo bookmark sets. When a bookmark set is restored, bufferlo
+attempts to recreate your frames with their geometries, and their
+frame and tab bookmarks.
+
+Unlike ~desktop.el~, bufferlo does not persist each buffer's enabled
+major or minor modes, instead relying on your Emacs configuration to
+establish modes, same as when you establish the buffer manually. As
+your configuration evolves, so too will your preferred major and minor
+modes evolve rather than assuming the desktop file will always
+represent your preferences.
 
 ** Other Emacs packages
 
