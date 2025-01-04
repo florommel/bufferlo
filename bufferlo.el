@@ -2640,7 +2640,7 @@ throwing away the old one."
     (bufferlo--set-save bookmark-name comps abms no-overwrite)))
 
 (defun bufferlo-set-save-current-interactive ()
-  "Save active constituents in selected bookmark-sets."
+  "Save active constituents in selected bookmark sets."
   (interactive)
   (let* ((candidates (mapcar #'car bufferlo--active-sets))
          (comps (bufferlo--bookmark-completing-read "Select sets to save: " candidates)))
@@ -2663,7 +2663,7 @@ throwing away the old one."
     (call-interactively 'bufferlo-bookmarks-load-interactive)))
 
 (defun bufferlo--set-clear-all ()
-  "Clear all active bookmark-sets.
+  "Clear all active bookmark sets.
 This does not close active frame and tab bookmarks."
   (setq bufferlo--active-sets nil))
 
@@ -2676,7 +2676,7 @@ This does not close associated active frame and tab bookmarks."
         names))
 
 (defun bufferlo-set-clear-interactive ()
-  "Clear the specified bookmark-sets.
+  "Clear the specified bookmark sets.
 This does not close its associated bookmarks or kill their
 buffers."
   (interactive)
@@ -2685,7 +2685,7 @@ buffers."
     (bufferlo--set-clear comps)))
 
 (defun bufferlo-set-close-interactive ()
-  "Close the specified bookmark-sets.
+  "Close the specified bookmark sets.
 This closes their associated bookmarks and kills their buffers."
   (interactive)
   (let* ((candidates (mapcar #'car bufferlo--active-sets))
@@ -3439,7 +3439,7 @@ Save the current bufferlo frame bookmark or tab bookmark,
 prioritizing frame bookmarks over tab bookmarks, should both
 exist.
 
-Unlike, `bufferlo-bookmark-frame-save-current' and
+Unlike `bufferlo-bookmark-frame-save-current' and
 `bufferlo-bookmark-tab-save-current', this does not prompt to
 save a new bookmark."
   (interactive)
@@ -3457,7 +3457,7 @@ Load the current bufferlo frame bookmark or tab bookmark,
 prioritizing frame bookmarks over tab bookmarks, should both
 exist.
 
-Unlike, `bufferlo-bookmark-frame-load-current' and
+Unlike `bufferlo-bookmark-frame-load-current' and
 `bufferlo-bookmark-tab-load-current', this does not prompt to
 load a new bookmark."
   (interactive)
