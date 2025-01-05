@@ -2409,7 +2409,11 @@ Geometry set for FRAME or the current frame, if nil."
     (when (and .left .top .width .height) ; defensive in case geometry stored from a tty
       (set-frame-position nil .left .top)
       (sit-for 0 t)
-      (set-frame-size nil .width .height 'pixelwise)
+      ;; Clamp frame size restored from a larger display
+      (set-frame-size nil
+                      (min .width (display-pixel-width))
+                      (min .height (display-pixel-height))
+                      'pixelwise)
       (sit-for 0))))
 
 (defvar bufferlo--active-sets nil
