@@ -46,8 +46,11 @@ packages such as [[https://github.com/minad/consult][consult]] which offers cons
 bookmark selection.
 
 Bufferlo's default mode-line indicator shows the currently active
-frame- and/or tab-bookmark name and also indicates if a bookmark set
-is active.
+frame- and/or tab-bookmark name and also indicates if at least one
+bookmark set is active.
+
+A bufferlo menu bar is enabled by default to encourage discovery of
+bufferlo features.
 
 Note: Code examples use ~setq~ to customize options. You may also use
 ~M-x customize-group bufferlo~. Emacs 29 introduced ~setopt~ which
@@ -179,9 +182,9 @@ frame's tabs. Frames can also store their geometry for later
 restoration.
 
 A bookmark set saves a list of frame and tab bookmark names, where
-constituent bookmarks behave as above, and optionally stores each
+constituent bookmarks behave as above, and can optionally restore each
 frame's geometry. Bufferlo frame and tab bookmarks may be referenced
-by more than one bookmark set which is useful for buffers that are
+in multiple bookmark sets which can be useful for buffers that are
 common across workflows.
 
 *** General bookmark commands
@@ -261,8 +264,7 @@ in combination with a package like [[https://github.com/minad/vertico][vertico]]
   ~bookmark-bmenu-list~.
 
 Note: Renaming or deleting a bufferlo tab or frame bookmark does not
-rename or delete references to those bookmarks within bufferlo
-bookmark sets.
+rename or delete references to those bookmarks within bookmark sets.
 
 *** Frame bookmark commands
 
@@ -311,8 +313,81 @@ bookmark sets.
 
 *** Bookmark set commands
 
-+++
+- ~bufferlo-set-save-interactive~ (alias ~bufferlo-set-save~): Save a
+  bufferlo bookmark set for the specified active bookmarks. Frame
+  bookmark names are stored along with their geometry for optional
+  restoration. Tab bookmark names are grouped based on their shared
+  frames along with each frame's geometry.
 
+- ~bufferlo-set-save-current-interactive~ (alias
+  ~bufferlo-set-save-curr~): Update the content of all active
+  constituent bookmarks in selected bookmark sets.
+
+- ~bufferlo-set-load-interactive~ (alias ~bufferlo-set-load~): Prompt
+  to load bufferlo set bookmarks. This will restore each set's
+  constituent frame and tab bookmarks along with the tab bookmarks'
+  shared frames. Frame geometry is optionally restored.
+
+- ~bufferlo-set-clear-interactive~ (alias ~bufferlo-set-clear~): Clear
+  the specified bookmark sets. This has the effect of leaving the
+  set's constituent frame and tab bookmarks in place while indicating that
+  the bookmark sets are no longer active.
+
+- ~bufferlo-set-close-interactive~ (alias ~bufferlo-set-close~): Close
+  the specified bookmark sets. This closes their constituent bookmarks
+  and kills their buffers.
+
+Notes:
+
+- To curate a saved bookmark set, invoke
+  ~bufferlo-set-save-interactive~ and save a new set of active
+  bookmarks, replacing the existing bookmark set.
+- Bookmark sets are unaware of constituent frame and tab bookmark
+  renames or deletes.
+- Bookmark sets are Emacs bookmarks and can be deleted or renamed
+  using Emacs bookmark commands; e.g., via ~bookmark-bmenu-list~.
+- While bookmark sets can be auto loaded, just as individual frame and
+  tab bookmarks can be, bookmark sets cannot themselves be auto-saved.
+  Constituent bookmarks are saved individually based on your auto-save
+  predicates.
+
+*** DWIM commands
+
+These do-what-I-mean aka DWIM commands are conveniences that detect an
+active frame or tab bookmark avoiding the need to to specify the frame
+or tab variants of the equivalent commands.
+
+Note: Bufferlo DWIM commands prioritize frame bookmarks over tab
+bookmarks should both exist.
+
+- ~bufferlo-bookmark-save-curr~ (alias ~bufferlo-bm-save~): Save the
+  current frame or tab bookmark. This does not prompt to save a new
+  bookmark if no bookmark is established.
+
+- ~bufferlo-bookmark-load-curr~ (alias ~bufferlo-bm-load~): Reload the
+  current frame or tab bookmark. This does not prompt to load a new
+  bookmark if no bookmark is established.
+
+- ~bufferlo-bookmark-close-curr~ (alias ~bufferlo-bm-close~): Close
+  current frame or tab bookmark and kill its buffers.
+
+*** Bufferlo buffer killing policies
+
+To control bufferlo confirmation prompts when killing local or orphan
+buffers:
+#+begin_src emacs-lisp
+  (setq bufferlo-kill-buffers-prompt t) ; default nil
+#+end_src
+
+To control bufferlo behavior when closing frame or tab bookmarks and
+killing their local modified buffers or process buffers such as
+~shell-mode~ or ~eshell-mode~:
+#+begin_src emacs-lisp
+  (setq bufferlo-kill-modified-buffers-policy nil) ; use normal Emacs prompting behavior
+  (setq bufferlo-kill-modified-buffers-policy 'retain-modified) ; kill just unmodified
+  (setq bufferlo-kill-modified-buffers-policy 'retain-modified-kill-without-file-name) ; kill unmodified and buffers without files
+  (setq bufferlo-kill-modified-buffers-policy 'kill-modified) ; kill local buffers without prompting; the default
+#+end_src
 
 *** Automatic bookmark saving
 
@@ -381,7 +456,8 @@ your context as you work. Switch between them as you see fit.
 *** Automatic bookmark loading
 
 To automatically load some or all bufferlo bookmarks at Emacs startup
-time:
+time (bufferlo uses ~window-setup-hook~ to load bookmarks after your
+init.el has completed to maximize the chances for successful loading):
 #+begin_src emacs-lisp
   (setq bufferlo-bookmarks-load-at-emacs-startup 'noload) ; inhibit loading at startup (default)
   (setq bufferlo-bookmarks-load-at-emacs-startup 'pred) ; load bookmark names that match your predicates
@@ -404,9 +480,10 @@ Example auto-load predicate:
   (add-hook 'bufferlo-bookmarks-load-predicate-functions #'my/bufferlo-bookmarks-load-p)
 #+end_src
 
-You can inhibit bufferlo bookmarks from loading at Emacs startup
-without changing your configuration by either using the command line
-or a semaphore file in your ~user-emacs-directory~:
+If you have configured bufferlo to load bookmarks at Emacs startup,
+you can inhibit bookmark loading without changing your configuration
+by either using the command line or a semaphore file in your
+~user-emacs-directory~:
 #+begin_src shell
 $ emacs --bufferlo-noload
 $ touch ~/.emacs.d/bufferlo-noload # remove it to reenable automatic loading
@@ -422,7 +499,6 @@ support such as ~*shell*~ buffers. To do that, combine the following
 two variables, the first to exclude what you want to filter, and the
 second to ensure that the buffers you want to keep from the first
 filter are added back. For example:
-
 #+begin_src emacs-lisp
   (setq bufferlo-bookmark-buffers-exclude-filters
         (list
@@ -471,13 +547,14 @@ have their current working set be saved unless and until they choose.
 
 *** Frame bookmark options
 
-What follows is a good, basic set of frame bookmark policies. Refine
-them to suit your workflow as you gain experience with bufferlo. Refer
-to each option's documentation for additional settings.
+Refine these options to suit your workflow as you gain experience with
+bufferlo. Refer to each option's documentation for additional
+settings.
 
 #+begin_src emacs-lisp
   ;; make a new frame to hold loaded frame bookmarks
   (setq bufferlo-bookmark-frame-load-make-frame t) ; default is nil for backward compatibility
+  (setq bufferlo-bookmark-frame-load-make-frame 'restore-geometry)
 #+end_src
 #+begin_src emacs-lisp
   ;; policy when loading onto an already bookmarked frame
@@ -500,9 +577,9 @@ to each option's documentation for additional settings.
 
 *** Tab bookmark options
 
-What follows is a good, basic set of tab bookmark policies. Refine
-them to suit your workflow as you gain experience with bufferlo. Refer
-to each option's documentation for additional settings.
+Refine these options to suit your workflow as you gain experience with
+bufferlo. Refer to each option's documentation for additional
+settings.
 
 #+begin_src emacs-lisp
    ;; make a new frame when loading a a batch of tab bookmarks
@@ -523,11 +600,105 @@ to each option's documentation for additional settings.
   (setq bufferlo-bookmark-tab-duplicate-policy 'raise) ; do not load, raise the existing frame/tab
 #+end_src
 #+begin_src emacs-lisp
-  ;; allow inferior tab bookmark on a bookmarked frame which will supersede the tab when saving
-  (setq bufferlo-bookmark-tab-load-into-bookmarked-frame-policy 'prompt) ; default
-  (setq bufferlo-bookmark-tab-load-into-bookmarked-frame-policy 'allow) ; old default behavior
-  (setq bufferlo-bookmark-tab-load-into-bookmarked-frame-policy 'clear) ; silently clear the loaded tab bookmark
-  (setq bufferlo-bookmark-tab-load-into-bookmarked-frame-policy 'clear-warn) ; clear the loaded tab bookmark with a message
+  ;; allow inferior tab bookmark on a bookmarked frame (Note: frame bookmarks supersede tab bookmarks when saving)
+  (setq bufferlo-bookmark-tab-in-bookmarked-frame-policy 'prompt) ; default
+  (setq bufferlo-bookmark-tab-in-bookmarked-frame-policy 'allow) ; old default behavior
+  (setq bufferlo-bookmark-tab-in-bookmarked-frame-policy 'clear) ; silently clear the loaded tab bookmark
+  (setq bufferlo-bookmark-tab-in-bookmarked-frame-policy 'clear-warn) ; clear the loaded tab bookmark with a message
+#+end_src
+
+*** Bookmark set options
+
+Refine these options to suit your workflow as you gain experience with
+bufferlo. Refer to each option's documentation for additional
+settings.
+
+#+begin_src emacs-lisp
+  ;; frame geometry restoration policy
+  (setq bufferlo-set-restore-geometry-policy 'all) ; restore frame and tab-frame geometries; the default
+  (setq bufferlo-set-restore-geometry-policy 'frames) ; restore only frame geometries
+  (setq bufferlo-set-restore-geometry-policy 'tab-frames) ; restore only tab-frame geometries
+#+end_src
+
+The following option is useful for auto-loading bookmark sets at
+startup time or overlaying constituent tabs in the frame from which a
+bookmark set is loaded.
+
+#+begin_src emacs-lisp
+  ;; make a new frame when loading a a batch of tab bookmarks
+  (setq bufferlo-set-restore-tabs-reuse-init-frame 'reuse) ; reuse the existing first frame; the default
+  (setq bufferlo-set-restore-tabs-reuse-init-frame 'reuse-reset-geometry) ; like 'reuse but also alters the reused frame's geometry
+  (setq bufferlo-set-restore-tabs-reuse-init-frame nil) ; always make new frames
+#+end_src
+
+*** Frame geometry options
+
+Bufferlo provides wrappers around Emacs frame functions to provide
+more precision. This is due to issues that affect ~make-frame~ and
+hence ~frameset-restore~. One bug preventing pixel-level precision was
+reported and fixed for Emacs 31 (it was too late for the Emacs 30
+release cycle).
+
+Frames stored in bufferlo frame bookmarks have their geometries stored
+individually and are recreated on demand. Bookmark sets frame
+collections are implemented via ~frameset-save~ and are restored by
+Emacs en masse.
+
+Frame bookmarks saved via Emacs tty will not store a frame geometry
+(none available on tty). Conversely, frame bookmarks saved via GUI and
+restored on tty will ignore frame geometry.
+
+Note: Not much testing has been done in hybrid tty/GUI environments
+using ~emacsclient~, or with multi-display setups where frames may be
+expected to be restored on their originating displays.
+
+#+begin_src emacs-lisp
+  ;; function to determine a frame's pixelwise geometry (it is not
+  ;; likely you will need to replace this--but is provided just in case)
+  (setq bufferlo-frame-geometry-function #'bufferlo-frame-geometry-default) ; the default uses text-width and text-height
+  (setq bufferlo-frame-geometry-function #'my/bufferlo-frame-geometry) ; or your own
+#+end_src
+#+begin_src emacs-lisp
+  ;; methodology for bookmark-set frameset geometry restoration
+  (setq bufferlo-frameset-restore-geometry 'bufferlo) ; the pixel-level precision default
+  (setq bufferlo-frameset-restore-geometry 'native) ; uses `frameset-restore' geometry handling (buggy pre Emacs 31)
+  (setq bufferlo-frameset-restore-geometry nil) ; inhibit frame geometry restoration
+#+end_src
+#+begin_src emacs-lisp
+  ;; inhibit additional frame parameter symbols from being stored by `frameset-save'
+  (setq bufferlo-frameset-save-filter nil)
+  (setq bufferlo-frameset-save-filter '(my:frame-id ; practical example
+                                        zoom--frame-snapshot))
+#+end_src
+#+begin_src emacs-lisp
+    ;; inhibit additional frame parameter symbols from being restored by `frameset-restore'
+    (setq bufferlo-frameset-restore-filter nil)
+#+end_src
+#+begin_src emacs-lisp
+  ;; you can override bufferlos `frameset-restore' wrapper should you need to
+  (setq bufferlo-frameset-restore-function #'bufferlo-frameset-restore-default) ; the default
+  ;; a practical example that inhibits user-configured
+  ;; `after-make-frame-functions' frame maximization by let-binding
+  ;; my:frame-maximize to nil allowing `frameset-restore' and bufferlo
+  ;; to control restored frame geometry.
+  (defun my/bufferlo-frameset-restore-function (frameset)
+    (let ((my:frame-maximize nil))
+      (bufferlo-frameset-restore-default frameset)))
+  (setq bufferlo-frameset-restore-function #'my/bufferlo-frameset-restore-function)
+#+end_src
+#+begin_src emacs-lisp
+  (setq bufferlo-frameset-restore-parameters-function #'bufferlo-frameset-restore-parameters-default) ; default
+  ;; a practical example where Emacs Linux/GTK behaves differently vs. macOS
+  (defun my/bufferlo-frameset-restore-parameters ()
+    "Function to create parameters for `frameset-restore', which see."
+    (cond (my:on-linux-gnome
+           (list :reuse-frames nil
+                 :force-display nil ; bufferlo defaults to t which works on macOS
+                 :force-onscreen (display-graphic-p)
+                 :cleanup-frames nil))
+          (t
+           (bufferlo-frameset-restore-parameters-default))))
+  (setq bufferlo-frameset-restore-parameters-function #'my/bufferlo-frameset-restore-parameters)
 #+end_src
 
 *** Bookmark addenda
@@ -567,15 +738,63 @@ following assumptions:
 
 *** mode-line
 
-- If you prefer iconic lighter prefixes, set one like this:
+- If you prefer iconic mode-line prefixes, set one like this:
 #+begin_src emacs-lisp
-  (setq bufferlo-mode-line-lighter-prefix " 🐮") ; bufferlos are cows
-  (setq bufferlo-mode-line-lighter-prefix " 🐃") ; some are water bufferlos
+   (setq bufferlo-mode-line-prefix "🐮") ; bufferlos are cows
+   (setq bufferlo-mode-line-prefix "🐃") ; some are water bufferlos
+   (setq bufferlo-mode-line-prefix "Bfl") ; the text default
 #+end_src
 - To disable bufferlo's mode-line or provide your own custom mode-line function:
 #+begin_src emacs-lisp
-  (setq bufferlo-mode-line-lighter nil) ; disable the bufferlo mode-line
-  (setq bufferlo-mode-line-lighter #'my/bufferlo-mode-line-lighter) ; use your own
+  (setq bufferlo-mode-line nil) ; disable the bufferlo mode-line
+  (setq bufferlo-mode-line #'my/bufferlo-mode-line) ; or use your own
+#+end_src
+- To control the appearance of other mode-line features:
+#+begin_src emacs-lisp
+  (setq bufferlo-mode-line-set-active-prefix "Ⓢ")
+  (setq bufferlo-mode-line-frame-prefix "Ⓕ")
+  (setq bufferlo-mode-line-tab-prefix "Ⓣ")
+  (setq bufferlo-mode-line-left-prefix nil) ; default "[" similar to flymake
+  (setq bufferlo-mode-line-right-suffix nil) ; default "]"
+#+end_src
+- To control mode-line faces:
+#+begin_src emacs-lisp
+  (set-face-attribute 'bufferlo-mode-line-face nil
+                      :box '(:line-width (-1 . -1) :color "#8aca9f")
+                      :height 0.85)
+  ;; below inherit bufferlo-mode-line-face
+  (set-face-attribute 'bufferlo-mode-line-frame-bookmark-face nil
+                      :foreground "#8aca0f")
+  (set-face-attribute 'bufferlo-mode-line-tab-bookmark-face nil
+                      :foreground "#00ffff")
+  (set-face-attribute 'bufferlo-mode-line-set-face nil
+                      :foreground "#000fff")
+#+end_src
+
+*** Menu bar
+
+Bufferlo enables its menu bar entry by default to encourage feature
+discovery and menu-item entries are adorned with key mappings from
+your configuration.
+
+Note: Due to a limitation in Emacs where it does not reference key
+bindings of commands via aliases, you must provide key mappings on
+bufferlo's aliased commands, as the menu is defined in alias terms. We
+default to aliases to reduce the text displayed by ~which-key-mode~ to
+a readable width vs. fully-qualified command names.
+
+#+begin_src emacs-lisp
+  ;; To control the menu bar visibility before package initialization
+  (setq bufferlo-menu-bar-show t) ; the default
+  (setq bufferlo-menu-bar-show nil)
+#+end_src
+
+#+begin_src emacs-lisp
+  ;; bufferlo menu buffer window behavior
+  (setq bufferlo-menu-bar-list-buffers 'simple) ; show buffer lists using `Buffer-menu-mode'
+  (setq bufferlo-menu-bar-list-buffers 'ibuffer) ; show buffer lists using `ibuffer'
+  (setq bufferlo-menu-bar-list-buffers 'both) ; show both options; the default
+  (setq bufferlo-menu-bar-list-buffers nil) ; show neither
 #+end_src
 
 ** Initial buffer
@@ -758,9 +977,9 @@ positions, add this to your configuration:
   (setq bufferlo-bookmark-inhibit-bookmark-point t)
 #+end_src
 
-This takes effect when saving or updating a Bufferlo bookmark.
-Existing bookmarks with embedded point will remain in force until
-saved.
+This takes effect when saving or updating a bufferlo bookmark.
+Previously stored bufferlo bookmarks with an embedded point will
+remain in force until they are saved if this policy is set to t.
 
 ** Complete configuration sample
 
@@ -858,7 +1077,6 @@ saved.
     (setq bufferlo-bookmark-tab-replace-policy 'new)
     (setq bufferlo-bookmark-tab-duplicate-policy 'prompt)
     (setq bufferlo-bookmark-tab-in-bookmarked-frame-policy 'prompt)
-    ;; +++ (setq bufferlo-bookmark-tab-load-into-bookmarked-frame-policy 'prompt)
     (setq bufferlo-bookmarks-save-duplicates-policy 'prompt)
     (setq bufferlo-bookmarks-save-frame-policy 'all)
     (setq bufferlo-bookmarks-load-tabs-make-frame t)
@@ -871,28 +1089,6 @@ saved.
     (setq bufferlo-set-restore-tabs-reuse-init-frame 'reuse) ; nil 'reuse 'reuse-reset-geometry
     (setq bufferlo-frameset-restore-geometry 'bufferlo)
     (setq bufferlo-frame-geometry-function #'bufferlo-frame-geometry-default)
-
-    (defun my/bufferlo-frameset-restore-parameters ()
-      "Function to create parameters for `frameset-restore', which see."
-      (cond (my:on-linux-gnome
-             (list :reuse-frames nil
-                   :force-display nil ; default t
-                   :force-onscreen (display-graphic-p)
-                   :cleanup-frames nil))
-            (t
-             (bufferlo-frameset-restore-parameters-default))))
-    (setq bufferlo-frameset-restore-parameters-function #'my/bufferlo-frameset-restore-parameters)
-
-    (setq bufferlo-frameset-save-filter
-          '(my:frame-id
-            zoom--frame-snapshot))
-
-    (setq bufferlo-frameset-restore-filter nil)
-
-    (defun my/bufferlo-frameset-restore-function (frameset)
-      (let ((my:frame-maximize nil))
-        (bufferlo-frameset-restore-default frameset)))
-    (setq bufferlo-frameset-restore-function #'my/bufferlo-frameset-restore-function)
 
     (setq bufferlo-bookmark-buffers-exclude-filters
           (list
@@ -963,8 +1159,7 @@ saved.
     (add-to-list 'consult-buffer-sources 'my:bufferlo-consult--source-local-buffers)
 
     (bufferlo-mode)
-    (bufferlo-anywhere-mode)
-    )
+    (bufferlo-anywhere-mode))
 #+end_src
 
 * Alternatives
@@ -991,7 +1186,11 @@ major or minor modes, instead relying on your Emacs configuration to
 establish modes, same as when you establish the buffer manually. As
 your configuration evolves, so too will your preferred major and minor
 modes evolve rather than assuming the desktop file will always
-represent your preferences.
+represent your preferences. One typical example of an optional minor
+mode is ~treesit-explore-mode~ which you might use to understand
+treesitter behaviors. This minor mode will not be reenabled by
+bufferlo. If you want this behavior automatically, add
+~treesit-explore-mode~ to your major-mode hook.
 
 ** Other Emacs packages
 
