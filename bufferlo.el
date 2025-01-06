@@ -1948,7 +1948,7 @@ FRAME specifies the frame; the default value of nil selects the current frame."
                  (setf (cadr bc) (cdr replace)))))))))
 
 (defun bufferlo--bookmark-get-duplicate-policy (bookmark-name thing default-policy mode)
-  "Get the duplicate policy for THING bookmarks.
+  "Get the duplicate policy for THING BOOKMARK-NAME.
 THING should be either \"frame\" or \"tab\".
 Ask the user if DEFAULT-POLICY is set to \\='prompt.
 MODE is either \\='load or \\='save, depending on the invoking action.
