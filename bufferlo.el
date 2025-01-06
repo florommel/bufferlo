@@ -2407,7 +2407,9 @@ Geometry set for FRAME or the current frame, if nil."
   (setq frame (or frame (selected-frame)))
   (let-alist frame-geometry
     (when (and .left .top .width .height) ; defensive in case geometry stored from a tty
-      (set-frame-position nil .left .top)
+      (modify-frame-parameters frame `((user-position . t)
+                                       (left . ,.left)
+                                       (top . ,.top)))
       (sit-for 0 t)
       ;; Clamp frame size restored from a larger display
       (set-frame-size nil
