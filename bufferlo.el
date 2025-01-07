@@ -2456,7 +2456,8 @@ Geometry set for FRAME or the current frame, if nil."
                                        (top . ,.top)))
       (sit-for 0 t)
       ;; Clamp frame size restored from a larger display
-      (set-frame-size nil
+      (set-frame-parameter frame 'fullscreen nil)
+      (set-frame-size frame
                       (min .width (display-pixel-width))
                       (min .height (display-pixel-height))
                       'pixelwise)
