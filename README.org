@@ -567,8 +567,11 @@ settings.
   ;; allow duplicate active frame bookmarks in the Emacs session
   (setq bufferlo-bookmark-frame-duplicate-policy 'prompt) ; default
   (setq bufferlo-bookmark-frame-duplicate-policy 'allow) ; old default behavior
+  (setq bufferlo-bookmark-frame-duplicate-policy 'clear) ; silently clear the loaded frame bookmark
+  (setq bufferlo-bookmark-frame-duplicate-policy 'clear-warn) ; clear the loaded frame bookmark with a message
   (setq bufferlo-bookmark-frame-duplicate-policy 'raise) ; do not load, raise the existing frame
 #+end_src
+Note: 'raise is considered to act as 'clear by bookmark set loading.
 #+begin_src emacs-lisp
   ;; retain the bookmark when cloning a bookmarked frame via `clone-frame' or C-x 5 c
   (setq bufferlo-bookmark-frame-clone-policy 'prompt) ; default
@@ -599,6 +602,7 @@ settings.
   (setq bufferlo-bookmark-tab-duplicate-policy 'clear-warn) ; clear the loaded tab bookmark with a message
   (setq bufferlo-bookmark-tab-duplicate-policy 'raise) ; do not load, raise the existing frame/tab
 #+end_src
+Note: 'raise is considered to act as 'clear by bookmark set loading.
 #+begin_src emacs-lisp
   ;; allow inferior tab bookmark on a bookmarked frame (Note: frame bookmarks supersede tab bookmarks when saving)
   (setq bufferlo-bookmark-tab-in-bookmarked-frame-policy 'prompt) ; default

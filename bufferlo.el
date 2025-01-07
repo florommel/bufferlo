@@ -273,7 +273,9 @@ conditions.
 \\='clear-warn issues a warning message about the frame losing
 its bookmark.
 
-\\='raise will raise the frame with the existing bookmark."
+\\='raise will raise the frame with the existing bookmark.
+
+Note: \\='raise is considered \\='clear during bookmark-set loading."
   :type '(radio (const :tag "Prompt" prompt)
                 (const :tag "Allow" allow)
                 (const :tag "Clear (silently)" clear)
@@ -330,7 +332,9 @@ reified frame bookmark behavior.
 bookmark.
 
 \\='raise raises the first found existing tab bookmark and its
-frame."
+frame.
+
+Note: \\='raise is considered \\='clear during bookmark-set loading."
   :type '(radio (const :tag "Prompt" prompt)
                 (const :tag "Allow" allow)
                 (const :tag "Clear (silently)" clear)
@@ -1949,36 +1953,68 @@ FRAME specifies the frame; the default value of nil selects the current frame."
                (when-let* ((replace (assoc (cadr bc) replace-alist)))
                  (setf (cadr bc) (cdr replace)))))))))
 
+(defvar bufferlo--bookmark-set-loading nil
+  "Let bind to t when a bookmark set is being loaded.
+This controls `bufferlo--bookmark-get-duplicate-policy' to inhibit raise
+and quit which are cumbersome during set loading.")
+
 (defun bufferlo--bookmark-get-duplicate-policy (bookmark-name thing default-policy mode)
   "Get the duplicate policy for THING BOOKMARK-NAME.
 THING should be either \"frame\" or \"tab\".
 Ask the user if DEFAULT-POLICY is set to \\='prompt.
 MODE is either \\='load or \\='save, depending on the invoking action.
 This functions throws :abort when the user quits."
-  (if (not (eq default-policy 'prompt))
-      default-policy
-    (pcase (let ((read-answer-short t))
-             (with-local-quit
-               (read-answer
-                (format "%s bookmark name \"%s\" already active: Allow, %s, Raise existing "
-                        (capitalize thing)
-                        bookmark-name
-                        (if (eq mode 'save)
-                            "Clear other bookmark"
-                          "Clear bookmark after loading"))
-                `(("allow" ?a "Allow duplicate")
-                  ("clear" ?c
-                   ,(if (eq mode 'save)
-                        (format "Clear the other %s's bookmark association" thing)
-                      (format "Clear this %s's bookmark association after loading" thing)))
-                  ("raise" ?r
-                   ,(format "Raise the %s with the active bookmark and quit" thing))
-                  ("help" ?h "Help")
-                  ("quit" ?q "Quit and abort")))))
-      ("allow" 'allow)
-      ("clear" 'clear)
-      ("raise" 'raise)
-      (_ (throw :abort t)))))
+  (cond
+   (bufferlo--bookmark-set-loading
+    (if (not (eq default-policy 'prompt))
+        ;; transform default raise policy to clear
+        (if (eq default-policy 'raise)
+            'clear
+          default-policy)
+      (pcase (let ((read-answer-short t))
+               (with-local-quit
+                 (read-answer
+                  (format "%s bookmark name \"%s\" already active: Allow, %s "
+                          (capitalize thing)
+                          bookmark-name
+                          (if (eq mode 'save)
+                              "Clear other bookmark"
+                            "Clear bookmark after loading"))
+                  `(("allow" ?a "Allow duplicate")
+                    ("clear" ?c
+                     ,(if (eq mode 'save)
+                          (format "Clear the other %s's bookmark association" thing)
+                        (format "Clear this %s's bookmark association after loading" thing)))
+                    ("help" ?h "Help")
+                    ("quit" ?q "Quit to clear")))))
+        ("allow" 'allow)
+        ("clear" 'clear)
+        (_ 'clear))))
+   (t
+    (if (not (eq default-policy 'prompt))
+        default-policy
+      (pcase (let ((read-answer-short t))
+               (with-local-quit
+                 (read-answer
+                  (format "%s bookmark name \"%s\" already active: Allow, %s, Raise existing "
+                          (capitalize thing)
+                          bookmark-name
+                          (if (eq mode 'save)
+                              "Clear other bookmark"
+                            "Clear bookmark after loading"))
+                  `(("allow" ?a "Allow duplicate")
+                    ("clear" ?c
+                     ,(if (eq mode 'save)
+                          (format "Clear the other %s's bookmark association" thing)
+                        (format "Clear this %s's bookmark association after loading" thing)))
+                    ("raise" ?r
+                     ,(format "Raise the %s with the active bookmark and quit" thing))
+                    ("help" ?h "Help")
+                    ("quit" ?q "Quit to abort")))))
+        ("allow" 'allow)
+        ("clear" 'clear)
+        ("raise" 'raise)
+        (_ (throw :abort t)))))))
 
 (defun bufferlo--bookmark-tab-get-replace-policy ()
   "Get the replace policy for tab bookmarks.
@@ -1992,7 +2028,7 @@ This functions throws :abort when the user quits."
                             '(("replace" ?o "Replace tab")
                               ("new" ?n "New tab")
                               ("help" ?h "Help")
-                              ("quit" ?q "Quit and abort")))))
+                              ("quit" ?q "Quit to abort")))))
       ("replace" 'replace)
       ("new" 'new)
       (_ (throw :abort t)))))
@@ -2020,7 +2056,7 @@ invoking action.  This functions throws :abort when the user quits."
                                    "Clear frame bookmark, set tab bookmark"
                                  "Clear tab bookmark"))
                   ("help" ?h "Help")
-                  ("quit" ?q "Quit and abort")))))
+                  ("quit" ?q "Quit to abort")))))
       ("allow" 'allow)
       ("clear" 'clear)
       (_ (throw :abort t)))))
@@ -2161,7 +2197,7 @@ This functions throws :abort when the user quits."
                   ("replace" ?r "Replace frame, adopt the loaded bookmark")
                   ("merge" ?m "Merge the new tab content with the existing bookmark")
                   ("help" ?h "Help")
-                  ("quit" ?q "Quit and abort")))))
+                  ("quit" ?q "Quit to abort")))))
       ("current" 'replace-frame-retain-current-bookmark)
       ("replace" 'replace-frame-adopt-loaded-bookmark)
       ("merge" 'merge)
@@ -2246,13 +2282,14 @@ the message after successfully restoring the bookmark."
           (tab-bar-select-tab (alist-get 'current bookmark))
 
           ;; Handle duplicate frame bookmark
-          (pcase duplicate-policy
-            ;; Do nothing for 'allow or nil
-            ('clear
-             (setq fbm nil))
-            ('clear-warn
-             (setq fbm nil)
-             (funcall msg-append "cleared frame bookmark")))
+          (when abm
+            (pcase duplicate-policy
+              ;; Do nothing for 'allow or nil
+              ('clear
+               (setq fbm nil))
+              ('clear-warn
+               (setq fbm nil)
+               (funcall msg-append "cleared frame bookmark"))))
 
           (set-frame-parameter nil 'bufferlo-bookmark-frame-name fbm)
 
@@ -2298,7 +2335,10 @@ CANDIDATES are the prompt options to select."
     (setq comps (seq-uniq (mapcar (lambda (x) (substring-no-properties x)) comps)))))
 
 (defvar bufferlo--frameset-save-filter ; filter out vs. frameset-persistent-filter-alist
-  '(alpha
+  '(;; bufferlo parameters
+    bufferlo-bookmark-frame-name
+    ;; Emacs parameters
+    alpha
     alpha-background
     auto-lower
     auto-raise
@@ -2364,7 +2404,8 @@ CANDIDATES are the prompt options to select."
     z-group))
 
 (defvar bufferlo--frameset-restore-filter
-  '(GUI:bottom
+  '(;; Emacs parameters
+    GUI:bottom
     GUI:font
     GUI:fullscreen
     GUI:height
@@ -2484,7 +2525,8 @@ the message after successfully restoring the bookmark."
   (let* ((bookmark-name (bookmark-name-from-full-record bookmark-record))
          (bufferlo-bookmark-names (bookmark-prop-get bookmark-record 'bufferlo-bookmark-names))
          (abm-names (mapcar #'car (bufferlo--active-bookmarks)))
-         (active-bookmark-names (seq-intersection bufferlo-bookmark-names abm-names)))
+         (active-bookmark-names (seq-intersection bufferlo-bookmark-names abm-names))
+         (bufferlo--bookmark-set-loading t))
     (if (assoc bookmark-name bufferlo--active-sets)
         (message "Bufferlo set \"%s\" is already active" bookmark-name)
       (message "Close or clear active bufferlo bookmarks: %s" active-bookmark-names)
@@ -2534,9 +2576,8 @@ the message after successfully restoring the bookmark."
                 (with-selected-frame frame
                   (when (frame-parameter nil 'bufferlo--frame-to-restore)
                     ;; (lower-frame) ; attempt to reduce visual flashing
-                    (when-let* ((fbm-name (frame-parameter nil 'bufferlo-bookmark-frame-name)))
+                    (when-let* ((fbm-name (frame-parameter nil 'bufferlo--bookmark-frame-name)))
                       (let ((bufferlo-bookmark-frame-load-make-frame nil)
-                            (bufferlo-bookmark-frame-duplicate-policy 'allow)
                             (bufferlo-bookmark-frame-load-policy 'replace-frame-adopt-loaded-bookmark)
                             (bufferlo--bookmark-handler-no-message t))
                         (bufferlo--bookmark-jump fbm-name))
@@ -2596,13 +2637,20 @@ message."
                     (bufferlo--tbms . ,tbm-names))
                   tabsets)))
         (when fbm-frames
-          ;; Set a flag we can use to identify restored frames (this is
-          ;; removed in the handler during frame restoration). Save
+          ;; Set a flag we can use to identify restored frames (this
+          ;; is removed in the handler during frame restoration). Save
           ;; frame geometries for more accurate restoration than
           ;; frameset-restore provides.
+          ;;
+          ;; Squirrel away 'bufferlo-bookmark-frame-name which we ask
+          ;; frameset-save to filter out to avoid restored frames
+          ;; being considered bookmarked as they need duplicate
+          ;; detection.
           (dolist (frame fbm-frames)
             (set-frame-parameter frame 'bufferlo--frame-to-restore t)
-            (set-frame-parameter frame 'bufferlo--frame-geometry (funcall bufferlo-frame-geometry-function frame)))
+            (set-frame-parameter frame 'bufferlo--frame-geometry (funcall bufferlo-frame-geometry-function frame))
+            (set-frame-parameter frame 'bufferlo--bookmark-frame-name
+                                 (frame-parameter frame 'bufferlo-bookmark-frame-name)))
           ;; frameset-save squirrels away width/height text-pixels iff
           ;; fullscreen is not nil and frame-resize-pixelwise is t.
           (let ((frame-resize-pixelwise t))
