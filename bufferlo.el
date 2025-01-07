@@ -276,6 +276,8 @@ its bookmark.
 \\='raise will raise the frame with the existing bookmark."
   :type '(radio (const :tag "Prompt" prompt)
                 (const :tag "Allow" allow)
+                (const :tag "Clear (silently)" clear)
+                (const :tag "Clear (with message)" clear-warn)
                 (const :tag "Raise" raise)))
 
 (defcustom bufferlo-bookmark-frame-clone-policy 'prompt
