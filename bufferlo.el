@@ -2451,7 +2451,8 @@ Geometry set for FRAME or the current frame, if nil."
   (setq frame (or frame (selected-frame)))
   (let-alist frame-geometry
     (when (and .left .top .width .height) ; defensive in case geometry stored from a tty
-      (let ((frame-inhibit-implied-resize t))
+      (let ((frame-resize-pixelwise t)
+            (frame-inhibit-implied-resize t))
         (modify-frame-parameters frame `((fullscreen . nil) ; fullscreen via default-frame-alist when set
                                          (user-position . t)
                                          (left . ,.left)
