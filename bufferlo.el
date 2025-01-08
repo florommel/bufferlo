@@ -2451,17 +2451,16 @@ Geometry set for FRAME or the current frame, if nil."
   (setq frame (or frame (selected-frame)))
   (let-alist frame-geometry
     (when (and .left .top .width .height) ; defensive in case geometry stored from a tty
-      (modify-frame-parameters frame `((user-position . t)
-                                       (left . ,.left)
-                                       (top . ,.top)))
-      (sit-for 0 t)
-      ;; Clamp frame size restored from a larger display
-      (set-frame-parameter frame 'fullscreen nil)
-      (set-frame-size frame
-                      (min .width (display-pixel-width))
-                      (min .height (display-pixel-height))
-                      'pixelwise)
-      (sit-for 0))))
+      (let ((frame-inhibit-implied-resize t))
+        (modify-frame-parameters frame `((fullscreen . nil) ; fullscreen via default-frame-alist when set
+                                         (user-position . t)
+                                         (left . ,.left)
+                                         (top . ,.top)
+                                         (user-size . t)
+                                         ;; Clamp frame size restored from a larger display
+                                         (width . (text-pixels . ,(min .width (display-pixel-width))))
+                                         (height . (text-pixels . ,(min .height (display-pixel-height))))))
+        (sit-for 0)))))
 
 (defvar bufferlo--active-sets nil
   "Global active bufferlo sets.
@@ -2502,7 +2501,7 @@ FRAMESET is a bufferlo-filtered `frameset'."
         ;; frameset-restore checks for fullscreen in frame parameters
         ;; and its handling is wonky and the restore filter has no
         ;; effect, so we remove it locally.
-        (default-frame-alist (assq-delete-all 'fullscreen default-frame-alist)))
+        (default-frame-alist (assq-delete-all 'fullscreen (copy-tree default-frame-alist))))
     (with-temp-buffer
       (ignore-errors
         ;; Sadly, frameset-restore returns neither a status nor a list of restored frames.
