@@ -2447,21 +2447,24 @@ display is a tty."
 Geometry set for FRAME or the current frame, if nil."
   ;; Some window managers need an extra display cycle for frame
   ;; changes to take effect from Emacs's perspective, so we add
-  ;; needed redisplay calls.
+  ;; needed sit-for calls.
   (setq frame (or frame (selected-frame)))
   (let-alist frame-geometry
     (when (and .left .top .width .height) ; defensive in case geometry stored from a tty
       (let ((frame-resize-pixelwise t)
             (frame-inhibit-implied-resize t))
-        (modify-frame-parameters frame `((fullscreen . nil) ; fullscreen via default-frame-alist when set
-                                         (user-position . t)
-                                         (left . ,.left)
-                                         (top . ,.top)
-                                         (user-size . t)
-                                         ;; Clamp frame size restored from a larger display
-                                         (width . (text-pixels . ,(min .width (display-pixel-width))))
-                                         (height . (text-pixels . ,(min .height (display-pixel-height))))))
-        (sit-for 0)))))
+        (lower-frame frame)
+        (set-frame-parameter frame 'fullscreen nil)
+        (sit-for 0 t)
+        (set-frame-position frame .left .top)
+        (sit-for 0 t)
+        ;; Clamp to restore frames larger than the current display size.
+        (set-frame-size frame
+                        (min .width (display-pixel-width))
+                        (min .height (display-pixel-height))
+                        'pixelwise)
+        (sit-for 0 t)
+        (raise-frame frame)))))
 
 (defvar bufferlo--active-sets nil
   "Global active bufferlo sets.
