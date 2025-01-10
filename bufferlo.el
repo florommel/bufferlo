@@ -2696,8 +2696,14 @@ throwing away the old one."
   (bufferlo--warn)
   (let* ((abms (bufferlo--active-bookmarks))
          (abm-names (mapcar #'car abms))
-         (comps (bufferlo--bookmark-completing-read (format "Add bookmark(s) to %s: " bookmark-name) abm-names)))
-    (bufferlo--set-save bookmark-name comps abms no-overwrite)))
+         (comps (bufferlo--bookmark-completing-read
+                 (format "Add bookmark(s) to %s: " bookmark-name) abm-names)))
+    (bufferlo--set-save bookmark-name comps abms no-overwrite)
+    (setq bufferlo--active-sets
+          (assoc-delete-all bookmark-name bufferlo--active-sets #'equal))
+    (push
+     `(,bookmark-name (bufferlo-bookmark-names . ,comps))
+     bufferlo--active-sets)))
 
 (defun bufferlo-set-save-current-interactive ()
   "Save active constituents in selected bookmark sets."
