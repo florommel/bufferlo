@@ -1139,23 +1139,27 @@ Argument IGNORE is for compatibility with `tab-bar-tab-post-open-functions'."
 
 (defun bufferlo--current-buffers (frame)
   "Get the buffers of the current tab in FRAME."
-  (if bufferlo-include-buried-buffers
-      (append
-       (frame-parameter frame 'buffer-list)
-       (frame-parameter frame 'buried-buffer-list))
-    (frame-parameter frame 'buffer-list)))
+  (seq-filter
+   #'buffer-live-p
+   (if bufferlo-include-buried-buffers
+       (append
+        (frame-parameter frame 'buffer-list)
+        (frame-parameter frame 'buried-buffer-list))
+     (frame-parameter frame 'buffer-list))))
 
 (defun bufferlo--get-tab-buffers (tab)
   "Extract buffers from the given TAB structure."
-  (or
-   (if bufferlo-include-buried-buffers
-       (append
-        (cdr (assq 'wc-bl tab))
-        (cdr (assq 'wc-bbl tab)))
-     (cdr (assq 'wc-bl tab)))
-   ;; fallback to bufferlo-buffer-list, managed by bufferlo--window-state-*
-   (mapcar 'get-buffer
-           (car (cdr (assq 'bufferlo-buffer-list (assq 'ws tab)))))))
+  (seq-filter
+   #'buffer-live-p
+   (or
+    (if bufferlo-include-buried-buffers
+        (append
+         (cdr (assq 'wc-bl tab))
+         (cdr (assq 'wc-bbl tab)))
+      (cdr (assq 'wc-bl tab)))
+    ;; fallback to bufferlo-buffer-list, managed by bufferlo--window-state-*
+    (mapcar 'get-buffer
+            (car (cdr (assq 'bufferlo-buffer-list (assq 'ws tab))))))))
 
 (defun bufferlo--get-buffers (&optional frame tabnum)
   "Get the buffers of tab TABNUM in FRAME.
@@ -1184,13 +1188,11 @@ a tab index in the given frame.  If INCLUDE-HIDDEN is set, include hidden
 buffers, see `bufferlo-hidden-buffers'."
   (let ((list (bufferlo--get-buffers frame tabnum)))
     (if include-hidden
-        (seq-filter #'buffer-live-p list)
+        list
       (seq-filter (lambda (buffer)
                     (let ((hidden (bufferlo--merge-regexp-list
                                    (append '("a^") bufferlo-hidden-buffers))))
-                      (and
-                       (buffer-live-p buffer)
-                       (not (string-match-p hidden (buffer-name buffer))))))
+                      (not (string-match-p hidden (buffer-name buffer)))))
                   list))))
 
 (defun bufferlo--window-state-get (oldfn &optional window writable)
