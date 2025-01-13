@@ -2488,7 +2488,6 @@ Geometry set for FRAME or the current frame, if nil."
     (when (and .left .top .width .height) ; defensive in case geometry stored from a tty
       (let ((frame-resize-pixelwise t)
             (frame-inhibit-implied-resize t))
-        (make-frame-invisible frame)
         (set-frame-position frame .left .top)
         (sleep-for bufferlo-frame-sleep-for)
         ;; Clamp to restore frames larger than the current display size.
@@ -2496,8 +2495,7 @@ Geometry set for FRAME or the current frame, if nil."
                         (min .width (display-pixel-width))
                         (min .height (display-pixel-height))
                         'pixelwise)
-        (sleep-for bufferlo-frame-sleep-for)
-        (make-frame-visible frame)))))
+        (sleep-for bufferlo-frame-sleep-for)))))
 
 (defvar bufferlo--active-sets nil
   "Global active bufferlo sets.
