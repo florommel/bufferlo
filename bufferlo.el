@@ -650,6 +650,22 @@ Replace this function with your own if the default produces
 suboptimal results for your platform."
   :type 'function)
 
+(defcustom bufferlo-set-frame-geometry-function #'bufferlo-set-frame-geometry-default
+  "Function to set frame geometry based on bufferlo-frame-geometry alist.
+It defaults to `bufferlo-set-frame-geometry-default', which see for
+parameters.
+
+Replace this function with your own if the default produces
+suboptimal results for your platform."
+  :type 'function)
+
+(defcustom bufferlo-frame-sleep-for 0
+  "Window manager catch-up delay for changing frame parameters.
+Delay is specified in seconds using `sleep-for', which see.
+GTK/GNOME seems to need 0.3 seconds. YMMV.
+No delay seems needed on macOS."
+  :type 'natnum)
+
 (defcustom bufferlo-mode-line-prefix "Bfl"
   "Bufferlo mode-line prefix."
   :type 'string)
@@ -980,6 +996,21 @@ string, FACE is the face for STR."
   "`bufferlo-mode' mode-line menu."
   `("Bufferlo"
     ,bufferlo-menu-item-raise))
+
+;; NOTE: Undocumented in `make-frame' that the current buffer cannot be
+;; conventionally hidden (space as first character). `with-temp-buffer'
+;; doesn't work either in this context.
+(defmacro bufferlo--with-temp-buffer (&rest body)
+  "Execute BODY with \"*bufferlo tenp buffer*\" current buffer."
+  (let ((buff-name "*bufferlo temp buffer*"))
+    (with-current-buffer (get-buffer-create buff-name t)
+      (unwind-protect
+          `(progn ,@body)
+        (kill-buffer buff-name)))))
+
+(defun bufferlo--make-frame (&optional restore-geometry)
+  "Make a new frame with `fullscreen' suppressed if RESTORE-GEOMETRY is non nil."
+  (make-frame (if restore-geometry '((fullscreen . nil)) nil)))
 
 (defun bufferlo-local-buffer-p (buffer &optional frame tabnum include-hidden)
   "Return non-nil if BUFFER is in the list of local buffers.
@@ -2258,51 +2289,53 @@ the message after successfully restoring the bookmark."
 
       ;; Do the real work with the target frame selected (current or newly created)
       ;; NOTE: No :abort throws after this point
-      (let ((frame (if new-frame-p
-                       (with-temp-buffer (make-frame))
-                     (selected-frame))))
-        (with-selected-frame frame
-          ;; Clear existing tabs unless merging
-          (unless (eq load-policy 'merge)
-            (if (>= emacs-major-version 28)
-                (tab-bar-tabs-set nil)
-              (set-frame-parameter nil 'tabs nil)))
+      (bufferlo--with-temp-buffer
+       (let ((frame (if new-frame-p
+                        (bufferlo--make-frame
+                         (eq bufferlo-bookmark-frame-load-make-frame 'restore-geometry))
+                      (selected-frame))))
+         (with-selected-frame frame
+           ;; Restore geometry
+           (when (and new-frame-p
+                      (display-graphic-p)
+                      (eq bufferlo-bookmark-frame-load-make-frame 'restore-geometry))
+             (when-let* ((fg (alist-get 'bufferlo--frame-geometry bookmark)))
+               (funcall bufferlo-set-frame-geometry-function fg)))
 
-          ;; Load tabs
-          (let ((first (if (eq load-policy 'merge) nil t))
-                (tab-bar-new-tab-choice t))
-            (mapc
-             (lambda (tbm)
-               (if first
-                   (setq first nil)
-                 (tab-bar-new-tab-to))
-               (bufferlo--bookmark-tab-handler tbm t 'embedded-tab)
-               (when-let* ((tab-name (alist-get 'tab-name tbm)))
-                 (tab-bar-rename-tab tab-name)))
-             (alist-get 'tabs bookmark)))
-          (tab-bar-select-tab (alist-get 'current bookmark))
+           ;; Clear existing tabs unless merging
+           (unless (eq load-policy 'merge)
+             (if (>= emacs-major-version 28)
+                 (tab-bar-tabs-set nil)
+               (set-frame-parameter nil 'tabs nil)))
 
-          ;; Handle duplicate frame bookmark
-          (when abm
-            (pcase duplicate-policy
-              ;; Do nothing for 'allow or nil
-              ('clear
-               (setq fbm nil))
-              ('clear-warn
-               (setq fbm nil)
-               (funcall msg-append "cleared frame bookmark"))))
+           ;; Load tabs
+           (let ((first (if (eq load-policy 'merge) nil t))
+                 (tab-bar-new-tab-choice t))
+             (mapc
+              (lambda (tbm)
+                (if first
+                    (setq first nil)
+                  (tab-bar-new-tab-to))
+                (bufferlo--bookmark-tab-handler tbm t 'embedded-tab)
+                (when-let* ((tab-name (alist-get 'tab-name tbm)))
+                  (tab-bar-rename-tab tab-name)))
+              (alist-get 'tabs bookmark)))
+           (tab-bar-select-tab (alist-get 'current bookmark))
 
-          (set-frame-parameter nil 'bufferlo-bookmark-frame-name fbm)
+           ;; Handle duplicate frame bookmark
+           (when abm
+             (pcase duplicate-policy
+               ;; Do nothing for 'allow or nil
+               ('clear
+                (setq fbm nil))
+               ('clear-warn
+                (setq fbm nil)
+                (funcall msg-append "cleared frame bookmark"))))
 
-          ;; Restore geometry
-          (when (and new-frame-p
-                     (display-graphic-p)
-                     (eq bufferlo-bookmark-frame-load-make-frame 'restore-geometry))
-            (when-let* ((fg (alist-get 'bufferlo--frame-geometry bookmark)))
-              (bufferlo--set-frame-geometry fg))))
+           (set-frame-parameter nil 'bufferlo-bookmark-frame-name fbm))
 
-        ;; Select and raise the restored frame outside the context of with-selected-frame
-        (select-frame-set-input-focus frame))
+         ;; Select and raise the restored frame outside the context of with-selected-frame
+         (select-frame-set-input-focus frame)))
 
       ;; Log message
       (unless (or no-message bufferlo--bookmark-handler-no-message)
@@ -2443,7 +2476,7 @@ display is a tty."
         (height .,(frame-text-height frame)))
     nil))
 
-(defun bufferlo--set-frame-geometry (frame-geometry &optional frame)
+(defun bufferlo-set-frame-geometry-default (frame-geometry &optional frame)
   "Set FRAME-GEOMETRY as produced by `bufferlo-frame-geometry-default'.
 Geometry set for FRAME or the current frame, if nil."
   ;; Some window managers need an extra display cycle for frame
@@ -2451,21 +2484,20 @@ Geometry set for FRAME or the current frame, if nil."
   ;; needed sit-for calls.
   (setq frame (or frame (selected-frame)))
   (let-alist frame-geometry
+    ;; sleeps wait for window managers like GTK/GNOME to catch up
     (when (and .left .top .width .height) ; defensive in case geometry stored from a tty
       (let ((frame-resize-pixelwise t)
             (frame-inhibit-implied-resize t))
-        (lower-frame frame)
-        (set-frame-parameter frame 'fullscreen nil)
-        (sit-for 0 t)
+        (make-frame-invisible frame)
         (set-frame-position frame .left .top)
-        (sit-for 0 t)
+        (sleep-for bufferlo-frame-sleep-for)
         ;; Clamp to restore frames larger than the current display size.
         (set-frame-size frame
                         (min .width (display-pixel-width))
                         (min .height (display-pixel-height))
                         'pixelwise)
-        (sit-for 0 t)
-        (raise-frame frame)))))
+        (sleep-for bufferlo-frame-sleep-for)
+        (make-frame-visible frame)))))
 
 (defvar bufferlo--active-sets nil
   "Global active bufferlo sets.
@@ -2542,31 +2574,32 @@ the message after successfully restoring the bookmark."
           (setq tabsets (car (read-from-string tabsets-str)))
           (when tabsets ; could be readable and nil
             (let ((first-tab-frame t))
-              (dolist (tab-group tabsets)
-                (when (or (not first-tab-frame)
-                          (and first-tab-frame (not bufferlo-set-restore-tabs-reuse-init-frame)))
-                  (with-temp-buffer
-                    (select-frame (make-frame))))
-                ;; (lower-frame) ; attempt to reduce visual flashing
-                (when-let* ((fg (alist-get 'bufferlo--frame-geometry tab-group)))
-                  (when (and
-                         (display-graphic-p)
-                         (memq bufferlo-set-restore-geometry-policy '(all tab-frames))
-                         (or (not first-tab-frame)
-                             (and first-tab-frame (eq bufferlo-set-restore-tabs-reuse-init-frame 'reuse-reset-geometry))))
-                    (bufferlo--set-frame-geometry fg)))
-                (when-let* ((tbm-names (alist-get 'bufferlo--tbms tab-group)))
-                  (let ((bufferlo-bookmark-tab-replace-policy 'replace) ; we handle making tabs in this loop
-                        (tab-bar-new-tab-choice t)
-                        (first-tab (or
-                                    (not first-tab-frame)
-                                    (and first-tab-frame (not bufferlo-set-restore-tabs-reuse-init-frame)))))
-                    (dolist (tbm-name tbm-names)
-                      (unless first-tab
-                        (tab-bar-new-tab-to))
-                      (bufferlo--bookmark-jump tbm-name)
-                      (setq first-tab nil))))
-                (setq first-tab-frame nil))
+              (bufferlo--with-temp-buffer
+               (dolist (tab-group tabsets)
+                 (when (or (not first-tab-frame)
+                           (and first-tab-frame (not bufferlo-set-restore-tabs-reuse-init-frame)))
+                   (select-frame
+                    (bufferlo--make-frame
+                     (eq bufferlo-set-restore-tabs-reuse-init-frame 'reuse-reset-geometry))))
+                 (when-let* ((fg (alist-get 'bufferlo--frame-geometry tab-group)))
+                   (when (and
+                          (display-graphic-p)
+                          (memq bufferlo-set-restore-geometry-policy '(all tab-frames))
+                          (or (not first-tab-frame)
+                              (and first-tab-frame (eq bufferlo-set-restore-tabs-reuse-init-frame 'reuse-reset-geometry))))
+                     (funcall bufferlo-set-frame-geometry-function fg)))
+                 (when-let* ((tbm-names (alist-get 'bufferlo--tbms tab-group)))
+                   (let ((bufferlo-bookmark-tab-replace-policy 'replace) ; we handle making tabs in this loop
+                         (tab-bar-new-tab-choice t)
+                         (first-tab (or
+                                     (not first-tab-frame)
+                                     (and first-tab-frame (not bufferlo-set-restore-tabs-reuse-init-frame)))))
+                     (dolist (tbm-name tbm-names)
+                       (unless first-tab
+                         (tab-bar-new-tab-to))
+                       (bufferlo--bookmark-jump tbm-name)
+                       (setq first-tab nil))))
+                 (setq first-tab-frame nil)))
               (raise-frame)))))
       (let ((frameset-str (bookmark-prop-get bookmark-record 'bufferlo-frameset))
             (frameset))
@@ -2580,7 +2613,6 @@ the message after successfully restoring the bookmark."
               (dolist (frame (frame-list))
                 (with-selected-frame frame
                   (when (frame-parameter nil 'bufferlo--frame-to-restore)
-                    ;; (lower-frame) ; attempt to reduce visual flashing
                     (when-let* ((fbm-name (frame-parameter nil 'bufferlo--bookmark-frame-name)))
                       (let ((bufferlo-bookmark-frame-load-make-frame nil)
                             (bufferlo-bookmark-frame-load-policy 'replace-frame-adopt-loaded-bookmark)
@@ -2590,7 +2622,7 @@ the message after successfully restoring the bookmark."
                              (display-graphic-p frame)
                              (memq bufferlo-set-restore-geometry-policy '(all frames)))
                         (when-let* ((fg (frame-parameter nil 'bufferlo--frame-geometry)))
-                          (bufferlo--set-frame-geometry fg)))
+                          (funcall bufferlo-set-frame-geometry-function fg)))
                       (set-frame-parameter nil 'bufferlo--frame-to-restore nil))
                     (raise-frame))))))
           (push
@@ -3270,6 +3302,7 @@ current or new frame according to
          ;; `bufferlo--bookmark-frame-handler' to create frames should
          ;; that policy be set to do so.
          (current-prefix-arg nil))
+
     ;; load bookmark sets
     (dolist (bookmark-name (bufferlo--bookmark-get-names #'bufferlo--bookmark-set-handler))
       (unless (assoc bookmark-name bufferlo--active-sets)
@@ -3277,7 +3310,10 @@ current or new frame according to
           (if (bufferlo--bookmark-jump bookmark-name)
               (push bookmark-name bookmarks-loaded)
             (push bookmark-name bookmarks-failed)))))
-    ;; load tab bookmarks, making a new frame if required
+
+    ;; load tab bookmarks, making a new frame, if required (the
+    ;; geometry of which is via the user's default-frame-alist)
+    (select-frame orig-frame) ; default frame for tabs
     (let ((bufferlo-bookmark-tab-replace-policy 'replace) ; we handle making tabs in this loop
           (tab-bar-new-tab-choice t)
           (new-tab-frame nil))
@@ -3290,6 +3326,7 @@ current or new frame according to
             (if (bufferlo--bookmark-jump bookmark-name)
                 (push bookmark-name bookmarks-loaded)
               (push bookmark-name bookmarks-failed))))))
+
     ;; load frame bookmarks
     (dolist (bookmark-name (bufferlo--bookmark-get-names #'bufferlo--bookmark-frame-handler))
       (unless (assoc bookmark-name (bufferlo--active-bookmarks))
@@ -3297,7 +3334,9 @@ current or new frame according to
           (if (bufferlo--bookmark-jump bookmark-name)
               (push bookmark-name bookmarks-loaded)
             (push bookmark-name bookmarks-failed)))))
-    (select-frame orig-frame)
+
+    ;; leave the user on the starting frame
+    (select-frame-set-input-focus orig-frame)
     (when bookmarks-loaded
       (message "Loaded bufferlo bookmarks: %s, in %.2f seconds%s"
                (mapconcat #'identity bookmarks-loaded " ")

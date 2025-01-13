@@ -652,6 +652,9 @@ Frame bookmarks saved via Emacs tty will not store a frame geometry
 (none available on tty). Conversely, frame bookmarks saved via GUI and
 restored on tty will ignore frame geometry.
 
+Note: See below to adjust ~bufferlo-frame-sleep-for~ for your window
+manager.
+
 Note: Not much testing has been done in hybrid tty/GUI environments
 using ~emacsclient~, or with multi-display setups where frames may be
 expected to be restored on their originating displays.
@@ -662,6 +665,19 @@ expected to be restored on their originating displays.
   (setq bufferlo-frame-geometry-function #'bufferlo-frame-geometry-default) ; the default uses text-width and text-height
   (setq bufferlo-frame-geometry-function #'my/bufferlo-frame-geometry) ; or your own
 #+end_src
+#+begin_src emacs-lisp
+  ;; function to set a frame's pixelwise geometry (it is not likely you
+  ;; will need to replace this--but is provided just in case)
+  (setq bufferlo-set-frame-geometry-function #'bufferlo-set-frame-geometry-default)
+  (setq bufferlo-set-frame-geometry-function #'my/bufferlo-set-frame-geometry) ; or your own
+#+end_src
+#+begin_src emacs-lisp
+  ;; seconds to sleep after each frame parameter change that requires
+  ;; external window manager cooperation.
+  (setq bufferlo-frame-sleep-for 0) ; the default, which seems to work on macOS
+  (setq bufferlo-frame-sleep-for 0.3) ; seems to work for GTK/GNOME
+#+end_src
+
 #+begin_src emacs-lisp
   ;; methodology for bookmark-set frameset geometry restoration
   (setq bufferlo-frameset-restore-geometry 'bufferlo) ; the pixel-level precision default
