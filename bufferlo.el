@@ -722,13 +722,13 @@ string, FACE is the face for STR."
     (let* ((fbm (frame-parameter nil 'bufferlo-bookmark-frame-name))
            (tbm (alist-get 'bufferlo-bookmark-tab-name (tab-bar--current-tab-find (frame-parameter nil 'tabs))))
            (abm (or fbm tbm ""))
-           (sess-active (> (length bufferlo--active-sets) 0))
+           (set-active (> (length bufferlo--active-sets) 0))
            (maybe-space (if (display-graphic-p) "" " "))) ; tty rendering can be off for Ⓕ Ⓣ
       (concat
        (bufferlo--mode-line-format-helper abm bufferlo-mode-line-prefix 'bufferlo-mode-line-face)
        (when bufferlo-mode-line-left-prefix
          (bufferlo--mode-line-format-helper abm bufferlo-mode-line-left-prefix 'bufferlo-mode-line-face))
-       (when sess-active
+       (when set-active
          (bufferlo--mode-line-format-helper abm bufferlo-mode-line-set-active-prefix 'bufferlo-mode-line-set-face))
        (when fbm
          (bufferlo--mode-line-format-helper
@@ -2746,11 +2746,11 @@ throwing away the old one."
     (let* ((abms (bufferlo--active-bookmarks))
            (abm-names (mapcar #'car abms))
            (abm-names-to-save))
-      (dolist (sess-name comps)
+      (dolist (set-name comps)
         (setq abm-names-to-save
               (append abm-names-to-save
                       (seq-intersection
-                       (alist-get 'bufferlo-bookmark-names (assoc sess-name bufferlo--active-sets))
+                       (alist-get 'bufferlo-bookmark-names (assoc set-name bufferlo--active-sets))
                        abm-names))))
       (setq abm-names-to-save (seq-uniq abm-names-to-save))
       (bufferlo--bookmarks-save abm-names-to-save abms))))
@@ -2792,11 +2792,11 @@ This closes their associated bookmarks and kills their buffers."
     (let* ((abms (bufferlo--active-bookmarks))
            (abm-names (mapcar #'car abms))
            (abm-names-to-close))
-      (dolist (sess-name comps)
+      (dolist (set-name comps)
         (setq abm-names-to-close
               (append abm-names-to-close
                       (seq-intersection
-                       (alist-get 'bufferlo-bookmark-names (assoc sess-name bufferlo--active-sets))
+                       (alist-get 'bufferlo-bookmark-names (assoc set-name bufferlo--active-sets))
                        abm-names))))
       (setq abm-names-to-close (seq-uniq abm-names-to-close))
       (bufferlo--close-active-bookmarks abm-names-to-close abms)
