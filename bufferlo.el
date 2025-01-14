@@ -791,6 +791,18 @@ string, FACE is the face for STR."
 (defvar bufferlo-mode-map (make-sparse-keymap)
   "`bufferlo-mode' keymap.")
 
+(defvar bufferlo--bookmark-handlers
+  (list
+   #'bufferlo--bookmark-tab-handler
+   #'bufferlo--bookmark-frame-handler
+   #'bufferlo--bookmark-set-handler)
+  "Bufferlo bookmark handlers.")
+
+(defconst bufferlo--bookmark-type-names
+  '((tbm . "B-Tab")
+    (fbm . "B-Frame")
+    (sbm . "B-Set")))
+
 ;;;###autoload
 (define-minor-mode bufferlo-mode
   "Manage frame/tab-local buffers."
@@ -2831,8 +2843,7 @@ This closes their associated bookmarks and kills their buffers."
   (interactive)
   (let* ((candidates (mapcar #'car bufferlo--active-sets))
          (comps (bufferlo--bookmark-completing-read "Select sets to enumerate: " candidates)))
-    (let* ((abms (bufferlo--active-bookmarks))
-           (abm-names (mapcar #'car abms)))
+    (let* ((abms (bufferlo--active-bookmarks)))
       (with-current-buffer (get-buffer-create bufferlo--set-list-buffer-name)
         (let ((buffer-undo-list t))
           (read-only-mode -1)
@@ -2866,18 +2877,6 @@ This closes their associated bookmarks and kills their buffers."
         (bufferlo-set-list-mode)
         (goto-char (point-min))
         (pop-to-buffer (current-buffer) nil 'norecord)))))
-
-(defvar bufferlo--bookmark-handlers
-  (list
-   #'bufferlo--bookmark-tab-handler
-   #'bufferlo--bookmark-frame-handler
-   #'bufferlo--bookmark-set-handler)
-  "Bufferlo bookmark handlers.")
-
-(defconst bufferlo--bookmark-type-names
-  '((tbm . "B-Tab")
-    (fbm . "B-Frame")
-    (sbm . "B-Set")))
 
 (defun bufferlo--bookmark-get-names (&rest handlers)
   "Get the names of all existing bookmarks for HANDLERS."
