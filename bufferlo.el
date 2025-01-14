@@ -972,6 +972,7 @@ string, FACE is the face for STR."
      ["Save Current..."     bufferlo-set-save-curr       :help "Save the specified bookmark sets"]
      ["Close/Kill..."       bufferlo-set-close           :help "Close the specified bookmark sets (kills frames, tabs, buffers)"]
      ["Clear..."            bufferlo-set-clear           :help "Clear the specified bookmark set (does not kill frames, tabs, buffers)"]
+     ["List..."             bufferlo-set-list            :help "List the bookmarks in specified active bookmark sets"]
      )
     ;; "--"
     ;; ["Bookmark Management" :active nil]
@@ -2802,12 +2803,81 @@ This closes their associated bookmarks and kills their buffers."
       (bufferlo--close-active-bookmarks abm-names-to-close abms)
       (bufferlo--set-clear comps))))
 
+(defvar-keymap bufferlo-set-list-mode-map
+  :parent special-mode-map
+  "<mouse-1>" #'bufferlo--set-list-raise-bookmark-mouse
+  "RET"       #'bufferlo--set-list-raise-bookmark-kb)
+
+(define-derived-mode bufferlo-set-list-mode special-mode "bufferlo set list"
+  "Major mode for bufferlo set list.")
+
+(defun bufferlo--set-list-raise-bookmark-mouse (event)
+  (interactive "e")
+  (let* ((pos (event-start event))
+         (bname (get-text-property (posn-point pos) 'bookmark-name)))
+    (quit-window)
+    (bufferlo--bookmark-raise-by-name bname)))
+
+(defun bufferlo--set-list-raise-bookmark-kb ()
+  (interactive)
+  (let ((bname (get-text-property (point) 'bookmark-name)))
+    (quit-window)
+    (bufferlo--bookmark-raise-by-name bname)))
+
+(defconst bufferlo--set-list-buffer-name " *bufferlo set list*")
+
+(defun bufferlo-set-list-interactive ()
+  "Enumerate the bookmarks in active bookmark sets."
+  (interactive)
+  (let* ((candidates (mapcar #'car bufferlo--active-sets))
+         (comps (bufferlo--bookmark-completing-read "Select sets to enumerate: " candidates)))
+    (let* ((abms (bufferlo--active-bookmarks))
+           (abm-names (mapcar #'car abms)))
+      (with-current-buffer (get-buffer-create bufferlo--set-list-buffer-name)
+        (let ((buffer-undo-list t))
+          (read-only-mode -1)
+          (erase-buffer))
+        (insert "----- Bufferlo Bookmarks Sets -----"
+                "\n"
+                "(RET or mouse-1 to raise a bookmark, q to quit)"
+                "\n" "\n")
+        (dolist (set-name (sort comps #'string<))
+          (insert (format "Set \"%s\"" set-name) ":"
+                  "\n")
+          (dolist (bname (sort
+                          (alist-get 'bufferlo-bookmark-names
+                                     (assoc set-name bufferlo--active-sets))
+                          #'string<))
+            (when-let* ((abm (cadr (assoc bname abms))))
+              (let* ((type (alist-get 'type abm))
+                     (frame (alist-get 'frame abm))
+                     (fname (or (frame-parameter frame 'explicit-name)
+                                (frame-parameter frame 'name)))
+                     (tab-number (alist-get 'tab-number abm))
+                     (text (format "  %-20s %-8s %-25s %s"
+                                   (truncate-string-to-width bname 20 nil nil t)
+                                   (alist-get type bufferlo--bookmark-type-names)
+                                   (truncate-string-to-width fname 25 nil nil t)
+                                   (if tab-number (format "tab:%d" tab-number) ""))))
+                (put-text-property 0 (length text) 'bookmark-name bname text)
+                (insert text "\n"))))
+          (insert "\n"))
+        (insert "----- END -----")
+        (bufferlo-set-list-mode)
+        (goto-char (point-min))
+        (pop-to-buffer (current-buffer) nil 'norecord)))))
+
 (defvar bufferlo--bookmark-handlers
   (list
    #'bufferlo--bookmark-tab-handler
    #'bufferlo--bookmark-frame-handler
    #'bufferlo--bookmark-set-handler)
   "Bufferlo bookmark handlers.")
+
+(defconst bufferlo--bookmark-type-names
+  '((tbm . "B-Tab")
+    (fbm . "B-Frame")
+    (sbm . "B-Set")))
 
 (defun bufferlo--bookmark-get-names (&rest handlers)
   "Get the names of all existing bookmarks for HANDLERS."
@@ -3646,6 +3716,7 @@ OLDFN BOOKMARK-NAME BATCH"
 (defalias 'bufferlo-set-load            'bufferlo-set-load-interactive)
 (defalias 'bufferlo-set-close           'bufferlo-set-close-interactive)
 (defalias 'bufferlo-set-clear           'bufferlo-set-clear-interactive)
+(defalias 'bufferlo-set-list            'bufferlo-set-list-interactive)
 
 (provide 'bufferlo)
 

@@ -337,6 +337,13 @@ rename or delete references to those bookmarks within bookmark sets.
   the specified bookmark sets. This closes their constituent bookmarks
   and kills their buffers.
 
+- ~bufferlo-set-list-interactive~ (alias ~bufferlo-set-list~): List
+  the constituent bookmarks of the selected active sets in a
+  ~special-mode~ buffer and pop to it. The display shows each
+  bookmark's name, its type, the frame it's currently on, and, if a
+  tab bookmark, its tab number. Typing ~<RET>~ or clicking ~mouse-1~
+  will raise the selected bookmark. Type "q" to quit.
+
 Notes:
 
 - To curate a saved bookmark set, invoke
@@ -1015,11 +1022,11 @@ remain in force until they are saved if this policy is set to t.
      ("C-z C-b" . bufferlo-ibuffer)
      ("C-z M-C-b" . bufferlo-ibuffer-orphans)
      ("C-z b -" . bufferlo-remove)
-     ;; interactive
-     ("C-z i l" . bufferlo-bms-load)
-     ("C-z i s" . bufferlo-bms-save)
-     ("C-z i c" . bufferlo-bms-close)
-     ("C-z i r" . bufferlo-bm-raise)
+     ;; general bookmark (interactive)
+     ("C-z b l" . bufferlo-bms-load)
+     ("C-z b s" . bufferlo-bms-save)
+     ("C-z b c" . bufferlo-bms-close)
+     ("C-z b r" . bufferlo-bm-raise)
      ;; dwim frame or tab bookmarks
      ("C-z d s" . bufferlo-bm-save)
      ("C-z d l" . bufferlo-bm-load)
@@ -1043,6 +1050,7 @@ remain in force until they are saved if this policy is set to t.
      ("C-z s l" . bufferlo-set-load)                  ; load
      ("C-z s 0" . bufferlo-set-close)                 ; kill
      ("C-z s c" . bufferlo-set-clear)                 ; clear
+     ("C-z s L" . bufferlo-set-list)                  ; list contents of selected active sets
      )
     :init
     ;; these must be set before the bufferlo package is loaded
@@ -1081,6 +1089,7 @@ remain in force until they are saved if this policy is set to t.
                   "\\)\\*\\)"
                   "\\|" (rx "*" (1+ anything) " Ibuffer*")
                   "\\|" (rx "*helpful " (1+ anything) "*")
+                  "\\|" (rx "*tramp" (1+ anything) "*")
                   "\\|" (rx "magit" (* anything) ": " (1+ anything))
                   "\\'"))
     (setq bufferlo-kill-buffers-prompt t)
