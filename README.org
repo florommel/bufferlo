@@ -579,11 +579,6 @@ settings.
   (setq bufferlo-bookmark-frame-duplicate-policy 'raise) ; do not load, raise the existing frame
 #+end_src
 Note: 'raise is considered to act as 'clear by bookmark set loading.
-#+begin_src emacs-lisp
-  ;; retain the bookmark when cloning a bookmarked frame via `clone-frame' or C-x 5 c
-  (setq bufferlo-bookmark-frame-clone-policy 'prompt) ; default
-  (setq bufferlo-bookmark-frame-clone-policy 'allow) ; old default behavior
-#+end_src
 
 *** Tab bookmark options
 
@@ -1102,7 +1097,6 @@ remain in force until they are saved if this policy is set to t.
     (setq bufferlo-bookmark-frame-load-make-frame 'restore-geometry)
     (setq bufferlo-bookmark-frame-load-policy 'prompt)
     (setq bufferlo-bookmark-frame-duplicate-policy 'prompt)
-    (setq bufferlo-bookmark-frame-clone-policy 'prompt)
     (setq bufferlo-bookmark-tab-replace-policy 'new)
     (setq bufferlo-bookmark-tab-duplicate-policy 'prompt)
     (setq bufferlo-bookmark-tab-in-bookmarked-frame-policy 'prompt)

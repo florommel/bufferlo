@@ -282,21 +282,6 @@ Note: \\='raise is considered \\='clear during bookmark-set loading."
                 (const :tag "Clear (with message)" clear-warn)
                 (const :tag "Raise" raise)))
 
-(defcustom bufferlo-bookmark-frame-clone-policy 'prompt
-  "Control bookmark duplication on cloned and undeleted frames.
-Duplicate active bookmarks cause potentially confusing race
-conditions.
-
-\\='prompt allows you to select a policy interactively.
-
-\\='allow allows duplicates.
-
-\\='disassociate will clear the bookmark on the newly cloned or
-undeleted frame."
-  :type '(radio (const :tag "Prompt" prompt)
-                (const :tag "Allow" allow)
-                (const :tag "Disassociate" disassociate)))
-
 (defcustom bufferlo-bookmarks-load-tabs-make-frame nil
   "If non-nil, make a new frame for tabs loaded by `bufferlo-bookmarks-load'.
 If nil, tab bookmarks are loaded into the current frame."
@@ -1264,27 +1249,36 @@ the advised functions."
 (defun bufferlo--clone-undelete-frame-advice (oldfn &rest args)
   "Activate the advice for `clone-frame' and `undelete-frame'.
 OLDFN is the original function.  ARGS is for compatibility with
-the advised functions. Honors `bufferlo-bookmark-frame-clone-policy'."
+the advised functions. Honors `bufferlo-bookmark-frame-duplicate-policy'."
   (let ((bufferlo--desktop-advice-active t)
         (bufferlo--desktop-advice-active-force t))
     (apply oldfn args))
-  (let ((fbm (frame-parameter nil 'bufferlo-bookmark-frame-name))
-        (clone-policy bufferlo-bookmark-frame-clone-policy))
-    (when fbm
-      (when (eq clone-policy 'prompt)
-        (pcase (let ((read-answer-short t))
-                 (with-local-quit
-                   (read-answer "Disassociate cloned/undeleted frame bookmark: Allow, Disassociate "
-                                '(("allow" ?a "Allow bookmark")
-                                  ("disassociate" ?d "Disassociate bookmark")
-                                  ("help" ?h "Help")
-                                  ("quit" ?q "Quit--retains the bookmark")))))
-          ("disassociate" (setq clone-policy 'disassociate))
-          (_ (setq clone-policy 'allow)))) ; allow, quit cases
-      (pcase clone-policy
-        ('allow)
-        ('disassociate
-         (set-frame-parameter nil 'bufferlo-bookmark-frame-name nil))))))
+  (when-let* ((bookmark-name (frame-parameter nil 'bufferlo-bookmark-frame-name))
+              (abm (assoc bookmark-name (bufferlo--active-bookmarks))))
+    (let* ((msg nil)
+           (msg-append (lambda (s) (setq msg (concat msg "; " s)))))
+      (catch :raise
+        (when
+            (catch :abort
+              (let ((duplicate-policy (bufferlo--bookmark-get-duplicate-policy
+                                       bookmark-name "frame" bufferlo-bookmark-frame-duplicate-policy 'undelete)))
+                (pcase duplicate-policy
+                  ('allow)
+                  ('clear
+                   (setq bookmark-name nil))
+                  ('clear-warn
+                   (setq bookmark-name nil)
+                   (funcall msg-append "cleared frame bookmark"))
+                  ('raise
+                   (delete-frame)
+                   (bufferlo--bookmark-raise abm)
+                   (throw :raise t)))
+                (set-frame-parameter nil 'bufferlo-bookmark-frame-name bookmark-name))
+              (when msg
+                (message "Undelete frame bufferlo bookmark%s%s"
+                         (if bookmark-name (format ": %s" bookmark-name) "")
+                         (or msg ""))))
+          (delete-frame))))))
 
 (defun bufferlo--tab-bar-undo-close-tab-advice (oldfn &rest args)
   "Activate the advice for `tab-bar-undo-close-tab'.
@@ -1296,27 +1290,30 @@ the advised functions. Honors `bufferlo-bookmark-tab-duplicate-policy'."
   (when-let* ((current-tab (bufferlo--current-tab))
               (bookmark-name (alist-get 'bufferlo-bookmark-tab-name current-tab))
               (abm (assoc bookmark-name (bufferlo--active-bookmarks))))
-    (let ((msg)
-          (msg-append (lambda (s) (setq msg (concat msg "; " s)))))
-      (catch :abort
-        (let ((duplicate-policy (bufferlo--bookmark-get-duplicate-policy
-                                 bookmark-name "tab" bufferlo-bookmark-tab-duplicate-policy 'undelete)))
-          (pcase duplicate-policy
-            ('allow)
-            ('clear
-             (setq bookmark-name nil))
-            ('clear-warn
-             (setq bookmark-name nil)
-             (funcall msg-append "cleared tab bookmark"))
-            ('raise
-             (tab-bar-close-tab)
-             (bufferlo--bookmark-raise abm)
-             (throw :abort t)))
-          (setf (alist-get 'bufferlo-bookmark-tab-name (cdr current-tab)) bookmark-name))
-        (when msg
-          (message "Undo close tab bufferlo bookmark%s%s"
-                   (if bookmark-name (format ": %s" bookmark-name) "")
-                   (or msg "")))))))
+    (let* ((msg nil)
+           (msg-append (lambda (s) (setq msg (concat msg "; " s)))))
+      (catch :raise
+        (when
+            (catch :abort
+              (let ((duplicate-policy (bufferlo--bookmark-get-duplicate-policy
+                                       bookmark-name "tab" bufferlo-bookmark-tab-duplicate-policy 'undelete)))
+                (pcase duplicate-policy
+                  ('allow)
+                  ('clear
+                   (setq bookmark-name nil))
+                  ('clear-warn
+                   (setq bookmark-name nil)
+                   (funcall msg-append "cleared tab bookmark"))
+                  ('raise
+                   (tab-bar-close-tab)
+                   (bufferlo--bookmark-raise abm)
+                   (throw :raise t)))
+                (setf (alist-get 'bufferlo-bookmark-tab-name (cdr current-tab)) bookmark-name))
+              (when msg
+                (message "Undo close tab bufferlo bookmark%s%s"
+                         (if bookmark-name (format ": %s" bookmark-name) "")
+                         (or msg ""))))
+          (tab-bar-close-tab))))))
 
 (defsubst bufferlo--warn ()
   "Warn if `bufferlo-mode' is not enabled."
