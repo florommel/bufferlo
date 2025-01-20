@@ -836,6 +836,8 @@ string, FACE is the face for STR."
           (advice-add #'clone-frame :around #'bufferlo--clone-undelete-frame-advice))
         (when (>= emacs-major-version 29)
           (advice-add #'undelete-frame :around #'bufferlo--clone-undelete-frame-advice))
+        ;; Undo close tab duplicate check
+        (advice-add #'tab-bar-undo-close-tab :around #'bufferlo--tab-bar-undo-close-tab-advice)
         ;; Switch-tab workaround
         (advice-add #'tab-bar-select-tab :around #'bufferlo--clear-buffer-lists-activate)
         (advice-add #'tab-bar--tab :after #'bufferlo--clear-buffer-lists)
@@ -879,6 +881,8 @@ string, FACE is the face for STR."
       (advice-remove #'clone-frame #'bufferlo--clone-undelete-frame-advice))
     (when (>= emacs-major-version 29)
       (advice-remove #'undelete-frame #'bufferlo--clone-undelete-frame-advice))
+    ;; Undo close tab duplicate check
+    (advice-remove #'tab-bar-undo-close-tab #'bufferlo--tab-bar-undo-close-tab-advice)
     ;; Switch-tab workaround
     (advice-remove #'tab-bar-select-tab #'bufferlo--clear-buffer-lists-activate)
     (advice-remove #'tab-bar--tab #'bufferlo--clear-buffer-lists)
@@ -1258,7 +1262,7 @@ the advised functions."
     (apply oldfn args)))
 
 (defun bufferlo--clone-undelete-frame-advice (oldfn &rest args)
-  "Activate the advice for `bufferlo--window-state-{get,put}'.
+  "Activate the advice for `clone-frame' and `undelete-frame'.
 OLDFN is the original function.  ARGS is for compatibility with
 the advised functions. Honors `bufferlo-bookmark-frame-clone-policy'."
   (let ((bufferlo--desktop-advice-active t)
@@ -1281,6 +1285,38 @@ the advised functions. Honors `bufferlo-bookmark-frame-clone-policy'."
         ('allow)
         ('disassociate
          (set-frame-parameter nil 'bufferlo-bookmark-frame-name nil))))))
+
+(defun bufferlo--tab-bar-undo-close-tab-advice (oldfn &rest args)
+  "Activate the advice for `tab-bar-undo-close-tab'.
+OLDFN is the original function.  ARGS is for compatibility with
+the advised functions. Honors `bufferlo-bookmark-tab-duplicate-policy'."
+  (let ((bufferlo--desktop-advice-active t)
+        (bufferlo--desktop-advice-active-force t))
+    (apply oldfn args))
+  (when-let* ((current-tab (bufferlo--current-tab))
+              (bookmark-name (alist-get 'bufferlo-bookmark-tab-name current-tab))
+              (abm (assoc bookmark-name (bufferlo--active-bookmarks))))
+    (let ((msg)
+          (msg-append (lambda (s) (setq msg (concat msg "; " s)))))
+      (catch :abort
+        (let ((duplicate-policy (bufferlo--bookmark-get-duplicate-policy
+                                 bookmark-name "tab" bufferlo-bookmark-tab-duplicate-policy 'undelete)))
+          (pcase duplicate-policy
+            ('allow)
+            ('clear
+             (setq bookmark-name nil))
+            ('clear-warn
+             (setq bookmark-name nil)
+             (funcall msg-append "cleared tab bookmark"))
+            ('raise
+             (tab-bar-close-tab)
+             (bufferlo--bookmark-raise abm)
+             (throw :abort t)))
+          (setf (alist-get 'bufferlo-bookmark-tab-name (cdr current-tab)) bookmark-name))
+        (when msg
+          (message "Undo close tab bufferlo bookmark%s%s"
+                   (if bookmark-name (format ": %s" bookmark-name) "")
+                   (or msg "")))))))
 
 (defsubst bufferlo--warn ()
   "Warn if `bufferlo-mode' is not enabled."
@@ -2009,7 +2045,8 @@ and quit which are cumbersome during set loading.")
   "Get the duplicate policy for THING BOOKMARK-NAME.
 THING should be either \"frame\" or \"tab\".
 Ask the user if DEFAULT-POLICY is set to \\='prompt.
-MODE is either \\='load or \\='save, depending on the invoking action.
+MODE can be one of \\='load \\='save \\='undelete, depending on the
+invoking action.
 This functions throws :abort when the user quits."
   (cond
    (bufferlo--bookmark-set-loading
@@ -2024,16 +2061,24 @@ This functions throws :abort when the user quits."
                   (format "%s bookmark name \"%s\" already active: Allow, %s "
                           (capitalize thing)
                           bookmark-name
-                          (if (eq mode 'save)
-                              "Clear other bookmark"
-                            "Clear bookmark after loading"))
+                          (pcase mode
+                            ('save
+                             "Clear other bookmark")
+                            ('load
+                             "Clear bookmark after loading")
+                            ('undelete ; invalid under bufferlo--bookmark-set-loading, but here anyway
+                             "Clear bookmark after undeleting/undoing close")))
                   `(("allow" ?a "Allow duplicate")
                     ("clear" ?c
-                     ,(if (eq mode 'save)
-                          (format "Clear the other %s's bookmark association" thing)
-                        (format "Clear this %s's bookmark association after loading" thing)))
-                    ("help" ?h "Help")
-                    ("quit" ?q "Quit to clear")))))
+                     ,(pcase mode
+                        ('save
+                         (format "Clear the other %s's bookmark association" thing))
+                        ('load
+                         (format "Clear this %s's bookmark association after loading" thing))
+                        ('undelete
+                         (format "Clear this %s's bookmark association after undeleting/undoing" thing)))
+                     ("help" ?h "Help")
+                     ("quit" ?q "Quit to clear"))))))
         ("allow" 'allow)
         ("clear" 'clear)
         (_ 'clear))))
@@ -2046,14 +2091,22 @@ This functions throws :abort when the user quits."
                   (format "%s bookmark name \"%s\" already active: Allow, %s, Raise existing "
                           (capitalize thing)
                           bookmark-name
-                          (if (eq mode 'save)
-                              "Clear other bookmark"
-                            "Clear bookmark after loading"))
+                          (pcase mode
+                            ('save
+                             "Clear other bookmark")
+                            ('load
+                             "Clear bookmark after loading")
+                            ('undelete
+                             "Clear bookmark after undeleting/undoing")))
                   `(("allow" ?a "Allow duplicate")
                     ("clear" ?c
-                     ,(if (eq mode 'save)
-                          (format "Clear the other %s's bookmark association" thing)
-                        (format "Clear this %s's bookmark association after loading" thing)))
+                     ,(pcase mode
+                        ('save
+                         (format "Clear the other %s's bookmark association" thing))
+                        ('load
+                         (format "Clear this %s's bookmark association after loading" thing))
+                        ('undelete
+                         (format "Clear this %s's bookmark association after undeleting/undoing" thing))))
                     ("raise" ?r
                      ,(format "Raise the %s with the active bookmark and quit" thing))
                     ("help" ?h "Help")
