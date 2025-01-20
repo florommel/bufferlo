@@ -3249,6 +3249,17 @@ This is intended to be used in
         (push abm abm-dupes)))
     abm-dupes))
 
+(defun bufferlo--string-duplicates (strings)
+  "Return a list of duplicate strings in STRINGS."
+  (let ((dupes))
+    (cl-mapl (lambda (lst)
+               (when (string= (nth 0 lst) (nth 1 lst))
+                 (push (nth 0 lst) dupes)))
+             (seq-sort
+              (lambda (a b) (string< a b))
+              strings))
+    (seq-uniq dupes)))
+
 (defun bufferlo--bookmarks-save (active-bookmark-names active-bookmarks &optional no-message)
   "Save the bookmarks in ACTIVE-BOOKMARK-NAMES indexed by ACTIVE-BOOKMARKS.
 Specify NO-MESSAGE to inhibit the bookmark save status message."
@@ -3306,44 +3317,47 @@ Duplicate bookmarks are handled according to
 `bufferlo-bookmarks-save-duplicates-policy'."
   (interactive)
   (catch :abort
-    (when-let* ((duplicate-bookmarks (bufferlo--active-bookmark-duplicates))
-                (duplicate-policy bufferlo-bookmarks-save-duplicates-policy))
-      (when (eq duplicate-policy 'prompt)
-        (pcase (let ((read-answer-short t))
-                 (with-local-quit
-                   (read-answer (format "Duplicate active bookmarks %s: Allow to save, Disallow to cancel " duplicate-bookmarks)
-                                '(("allow" ?a "Allow duplicate")
-                                  ("disallow" ?d "Disallow duplicates; cancel saving")
-                                  ("help" ?h "Help")
-                                  ("quit" ?q "Quit with no changes")))))
-          ("allow" (setq duplicate-policy 'allow))
-          ("disallow" (setq duplicate-policy 'disallow))
+    (let* ((frames (if all
+                       (frame-list)
+                     (pcase bufferlo-bookmarks-save-frame-policy
+                       ('current
+                        (list (selected-frame)))
+                       ('other
+                        (seq-filter (lambda (x) (not (eq x (selected-frame)))) (frame-list)))
+                       (_
+                        (frame-list)))))
+           (abms (bufferlo--active-bookmarks frames))
+           (bufferlo-bookmarks-save-predicate-functions
+            (if (or all (consp current-prefix-arg))
+                (list #'bufferlo-bookmarks-save-all-p)
+              bufferlo-bookmarks-save-predicate-functions))
+           (abm-names-to-save
+            (seq-filter (lambda (x) (not (null x)))
+                        (mapcar (lambda (abm)
+                                  (let ((abm-name (car abm)))
+                                    (when (run-hook-with-args-until-success
+                                           'bufferlo-bookmarks-save-predicate-functions
+                                           abm-name)
+                                      abm-name)))
+                                abms)))
+           (dupes-to-save (bufferlo--string-duplicates abm-names-to-save))
+           (duplicate-policy bufferlo-bookmarks-save-duplicates-policy))
+      (when (> (length dupes-to-save) 0)
+        (when (eq duplicate-policy 'prompt)
+          (pcase (let ((read-answer-short t))
+                   (with-local-quit
+                     (read-answer (format "Duplicate active bookmarks %s: Allow to save, Disallow to cancel " dupes-to-save)
+                                  '(("allow" ?a "Allow duplicate")
+                                    ("disallow" ?d "Disallow duplicates; cancel saving")
+                                    ("help" ?h "Help")
+                                    ("quit" ?q "Quit with no changes")))))
+            ("allow" (setq duplicate-policy 'allow))
+            ("disallow" (setq duplicate-policy 'disallow))
+            (_ (throw :abort t))))
+        (pcase duplicate-policy
+          ('allow)
           (_ (throw :abort t))))
-      (pcase duplicate-policy
-        ('allow)
-        (_ (throw :abort t))))
-    (let ((bufferlo-bookmarks-save-predicate-functions
-           (if (or all (consp current-prefix-arg))
-               (list #'bufferlo-bookmarks-save-all-p)
-             bufferlo-bookmarks-save-predicate-functions))
-          (frames (if all
-                      (frame-list)
-                    (pcase bufferlo-bookmarks-save-frame-policy
-                      ('current
-                       (list (selected-frame)))
-                      ('other
-                       (seq-filter (lambda (x) (not (eq x (selected-frame)))) (frame-list)))
-                      (_
-                       (frame-list))))))
-      (let ((abm-names-to-save)
-            (abms (bufferlo--active-bookmarks frames)))
-        (dolist (abm abms)
-          (let ((abm-name (car abm)))
-            (when (run-hook-with-args-until-success
-                   'bufferlo-bookmarks-save-predicate-functions
-                   abm-name)
-              (push abm-name abm-names-to-save))))
-        (bufferlo--bookmarks-save abm-names-to-save abms)))))
+      (bufferlo--bookmarks-save abm-names-to-save abms))))
 
 (defun bufferlo-bookmark--frame-save-on-delete (frame)
   "`frame-delete' advice for saving the current frame bookmark on deletion.
