@@ -1112,6 +1112,7 @@ remain in force until they are saved if this policy is set to t.
     (setq bufferlo-set-restore-tabs-reuse-init-frame 'reuse) ; nil 'reuse 'reuse-reset-geometry
     (setq bufferlo-frameset-restore-geometry 'bufferlo)
     (setq bufferlo-frame-geometry-function #'bufferlo-frame-geometry-default)
+    (setq bufferlo-frame-sleep-for 0.3)
 
     (setq bufferlo-bookmark-buffers-exclude-filters
           (list
