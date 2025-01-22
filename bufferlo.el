@@ -3249,16 +3249,14 @@ This is intended to be used in
         (push abm abm-dupes)))
     abm-dupes))
 
-(defun bufferlo--string-duplicates (strings)
-  "Return a list of duplicate strings in STRINGS."
-  (let ((dupes))
-    (cl-mapl (lambda (lst)
-               (when (string= (nth 0 lst) (nth 1 lst))
-                 (push (nth 0 lst) dupes)))
-             (seq-sort
-              (lambda (a b) (string< a b))
-              strings))
-    (seq-uniq dupes)))
+(defun bufferlo--list-duplicates (lst)
+  "Return unique duplicate elements from LST.
+Equality test is 'equal,"
+  (let ((ht (make-hash-table :test 'equal :size (length lst))))
+    (mapc (lambda (x) (puthash x (if (gethash x ht) 'dupe t) ht)) lst)
+    (seq-uniq
+     (delq nil
+           (mapcar (lambda (x) (when (eq (gethash x ht) 'dupe) x)) lst)))))
 
 (defun bufferlo--bookmarks-save (active-bookmark-names active-bookmarks &optional no-message)
   "Save the bookmarks in ACTIVE-BOOKMARK-NAMES indexed by ACTIVE-BOOKMARKS.
@@ -3340,7 +3338,7 @@ Duplicate bookmarks are handled according to
                                            abm-name)
                                       abm-name)))
                                 abms)))
-           (dupes-to-save (bufferlo--string-duplicates abm-names-to-save))
+           (dupes-to-save (bufferlo--list-duplicates abm-names-to-save))
            (duplicate-policy bufferlo-bookmarks-save-duplicates-policy))
       (when (> (length dupes-to-save) 0)
         (when (eq duplicate-policy 'prompt)
