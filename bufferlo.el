@@ -2629,7 +2629,6 @@ the message after successfully restoring the bookmark."
          (bufferlo--bookmark-set-loading t))
     (if (assoc bookmark-name bufferlo--active-sets)
         (message "Bufferlo set \"%s\" is already active" bookmark-name)
-      (message "Close or clear active bufferlo bookmarks: %s" active-bookmark-names)
       (let ((tabsets-str (bookmark-prop-get bookmark-record 'bufferlo-tabsets))
             (tabsets))
         (if (not (readablep tabsets-str))
