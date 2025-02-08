@@ -2450,6 +2450,14 @@ the message after successfully restoring the bookmark."
          ;; of with-selected-frame
          (select-frame-set-input-focus frame)))
 
+      (unless (or new-frame-p pop-up-frames)
+        ;; Switch to the to-be-selected buffer in the current frame.
+        ;; This is a workaround for bookmark-jump if called with display-func
+        ;; set to something like pop-to-buffer-same-window (the default).
+        ;; Without this, the previously selected buffer will leak into the
+        ;; loaded frame bookmark.
+        (switch-to-buffer (window-buffer (frame-selected-window nil))))
+
       ;; Log message
       (unless (or no-message bufferlo--bookmark-handler-no-message)
         (message "Restored bufferlo frame bookmark%s%s"
