@@ -126,14 +126,19 @@ This is a list of regular expressions that match buffer names."
   "If non-nil, confirm before killing local or orphan buffers."
   :type 'boolean)
 
-(defcustom bufferlo-kill-modified-buffers-policy 'kill-modified
+(defcustom bufferlo-kill-modified-buffers-policy
+  'retain-modified-kill-without-file-name
   "Bufferlo behavior when killing modified or process buffers.
+
+This policy applies to all bufferlo functions that entail killing buffers,
+e.g., `bufferlo-kill-buffers', `bufferlo-kill-orphan-buffers',
+`bufferlo-tab-close-kill-buffers', `bufferlo-delete-frame-kill-buffers'.
 
 This policy is useful when `shell-mode' or `eshell-mode' buffers
 are active in a bufferlo-controlled frame or tab.
 
 nil means default Emacs behavior which may prompt. This may have
-side effects when killing frames.
+side effects.
 
 \\='retain-modified means bufferlo will leave modified buffers as
 is.
