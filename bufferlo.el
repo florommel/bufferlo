@@ -2276,7 +2276,7 @@ this bookmark is embedded in a frame bookmark."
                                               record)
                                      (run-hooks 'bookmark-after-jump-hook))
                             (error
-                             (message "Bufferlo tab: Could not restore %s (error %s)"
+                             (message "Bufferlo bookmark: Could not restore %s (error %s)"
                                       orig-name err)))
                           (unless (eq (current-buffer) dummy)
                             (unless (string-equal orig-name (buffer-name))
