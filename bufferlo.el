@@ -1035,10 +1035,10 @@ string, FACE is the face for STR."
 
 ;; NOTE: Undocumented in `make-frame' that the current buffer cannot be
 ;; conventionally hidden (space as first character). `with-temp-buffer'
-;; doesn't work either in this context.
+;; doesn't work either in this context (for the same reason).
 (defmacro bufferlo--with-temp-buffer (&rest body)
-  "Execute BODY with \"*bufferlo tenp buffer*\" current buffer."
-  (let ((buff-name "*bufferlo temp buffer*"))
+  "Execute BODY with \"*bufferlo temp buffer*\" current buffer."
+  (let ((buff-name (generate-new-buffer-name "*bufferlo temp buffer*")))
     (with-current-buffer (get-buffer-create buff-name t)
       (unwind-protect
           `(progn ,@body)
