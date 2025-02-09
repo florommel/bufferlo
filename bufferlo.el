@@ -671,23 +671,27 @@ No delay seems needed on macOS."
   :type 'string)
 
 (defcustom bufferlo-mode-line-left-prefix "["
-  "Bufferlo mode-line left-hand string prefix."
+  "Bufferlo mode-line left-hand prefix for an active tab/frame/set bookmark."
   :type 'string)
 
 (defcustom bufferlo-mode-line-right-suffix "]"
-  "Bufferlo mode-line right-hand string suffix."
+  "Bufferlo mode-line right-hand prefix for an active tab/frame/set bookmark."
   :type 'string)
 
-(defcustom bufferlo-mode-line-frame-prefix "Ⓕ"
-  "Display bufferlo mode-line frame prefix."
+(defcustom bufferlo-mode-line-frame-prefix "F:"
+  "Bufferlo mode-line frame prefix."
   :type 'string)
 
-(defcustom bufferlo-mode-line-tab-prefix "Ⓣ"
-  "Display bufferlo mode-line tab prefix."
+(defcustom bufferlo-mode-line-tab-prefix "T:"
+  "Bufferlo mode-line tab prefix."
   :type 'string)
 
-(defcustom bufferlo-mode-line-set-active-prefix "Ⓢ"
-  "Display bufferlo mode-line frame prefix."
+(defcustom bufferlo-mode-line-set-active-prefix "S"
+  "Bufferlo mode-line frame prefix."
+  :type 'string)
+
+(defcustom bufferlo-mode-line-delimiter "|"
+  "Delimiter between multiple bookmarks."
   :type 'string)
 
 (defvar bufferlo-mode) ; byte compiler
@@ -701,7 +705,8 @@ string, FACE is the face for STR."
    'mouse-face 'mode-line-highlight
    'help-echo (lambda (&rest _)
                 (concat
-                 (format "Active bufferlo bookmark: %s\n" abm)
+                 (unless (equal abm "")
+                   (format "Active bufferlo bookmark: %s\n" abm))
                  "mouse-1: Display minor mode menu\n"
                  "mouse-2: Show help for minor mode"))
    'keymap (let ((map (make-sparse-keymap)))
@@ -723,30 +728,34 @@ string, FACE is the face for STR."
            (tbm (alist-get 'bufferlo-bookmark-tab-name
                            (tab-bar--current-tab-find
                             (frame-parameter nil 'tabs))))
-           (abm (or fbm tbm ""))
            (set-active (> (length bufferlo--active-sets) 0))
-           ; tty rendering can be off for some characters, e.g., Ⓕ Ⓣ
-           (maybe-space (if (display-graphic-p) "" " ")))
+           (abm (concat (when fbm (format "%s (Frame)" fbm))
+                        (when (and fbm tbm) ", ")
+                        (when tbm (format "%s (Tab)" tbm)))))
       (concat
        (bufferlo--mode-line-format-helper abm bufferlo-mode-line-prefix
                                           'bufferlo-mode-line-face)
-       (when bufferlo-mode-line-left-prefix
+       (when (and bufferlo-mode-line-left-prefix (or set-active fbm tbm))
          (bufferlo--mode-line-format-helper
           abm bufferlo-mode-line-left-prefix 'bufferlo-mode-line-face))
        (when set-active
          (bufferlo--mode-line-format-helper
-          abm bufferlo-mode-line-set-active-prefix 'bufferlo-mode-line-set-face))
+          abm
+          (concat bufferlo-mode-line-set-active-prefix
+                  (when (or fbm tbm) bufferlo-mode-line-delimiter))
+          'bufferlo-mode-line-set-face))
        (when fbm
          (bufferlo--mode-line-format-helper
           abm
-          (concat bufferlo-mode-line-frame-prefix maybe-space fbm)
+          (concat bufferlo-mode-line-frame-prefix
+                  fbm (when tbm bufferlo-mode-line-delimiter))
           'bufferlo-mode-line-frame-bookmark-face))
        (when tbm
          (bufferlo--mode-line-format-helper
           abm
-          (concat bufferlo-mode-line-tab-prefix maybe-space tbm)
+          (concat bufferlo-mode-line-tab-prefix tbm)
           'bufferlo-mode-line-tab-bookmark-face))
-       (when bufferlo-mode-line-right-suffix
+       (when (and bufferlo-mode-line-right-suffix (or set-active fbm tbm))
          (bufferlo--mode-line-format-helper
           abm bufferlo-mode-line-right-suffix 'bufferlo-mode-line-face))))))
 
