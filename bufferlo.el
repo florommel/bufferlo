@@ -3824,7 +3824,7 @@ raised."
 
 ;; DWIM convenience functions
 
-(defun bufferlo-bookmark-save-curr ()
+(defun bufferlo-bookmark-save-current ()
   "DWIM save current bufferlo bookmark.
 Save the current bufferlo frame bookmark or tab bookmark,
 prioritizing frame bookmarks over tab bookmarks, should both
@@ -3842,7 +3842,7 @@ save a new bookmark."
         (bufferlo--bookmark-tab-save bm)
       (message "No active bufferlo frame or tab bookmark to save."))))
 
-(defun bufferlo-bookmark-load-curr ()
+(defun bufferlo-bookmark-load-current ()
   "DWIM reload current bufferlo bookmark.
 Load the current bufferlo frame bookmark or tab bookmark,
 prioritizing frame bookmarks over tab bookmarks, should both
@@ -3870,7 +3870,7 @@ load a new bookmark."
           (bufferlo-bookmark-tab-load bm))
       (message "No active bufferlo frame or tab bookmark to load."))))
 
-(defun bufferlo-bookmark-close-curr ()
+(defun bufferlo-bookmark-close-current ()
   "DWIM close current bufferlo bookmark and kill its buffers.
 Close the current bufferlo frame bookmark or tab bookmark,
 prioritizing frame bookmarks over tab bookmarks, should both
@@ -3930,9 +3930,9 @@ OLDFN BOOKMARK-NAME BATCH"
 (defalias 'bufferlo-bms-save            'bufferlo-bookmarks-save-interactive)
 (defalias 'bufferlo-bms-close           'bufferlo-bookmarks-close-interactive)
 (defalias 'bufferlo-bm-raise            'bufferlo-bookmark-raise)
-(defalias 'bufferlo-bm-save             'bufferlo-bookmark-save-curr)
-(defalias 'bufferlo-bm-load             'bufferlo-bookmark-load-curr)
-(defalias 'bufferlo-bm-close            'bufferlo-bookmark-close-curr)
+(defalias 'bufferlo-bm-save             'bufferlo-bookmark-save-current)
+(defalias 'bufferlo-bm-load             'bufferlo-bookmark-load-current)
+(defalias 'bufferlo-bm-close            'bufferlo-bookmark-close-current)
 (defalias 'bufferlo-bm-tab-save         'bufferlo-bookmark-tab-save)
 (defalias 'bufferlo-bm-tab-save-curr    'bufferlo-bookmark-tab-save-current)
 (defalias 'bufferlo-bm-tab-load         'bufferlo-bookmark-tab-load)
