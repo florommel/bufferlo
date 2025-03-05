@@ -2755,7 +2755,7 @@ the message after successfully restoring the bookmark."
                (bufferlo--bookmark-jump tbm-name)
                (setq first-tab nil))))
          (setq first-tab-frame nil)))
-      (raise-frame))
+      (select-frame-set-input-focus (selected-frame)))
 
     ;; Restore framesets (framesets can be nil despite readablep)
     (when-let ((frameset (car (read-from-string frameset-str))))
@@ -2780,7 +2780,7 @@ the message after successfully restoring the bookmark."
                 (when-let* ((fg (frame-parameter nil 'bufferlo--frame-geometry)))
                   (funcall bufferlo-set-frame-geometry-function fg)))
               (set-frame-parameter nil 'bufferlo--frame-to-restore nil))
-            (raise-frame)))))
+            (select-frame-set-input-focus (selected-frame))))))
 
     ;; Add the set to the active list
     (push `(,bookmark-name (bufferlo-bookmark-names . ,bufferlo-bookmark-names))
@@ -3746,14 +3746,14 @@ which defaults to all frames, if not specified."
         (with-selected-frame abm-frame
           ;; If called in a batch, raise frame in case of prompts for buffers
           ;; that need saving:
-          (raise-frame)
+          (select-frame-set-input-focus (selected-frame))
           (tab-bar-select-tab abm-tab-number)
           (let ((bufferlo-kill-buffers-prompt nil)
                 (bufferlo-bookmark-tab-save-on-close nil)
                 (bufferlo-close-tab-kill-buffers-prompt nil))
             (bufferlo-tab-close-kill-buffers)))
         (when (frame-live-p orig-frame)
-          (raise-frame orig-frame))))
+          (select-frame-set-input-focus orig-frame))))
     (dolist (abm fbms)
       (let ((abm-frame (alist-get 'frame (cadr abm))))
         (with-selected-frame abm-frame
@@ -3807,7 +3807,7 @@ A prefix argument inhibits the prompt and bypasses saving."
   (when-let* ((abm-type (alist-get 'type (cadr abm)))
               (abm-frame (alist-get 'frame (cadr abm))))
     (with-selected-frame abm-frame
-      (raise-frame)
+      (select-frame-set-input-focus (selected-frame))
       (when (eq abm-type 'tbm)
         (tab-bar-select-tab
          (alist-get 'tab-number (cadr abm)))))))
