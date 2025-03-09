@@ -2856,7 +2856,7 @@ message."
     (setq tabsets
           (mapcar (lambda (group)
                     (let ((tbm-frame (car group))
-                          (tbm-names (mapcar #'car (cdr group))))
+                          (tbm-names (nreverse (mapcar #'car (cdr group)))))
                       `((bufferlo--frame-geometry
                          . ,(funcall bufferlo-frame-geometry-function tbm-frame))
                         (bufferlo--tbms . ,tbm-names))))
