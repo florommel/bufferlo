@@ -1697,7 +1697,7 @@ This does not select the buffer -- just the containing frame and tab."
                        (completing-read
                         "Select frame/tab: "
                         candidates
-                        nil t)
+                        nil 'require-match)
                      (caar candidates)))
          (selected (assoc selected candidates)))
     (if (not selected)
@@ -2500,16 +2500,24 @@ When non-nil, NO-SORT uses the natural order of the CANDIDATES list."
       (complete-with-action action candidates string pred)))))
 
 (defun bufferlo--bookmark-completing-read (prompt candidates &optional no-sort)
-  "Common bufferlo bookmark completing read.
+  "Common bufferlo bookmark `completing-read'.
+PROMPT is the prompt text ending with a space.
+CANDIDATES are the prompt options to select.
+When non-nil, NO-SORT uses the natural order of the CANDIDATES list."
+  (completing-read prompt
+                   (bufferlo--bookmark-completion-table candidates no-sort)
+                   nil 'require-match nil 'bufferlo-bookmark-history))
+
+(defun bufferlo--bookmark-completing-read-multiple (prompt candidates &optional no-sort)
+  "Common bufferlo bookmark `completing-read-multiple'.
 PROMPT is the prompt text ending with a space.
 CANDIDATES are the prompt options to select.
 When non-nil, NO-SORT uses the natural order of the CANDIDATES list."
   (let* ((comps
-          (completion-all-completions
-           (completing-read prompt
-                            (bufferlo--bookmark-completion-table candidates no-sort))
-           candidates nil nil))
-         (_ (when (cdr (last comps)) (setcdr (last comps) nil)))
+          (completing-read-multiple
+           prompt
+           (bufferlo--bookmark-completion-table candidates no-sort)
+           nil 'require-match nil 'bufferlo-bookmark-history))
          (comps (seq-uniq (mapcar (lambda (x) (substring-no-properties x)) comps))))
     comps))
 
@@ -2910,7 +2918,7 @@ throwing away the old one."
   (bufferlo--warn)
   (let* ((abms (bufferlo--active-bookmarks))
          (abm-names (mapcar #'car abms))
-         (comps (bufferlo--bookmark-completing-read
+         (comps (bufferlo--bookmark-completing-read-multiple
                  (format "Add bookmark(s) to %s: " bookmark-name) abm-names)))
     (bufferlo--set-save bookmark-name comps abms no-overwrite)
     (setq bufferlo--active-sets
@@ -2937,8 +2945,9 @@ consider (usually all active bookmarks)."
   "Save active constituents in selected `bookmark-sets'."
   (interactive)
   (let* ((candidates (mapcar #'car bufferlo--active-sets))
-         (comps (bufferlo--bookmark-completing-read "Select sets to save: "
-                                                    candidates))
+         (comps (bufferlo--bookmark-completing-read-multiple
+                 "Select sets to save: "
+                 candidates))
          (abms (bufferlo--active-bookmarks))
          (abm-names-to-save (bufferlo--set-get-constituents comps abms)))
     (bufferlo--bookmarks-save abm-names-to-save abms)))
@@ -2967,8 +2976,9 @@ This does not close associated active frame and tab bookmarks."
 This does not close its associated bookmarks or kill their buffers."
   (interactive)
   (let* ((candidates (mapcar #'car bufferlo--active-sets))
-         (comps (bufferlo--bookmark-completing-read "Select sets to clear: "
-                                                    candidates)))
+         (comps (bufferlo--bookmark-completing-read-multiple
+                 "Select sets to clear: "
+                 candidates)))
     (bufferlo--set-clear comps)))
 
 (defun bufferlo-set-close-interactive ()
@@ -2976,8 +2986,9 @@ This does not close its associated bookmarks or kill their buffers."
 This closes their associated bookmarks and kills their buffers."
   (interactive)
   (let* ((candidates (mapcar #'car bufferlo--active-sets))
-         (comps (bufferlo--bookmark-completing-read "Select sets to close/kill: "
-                                                    candidates))
+         (comps (bufferlo--bookmark-completing-read-multiple
+                 "Select sets to close/kill: "
+                 candidates))
          (abms (bufferlo--active-bookmarks))
          (abm-names-to-close (bufferlo--set-get-constituents comps abms)))
     (bufferlo--close-active-bookmarks abm-names-to-close abms)
@@ -3012,8 +3023,9 @@ This closes their associated bookmarks and kills their buffers."
   "Enumerate the bookmarks in active `bookmark-sets'."
   (interactive)
   (let* ((candidates (mapcar #'car bufferlo--active-sets))
-         (comps (bufferlo--bookmark-completing-read "Select sets to enumerate: "
-                                                    candidates)))
+         (comps (bufferlo--bookmark-completing-read-multiple
+                 "Select sets to enumerate: "
+                 candidates)))
     (let* ((abms (bufferlo--active-bookmarks)))
       (with-current-buffer (get-buffer-create bufferlo--set-list-buffer-name)
         (let ((buffer-undo-list t))
@@ -3156,7 +3168,7 @@ Specify a prefix argument to force reusing the current tab."
    (list (completing-read
           "Load bufferlo tab bookmark: "
           (bufferlo--bookmark-get-names #'bufferlo--bookmark-tab-handler)
-          nil nil nil 'bufferlo-bookmark-tab-history
+          nil 'require-match nil 'bufferlo-bookmark-tab-history
           (alist-get 'bufferlo-bookmark-tab-name (bufferlo--current-tab)))))
   (bufferlo--warn)
   (bufferlo--bookmark-jump name))
@@ -3297,7 +3309,7 @@ Replace the current frame's state if
    (list (completing-read
           "Load bufferlo frame bookmark: "
           (bufferlo--bookmark-get-names #'bufferlo--bookmark-frame-handler)
-          nil nil nil 'bufferlo-bookmark-frame-history
+          nil 'require-match nil 'bufferlo-bookmark-frame-history
           (frame-parameter nil 'bufferlo-bookmark-frame-name))))
   (bufferlo--warn)
   (bufferlo--bookmark-jump name))
@@ -3643,7 +3655,7 @@ current or new frame according to
   (interactive)
   (let* ((abms (bufferlo--active-bookmarks))
          (abm-names (mapcar #'car abms))
-         (comps (bufferlo--bookmark-completing-read
+         (comps (bufferlo--bookmark-completing-read-multiple
                  "Close bookmark(s) without saving: " abm-names)))
     (bufferlo--close-active-bookmarks comps abms)))
 
@@ -3652,13 +3664,12 @@ current or new frame according to
   (interactive)
   (let* ((abms (bufferlo--active-bookmarks))
          (abm-names (mapcar #'car abms))
-         (comps (bufferlo--bookmark-completing-read
+         (comps (bufferlo--bookmark-completing-read-multiple
                  "Save bookmark(s): " abm-names)))
     (bufferlo--bookmarks-save comps abms)))
 
 (defun bufferlo-bookmarks-load-interactive ()
   "Prompt for bufferlo bookmarks to load.
-
 Use a single prefix argument to narrow the candidates to frame
 bookmarks, double for bookmarks, triple for bookmark sets."
   (interactive)
@@ -3675,8 +3686,9 @@ bookmarks, double for bookmarks, triple for bookmark sets."
                         (eq (prefix-numeric-value current-prefix-arg) 64))
                    (list #'bufferlo--bookmark-set-handler))
                   (t bufferlo--bookmark-handlers))))
-         (comps (bufferlo--bookmark-completing-read "Load bookmark(s): "
-                                                    bookmark-names)))
+         (comps (bufferlo--bookmark-completing-read-multiple
+                 "Load bookmark(s): "
+                 bookmark-names)))
     (dolist (bookmark-name comps)
       (bufferlo--bookmark-jump bookmark-name))))
 
