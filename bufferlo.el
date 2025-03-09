@@ -2336,6 +2336,7 @@ this bookmark is embedded in a frame bookmark."
 
 ;; We use a short name here as bookmark-bmenu-list hard codes width of 8 chars
 (put #'bufferlo--bookmark-tab-handler 'bookmark-handler-type "B-Tab")
+(put #'bufferlo--bookmark-tab-handler 'bookmark-inhibit 'insert)
 
 (defun bufferlo--bookmark-frame-make (&optional frame)
   "Make a bufferlo frame bookmark.
@@ -2506,6 +2507,7 @@ the message after successfully restoring the bookmark."
 
 ;; We use a short name here as bookmark-bmenu-list hard codes width of 8 chars
 (put #'bufferlo--bookmark-frame-handler 'bookmark-handler-type "B-Frame")
+(put #'bufferlo--bookmark-frame-handler 'bookmark-inhibit 'insert)
 
 (defun bufferlo--bookmark-set-location (bookmark-name-or-record &optional location)
   "Set the location of BOOKMARK-NAME-OR-RECORD to LOCATION or \\=\"\", if nil."
@@ -2843,6 +2845,7 @@ the message after successfully restoring the bookmark."
 
 ;; We use a short name here as bookmark-bmenu-list hard codes width of 8 chars
 (put #'bufferlo--bookmark-set-handler 'bookmark-handler-type "B-Set")
+(put #'bufferlo--bookmark-set-handler 'bookmark-inhibit 'insert)
 
 (defun bufferlo--set-save (bookmark-name active-bookmark-names active-bookmarks &optional no-overwrite)
   "Save a bufferlo bookmark set for the specified active bookmarks.
