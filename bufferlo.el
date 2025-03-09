@@ -3179,7 +3179,7 @@ This reuses the current tab even if
   (bufferlo--warn)
   (if-let* ((bm (alist-get 'bufferlo-bookmark-tab-name
                            (cdr (bufferlo--current-tab)))))
-      ;; On reload, always resue the existing tab (don't make a new one)
+      ;; On reload, always reuse the existing tab (don't make a new one)
       (let ((bufferlo-bookmark-tab-replace-policy 'replace)
             ;; The bookmark is detected as a duplicate bookmark, allow it here
             (bufferlo-bookmark-tab-duplicate-policy 'allow))
