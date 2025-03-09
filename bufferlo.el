@@ -75,7 +75,7 @@ Set to \\='ibuffer to show `ibuffer' only."
 (defcustom bufferlo-prefer-local-buffers t
   "Use the frame `buffer-predicate' to prefer local buffers.
 Without this option, buffers from across all frames are
-presented. This means that a local buffer will be preferred to be
+presented.  This means that a local buffer will be preferred to be
 displayed when the current buffer disappears (buried or killed).
 
 This also influences `next-buffer' and `previous-buffer'.
@@ -137,7 +137,7 @@ e.g., `bufferlo-kill-buffers', `bufferlo-kill-orphan-buffers',
 This policy is useful when `shell-mode' or `eshell-mode' buffers
 are active in a bufferlo-controlled frame or tab.
 
-nil means default Emacs behavior which may prompt. This may have
+nil means default Emacs behavior which may prompt.  This may have
 side effects.
 
 \\='retain-modified means bufferlo will leave modified buffers as
@@ -285,7 +285,7 @@ its bookmark.
 
 \\='raise will raise the frame with the existing bookmark.
 
-Note: \\='raise is considered \\='clear during bookmark-set loading."
+Note: \\='raise is considered \\='clear during `bookmark-set' loading."
   :type '(radio (const :tag "Prompt" prompt)
                 (const :tag "Allow" allow)
                 (const :tag "Clear (silently)" clear)
@@ -329,7 +329,7 @@ bookmark.
 \\='raise raises the first found existing tab bookmark and its
 frame.
 
-Note: \\='raise is considered \\='clear during bookmark-set loading."
+Note: \\='raise is considered \\='clear during `bookmark-set' loading."
   :type '(radio (const :tag "Prompt" prompt)
                 (const :tag "Allow" allow)
                 (const :tag "Clear (silently)" clear)
@@ -350,7 +350,7 @@ reified frame bookmark behavior.
 bookmark.
 
 \\='allow will retain the tab bookmark to enable it to be saved
-or updated. Note that the frame bookmark always supersedes the tab
+or updated.  Note that the frame bookmark always supersedes the tab
 bookmark when the frame bookmark is saved."
   :type '(radio (const :tag "Prompt" prompt)
                 (const :tag "Allow" allow)
@@ -364,11 +364,11 @@ bookmark when the frame bookmark is saved."
 
 \\='allow will save potentially differing content for the same
 bookmark name multiple times with the last-one-saved taking
-precedence. A warning message indicates the names of duplicate
+precedence.  A warning message indicates the names of duplicate
 bookmarks.
 
 \\='disallow prevents the potentially confusing of overwriting
-bookmark content for the same bookmark names. A warning message
+bookmark content for the same bookmark names.  A warning message
 indicates the names of duplicate bookmarks.
 
 Note: when using bufferlo's auto-save feature and to avoid
@@ -395,8 +395,8 @@ advance that prevent duplicate frame and tab bookmarks."
   "Functions to filter active bufferlo bookmarks to save.
 These are applied when
 `bufferlo-bookmarks-auto-save-idle-interval' is > 0, or manually
-via `bufferlo-bookmarks-save'. Functions are passed the bufferlo
-bookmark name and invoked until the first positive result. Set to
+via `bufferlo-bookmarks-save'.  Functions are passed the bufferlo
+bookmark name and invoked until the first positive result.  Set to
 `#'bufferlo-bookmarks-save-all-p' to save all bookmarks or
 provide your own predicates (note: be sure to remove
 `#'bufferlo-bookmarks-save-all-p' from the list)."
@@ -407,7 +407,7 @@ provide your own predicates (note: be sure to remove
 These are applied in `bufferlo-bookmarks-load' which might also
 be invoked at Emacs startup time using `window-setup-hook'.
 Functions are passed the bufferlo bookmark name and invoked until
-the first positive result. Set to
+the first positive result.  Set to
 `#'bufferlo-bookmarks-load-all-p' to load all bookmarks or
 provide your own predicates."
   :type 'hook)
@@ -544,7 +544,7 @@ This is controlled by `bufferlo-bookmarks-auto-save-idle-interval'.")
 
 (defcustom bufferlo-bookmarks-auto-save-idle-interval 0
   "Save bufferlo bookmarks when Emacs has been idle this many seconds.
-Set to 0 to disable the timer. Units are whole integer seconds."
+Set to 0 to disable the timer.  Units are whole integer seconds."
   :type 'natnum
   :set (lambda (sym val)
          (set-default sym val)
@@ -642,7 +642,7 @@ It defaults to `bufferlo-frameset-restore-parameters-default'."
 It defaults to `bufferlo-frame-geometry-default'.
 
 The function takes one parameter, FRAME, for which geometry is to
-be ascertained. See `bufferlo-frame-geometry-default' for
+be ascertained.  See `bufferlo-frame-geometry-default' for
 the returned alist form.
 
 Replace this function with your own if the default produces
@@ -662,7 +662,7 @@ suboptimal results for your platform."
 (defcustom bufferlo-frame-sleep-for 0
   "Window manager catch-up delay for changing frame parameters.
 Delay is specified in seconds using `sleep-for', which see.
-GTK/GNOME seems to need 0.3 seconds. YMMV.
+GTK/GNOME seems to need 0.3 seconds.  YMMV.
 No delay seems needed on macOS."
   :type 'natnum)
 
@@ -1298,8 +1298,8 @@ the advised functions."
 
 (defun bufferlo--clone-undelete-frame-advice (oldfn &rest args)
   "Activate the advice for `clone-frame' and `undelete-frame'.
-OLDFN is the original function.  ARGS is for compatibility with
-the advised functions. Honors `bufferlo-bookmark-frame-duplicate-policy'."
+OLDFN is the original function.  ARGS is for compatibility with the
+advised functions.  Honors `bufferlo-bookmark-frame-duplicate-policy'."
   (let ((bufferlo--desktop-advice-active t)
         (bufferlo--desktop-advice-active-force t))
     (apply oldfn args))
@@ -2723,8 +2723,8 @@ the message after successfully restoring the bookmark."
              bookmark-name))
 
     ;; Restore tabsets (tabsets can be nil despite readablep)
-    (when-let ((tabsets (car (read-from-string tabsets-str)))
-               (first-tab-frame t))
+    (when-let* ((tabsets (car (read-from-string tabsets-str)))
+                (first-tab-frame t))
       (bufferlo--with-temp-buffer
        (dolist (tab-group tabsets)
          (when (or (not first-tab-frame)
@@ -2758,7 +2758,7 @@ the message after successfully restoring the bookmark."
       (select-frame-set-input-focus (selected-frame)))
 
     ;; Restore framesets (framesets can be nil despite readablep)
-    (when-let ((frameset (car (read-from-string frameset-str))))
+    (when-let* ((frameset (car (read-from-string frameset-str))))
       (unless (frameset-valid-p frameset)
         (error "Bufferlo bookmark set %s: invalid frameset"
                bookmark-name))
@@ -2802,12 +2802,12 @@ Frame bookmarks are stored with their geometry for optional
 restoration.
 
 Tab bookmarks are stored in groups associated with their current
-frame. New frames will be created to hold tab bookmarks in the
-same grouping. Order may not be preserved. Tab frame geometry is
+frame.  New frames will be created to hold tab bookmarks in the
+same grouping.  Order may not be preserved.  Tab frame geometry is
 stored for optional restoration.
 
 If NO-OVERWRITE is non-nil, record the new bookmark without
-throwing away the old one. NO-MESSAGE inhibits the save status
+throwing away the old one.  NO-MESSAGE inhibits the save status
 message."
   (let* ((abms (seq-filter
                 (lambda (x) (member (car x) active-bookmark-names))
@@ -2912,7 +2912,7 @@ throwing away the old one."
      bufferlo--active-sets)))
 
 (defun bufferlo--set-get-constituents (bsets abms)
-  "Get the constituents of the given bookmark sets from the list of bookmarks.
+  "Get the constituents of the given `bookmark-sets' from the list of bookmarks.
 BSETS is a list of the requested sets and ABMS is a list of all bookmarks to
 consider (usually all active bookmarks)."
   (let* ((abm-names (mapcar #'car abms))
@@ -2926,7 +2926,7 @@ consider (usually all active bookmarks)."
     (seq-uniq abm-names)))
 
 (defun bufferlo-set-save-current-interactive ()
-  "Save active constituents in selected bookmark sets."
+  "Save active constituents in selected `bookmark-sets'."
   (interactive)
   (let* ((candidates (mapcar #'car bufferlo--active-sets))
          (comps (bufferlo--bookmark-completing-read "Select sets to save: "
@@ -2942,7 +2942,7 @@ consider (usually all active bookmarks)."
     (call-interactively 'bufferlo-bookmarks-load-interactive)))
 
 (defun bufferlo--set-clear-all ()
-  "Clear all active bookmark sets.
+  "Clear all active `bookmark-sets'.
 This does not close active frame and tab bookmarks."
   (setq bufferlo--active-sets nil))
 
@@ -2955,7 +2955,7 @@ This does not close associated active frame and tab bookmarks."
         names))
 
 (defun bufferlo-set-clear-interactive ()
-  "Clear the specified bookmark sets.
+  "Clear the specified `bookmark-sets'.
 This does not close its associated bookmarks or kill their buffers."
   (interactive)
   (let* ((candidates (mapcar #'car bufferlo--active-sets))
@@ -2964,7 +2964,7 @@ This does not close its associated bookmarks or kill their buffers."
     (bufferlo--set-clear comps)))
 
 (defun bufferlo-set-close-interactive ()
-  "Close the specified bookmark sets.
+  "Close the specified `bookmark-sets'.
 This closes their associated bookmarks and kills their buffers."
   (interactive)
   (let* ((candidates (mapcar #'car bufferlo--active-sets))
@@ -2984,6 +2984,7 @@ This closes their associated bookmarks and kills their buffers."
   "Major mode for bufferlo set list.")
 
 (defun bufferlo--set-list-raise-bookmark-mouse (event)
+  "Handle mouse EVENT."
   (interactive "e")
   (let* ((pos (event-start event))
          (bname (get-text-property (posn-point pos) 'bookmark-name)))
@@ -2991,6 +2992,7 @@ This closes their associated bookmarks and kills their buffers."
     (bufferlo--bookmark-raise-by-name bname)))
 
 (defun bufferlo--set-list-raise-bookmark-kb ()
+  "Handle keyboard event."
   (interactive)
   (let ((bname (get-text-property (point) 'bookmark-name)))
     (quit-window)
@@ -2999,7 +3001,7 @@ This closes their associated bookmarks and kills their buffers."
 (defconst bufferlo--set-list-buffer-name " *bufferlo set list*")
 
 (defun bufferlo-set-list-interactive ()
-  "Enumerate the bookmarks in active bookmark sets."
+  "Enumerate the bookmarks in active `bookmark-sets'."
   (interactive)
   (let* ((candidates (mapcar #'car bufferlo--active-sets))
          (comps (bufferlo--bookmark-completing-read "Select sets to enumerate: "
@@ -3205,9 +3207,9 @@ This reuses the current tab even if
 
 (defun bufferlo--bookmark-frame-save (name &optional no-overwrite no-message msg)
   "Save the current frame as a bookmark.
-NAME is the bookmark's name. If NO-OVERWRITE is non-nil, record
-the new bookmark without throwing away the old one. If NO-MESSAGE
-is non-nil, inhibit the save status message. If MSG is non-nil,
+NAME is the bookmark's name.  If NO-OVERWRITE is non-nil, record
+the new bookmark without throwing away the old one.  If NO-MESSAGE
+is non-nil, inhibit the save status message.  If MSG is non-nil,
 it is added to the save message."
   (bookmark-store name (bufferlo--bookmark-set-location
                         (bufferlo--bookmark-frame-make))
@@ -3218,18 +3220,18 @@ it is added to the save message."
 
 (defun bufferlo-bookmark-frame-save (name &optional no-overwrite no-message)
   "Save the current frame as a bookmark.
-NAME is the bookmark's name. If NO-OVERWRITE is non-nil, record
-the new bookmark without throwing away the old one. If NO-MESSAGE
+NAME is the bookmark's name.  If NO-OVERWRITE is non-nil, record
+the new bookmark without throwing away the old one.  If NO-MESSAGE
 is non-nil, inhibit the save status message.
 
 This function persists the current frame's state: The resulting bookmark
 stores the frame's window configurations, active tabs, and the local
-buffer lists those tabs. In addition, it saves the bookmark state (not
+buffer lists those tabs.  In addition, it saves the bookmark state (not
 the contents) of the bookmarkable buffers for each tab.
 
 Use `bufferlo-bookmark-tab-in-bookmarked-frame-policy' to
 influence how this function handles setting a frame bookmark in
-the presence of bookmarked tabs. Using both together is allowed,
+the presence of bookmarked tabs.  Using both together is allowed,
 but is not recommended."
   (interactive
    (list (completing-read
@@ -3528,7 +3530,7 @@ TAB is the tab being closed.  _ONLY is for compatibility with the hook."
 (defun bufferlo--bookmarks-save-at-emacs-exit ()
   "Save bufferlo bookmarks at Emacs exit.
 This honors `bufferlo-bookmarks-save-at-emacs-exit' by predicate or
-\\='all. Intended to be invoked via `kill-emacs-hook'."
+\\='all.  Intended to be invoked via `kill-emacs-hook'."
   (bufferlo--bookmarks-auto-save-timer-maybe-cancel)
   (let ((bufferlo-bookmarks-save-predicate-functions
          (if (eq bufferlo-bookmarks-save-at-emacs-exit 'all)
