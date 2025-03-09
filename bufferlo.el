@@ -1343,7 +1343,10 @@ the advised functions.  Honors `bufferlo-bookmark-tab-duplicate-policy'."
     (apply oldfn args))
   (when-let* ((current-tab (bufferlo--current-tab))
               (bookmark-name (alist-get 'bufferlo-bookmark-tab-name current-tab))
-              (abm (assoc bookmark-name (bufferlo--active-bookmarks))))
+              (this+at-least-one-other
+               (when (> (seq-count (lambda (x) (string= bookmark-name (car x)))
+                                   (bufferlo--active-bookmarks)) 1)
+                 t)))
     (let* ((msg nil)
            (msg-append (lambda (s) (setq msg (concat msg "; " s)))))
       (catch :raise
@@ -1362,7 +1365,9 @@ the advised functions.  Honors `bufferlo-bookmark-tab-duplicate-policy'."
                    (funcall msg-append "cleared tab bookmark"))
                   ('raise
                    (tab-bar-close-tab)
-                   (bufferlo--bookmark-raise abm)
+                   ;; Find bookmark to raise; tab numbers changes when closing.
+                   (bufferlo--bookmark-raise
+                    (assoc bookmark-name (bufferlo--active-bookmarks)))
                    (throw :raise t)))
                 (setf (alist-get 'bufferlo-bookmark-tab-name
                                  (cdr current-tab))
