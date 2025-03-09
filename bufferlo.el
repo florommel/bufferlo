@@ -2513,11 +2513,20 @@ When non-nil, NO-SORT uses the natural order of the CANDIDATES list."
 PROMPT is the prompt text ending with a space.
 CANDIDATES are the prompt options to select.
 When non-nil, NO-SORT uses the natural order of the CANDIDATES list."
-  (let* ((comps
+  (let* ((raw-comps
           (completing-read-multiple
            prompt
            (bufferlo--bookmark-completion-table candidates no-sort)
            nil 'require-match nil 'bufferlo-bookmark-history))
+         (comps (mapcan (lambda (raw-comp)
+                          (let ((tmp-comps
+                                 (completion-all-completions
+                                  raw-comp
+                                  candidates nil nil)))
+                            (when (cdr (last tmp-comps))
+                              (setcdr (last tmp-comps) nil))
+                            tmp-comps))
+                        raw-comps))
          (comps (seq-uniq (mapcar (lambda (x) (substring-no-properties x)) comps))))
     comps))
 
