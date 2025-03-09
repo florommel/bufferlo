@@ -134,8 +134,8 @@ This policy applies to all bufferlo functions that entail killing buffers,
 e.g., `bufferlo-kill-buffers', `bufferlo-kill-orphan-buffers',
 `bufferlo-tab-close-kill-buffers', `bufferlo-delete-frame-kill-buffers'.
 
-This policy is useful when `shell-mode' or `eshell-mode' buffers
-are active in a bufferlo-controlled frame or tab.
+This policy is useful if `shell-mode' or `eshell-mode' buffers are
+active in a bufferlo-controlled frame or tab.
 
 nil means default Emacs behavior which may prompt.  This may have
 side effects.
@@ -159,7 +159,7 @@ without remorse including those with running processes such as
 
 (defcustom bufferlo-bookmark-inhibit-bookmark-point nil
   "If non-nil, inhibit point in bookmarks.
-This is useful when `save-place-mode' mode is enabled."
+This is useful if `save-place-mode' mode is enabled."
   :type 'boolean)
 
 (defcustom bufferlo-bookmark-buffers-exclude-filters nil
@@ -337,7 +337,7 @@ Note: \\='raise is considered \\='clear during `bookmark-set' loading."
                 (const :tag "Raise" raise)))
 
 (defcustom bufferlo-bookmark-tab-in-bookmarked-frame-policy 'prompt
-  "Control when a tab bookmark is loaded into an already-bookmarked frame.
+  "Control how a tab bookmark is loaded into an already-bookmarked frame.
 
 This also warns about setting a new frame bookmark on a frame
 that has tab bookmarks, and vice versa setting a tab bookmark on
@@ -351,7 +351,7 @@ bookmark.
 
 \\='allow will retain the tab bookmark to enable it to be saved
 or updated.  Note that the frame bookmark always supersedes the tab
-bookmark when the frame bookmark is saved."
+bookmark if the frame bookmark is saved."
   :type '(radio (const :tag "Prompt" prompt)
                 (const :tag "Allow" allow)
                 (const :tag "Clear (silently)" clear)
@@ -371,7 +371,7 @@ bookmarks.
 bookmark content for the same bookmark names.  A warning message
 indicates the names of duplicate bookmarks.
 
-Note: when using bufferlo's auto-save feature and to avoid
+Note: When using bufferlo's auto-save feature, and to avoid
 repeated prompts and warnings, it is best to choose policies in
 advance that prevent duplicate frame and tab bookmarks."
   :type '(radio (const :tag "Prompt" prompt)
@@ -1081,7 +1081,7 @@ buffers, see `bufferlo-hidden-buffers'."
 
 (defun bufferlo--clear-buffer-lists (&optional frame)
   "This is a workaround advice function to fix tab-bar's tab switching behavior.
-On `tab-bar-select-tab', when `wc-bl' or `wc-bbl' is nil, the function does not
+On `tab-bar-select-tab', if `wc-bl' or `wc-bbl' is nil, the function does not
 set the corresponding `buffer-list' / `buried-buffer-list' frame parameters.
 As a result the previous tab's values remain active.
 
@@ -1627,10 +1627,10 @@ The optional arguments KILLALL and INTERNAL-TOO are passed to
 
 (defun bufferlo-isolate-project (&optional file-buffers-only)
   "Isolate a project in the frame or tab.
-Remove all buffers that do not belong to the current project from
-the local buffer list.  When FILE-BUFFERS-ONLY is non-nil or the
-prefix argument is given, remove only buffers that visit a file.
-Buffers matching `bufferlo-include-buffer-filters' are not removed."
+Remove all buffers that do not belong to the current project from the
+local buffer list.  If FILE-BUFFERS-ONLY is non-nil or the prefix
+argument is given, remove only buffers that visit a file.  Buffers
+matching `bufferlo-include-buffer-filters' are not removed."
   (interactive "P")
   (bufferlo--warn)
   (if-let* ((curr-project (project-current))
@@ -1912,7 +1912,7 @@ for (almost) all functions.  Customize `bufferlo-anywhere-filter' and
 `bufferlo-anywhere-filter-type' to adapt the behavior.
 This minor mode requires `bufferlo-mode' to be enabled.
 You can use `bufferlo-anywhere-disable' to disable the local buffer list for
-the next command, when the mode is enabled."
+the next command, if the mode is enabled."
   :global t
   :require 'bufferlo
   :init-value nil
@@ -2167,7 +2167,7 @@ This functions throws :abort when the user quits."
 
 (defun bufferlo--bookmark-tab-get-replace-policy ()
   "Get the replace policy for tab bookmarks.
-Ask the user when `bufferlo-bookmark-tab-replace-policy' is set to \\='prompt.
+Prompt if `bufferlo-bookmark-tab-replace-policy' is set to \\='prompt.
 This functions throws :abort when the user quits."
   (if (not (eq bufferlo-bookmark-tab-replace-policy 'prompt))
       bufferlo-bookmark-tab-replace-policy
@@ -2184,7 +2184,7 @@ This functions throws :abort when the user quits."
 
 (defun bufferlo--bookmark-tab-get-clear-policy (mode)
   "Get the clear policy for tab bookmarks.
-Ask the user when `bufferlo-bookmark-tab-in-bookmarked-frame-policy' is
+Prompt if `bufferlo-bookmark-tab-in-bookmarked-frame-policy' is
 set to \\='prompt.  This functions throws :abort when the user quits.
 MODE is either \\='load, \\='save, or \\='save-frame, depending on the
 invoking action.  This functions throws :abort when the user quits."
@@ -2336,7 +2336,7 @@ FRAME specifies the frame; the default value of nil selects the current frame."
 
 (defun bufferlo--bookmark-frame-get-load-policy ()
   "Get the load policy for frame bookmarks.
-Ask the user when `bufferlo-bookmark-frame-load-policy' is set to \\='prompt.
+Prompt if `bufferlo-bookmark-frame-load-policy' is set to \\='prompt.
 This functions throws :abort when the user quits."
   (if (not (eq bufferlo-bookmark-frame-load-policy 'prompt))
       bufferlo-bookmark-frame-load-policy
