@@ -2486,24 +2486,32 @@ the message after successfully restoring the bookmark."
   (bookmark-prop-set bookmark-name-or-record 'location (or location ""))
   bookmark-name-or-record)
 
-(defun bufferlo--bookmark-completing-read (prompt candidates)
+(defun bufferlo--bookmark-completion-table (candidates &optional no-sort)
+  "Completing read helper.
+CANDIDATES should be a list from which to select candidates.
+When non-nil, NO-SORT uses the natural order of the CANDIDATES list."
+  (lambda (string pred action)
+    (cond
+     ((eq action 'metadata)
+      `(metadata . ,(cons '(category . bookmark)
+                          (when no-sort
+                            '((display-sort-function . identity))))))
+     (t
+      (complete-with-action action candidates string pred)))))
+
+(defun bufferlo--bookmark-completing-read (prompt candidates &optional no-sort)
   "Common bufferlo bookmark completing read.
 PROMPT is the prompt text ending with a space.
-CANDIDATES are the prompt options to select."
+CANDIDATES are the prompt options to select.
+When non-nil, NO-SORT uses the natural order of the CANDIDATES list."
   (let* ((comps
           (completion-all-completions
            (completing-read prompt
-                            (lambda (str pred flag)
-                              (pcase flag
-                                ('metadata
-                                 '(metadata (category . bookmark)))
-                                (_
-                                 (all-completions str candidates pred)))))
+                            (bufferlo--bookmark-completion-table candidates no-sort))
            candidates nil nil))
-         (base-size (cdr (last comps))))
-    (when base-size (setcdr (last comps) nil))
-    (setq comps (seq-uniq (mapcar (lambda (x) (substring-no-properties x))
-                                  comps)))))
+         (_ (when (cdr (last comps)) (setcdr (last comps) nil)))
+         (comps (seq-uniq (mapcar (lambda (x) (substring-no-properties x)) comps))))
+    comps))
 
 ;; filter out vs. frameset-persistent-filter-alist
 (defvar bufferlo--frameset-save-filter
