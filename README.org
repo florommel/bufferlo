@@ -1186,6 +1186,29 @@ remain in force until they are saved if this policy is set to t.
     (bufferlo-anywhere-mode))
 #+end_src
 
+*** CRM prompt enhancement
+
+Bufferlo uses ~completing-read-multiple~ for the prompts where you can
+specify more than one input selection; e.g., when opening multiple
+bookmarks at once using ~bufferlo-bookmarks-load-interactive~. Emacs
+31 will be getting a proper CRM prompt that displays the CRM separator
+character as a reminder hint. Note: The default separator is a comma.
+
+Per https://github.com/minad/vertico#completing-read-multiple from the
+author of the Emacs CRM patch, we recommend adding the following
+snippet to your Emacs configuration.
+
+#+begin_src emacs-lisp
+;; Prompt indicator for `completing-read-multiple'.
+(when (< emacs-major-version 31)
+  (advice-add #'completing-read-multiple :filter-args
+              (lambda (args)
+                (cons (format "[CRM%s] %s"
+                              (string-replace "[ \t]*" "" crm-separator)
+                              (car args))
+                      (cdr args))))))
+#+end_src
+
 * Alternatives
 
 ** desktop.el
