@@ -3686,13 +3686,13 @@ bookmarks, double for bookmarks, triple for bookmark sets."
           (apply 'bufferlo--bookmark-get-names
                  (cond
                   ((and (consp current-prefix-arg)
-                        (eq (prefix-numeric-value current-prefix-arg) 4))
+                        (= (prefix-numeric-value current-prefix-arg) 4))
                    (list #'bufferlo--bookmark-frame-handler))
                   ((and (consp current-prefix-arg)
-                        (eq (prefix-numeric-value current-prefix-arg) 16))
+                        (= (prefix-numeric-value current-prefix-arg) 16))
                    (list #'bufferlo--bookmark-tab-handler))
                   ((and (consp current-prefix-arg)
-                        (eq (prefix-numeric-value current-prefix-arg) 64))
+                        (= (prefix-numeric-value current-prefix-arg) 64))
                    (list #'bufferlo--bookmark-set-handler))
                   (t bufferlo--bookmark-handlers))))
          (comps (bufferlo--bookmark-completing-read-multiple
