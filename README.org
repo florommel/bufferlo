@@ -56,7 +56,7 @@ Note: Code examples use ~setq~ to customize options. You may also use
 ~M-x customize-group bufferlo~. Emacs 29 introduced ~setopt~ which
 works correctly in the presence of ~defcustom~ setters. Currently the
 only bufferlo option with such a setter is
-~bufferlo-bookmarks-auto-save-idle-interval~ so be sure to set that
+~bufferlo-bookmarks-auto-save-interval~ so be sure to set that
 interval timer in advance of enabling ~bufferlo-mode~.
 
 Note: Many bufferlo commands have short-hand aliases to accommodate
@@ -407,8 +407,8 @@ To set the automatic save timer, set the number of whole integer
 seconds between saves that you prefer, or 0, the default, to disable
 the timer:
 #+begin_src emacs-lisp
-  (setq bufferlo-bookmarks-auto-save-idle-interval 120) ; do this in advance of enabling `bufferlo-mode'
-  (setopt bufferlo-bookmarks-auto-save-idle-interval 120) ; or use setopt, to invoke the custom setter
+  (setq bufferlo-bookmarks-auto-save-interval 120) ; do this in advance of enabling `bufferlo-mode'
+  (setopt bufferlo-bookmarks-auto-save-interval 120) ; or use setopt, to invoke the custom setter
 #+end_src
 
 By default, bufferlo will save all active bookmarks. To select the
@@ -1106,7 +1106,7 @@ remain in force until they are saved if this policy is set to t.
     (setq bufferlo-bookmarks-save-at-emacs-exit-policy 'all)
     (setq bufferlo-bookmarks-load-at-emacs-startup 'pred)
     (setq bufferlo-bookmarks-load-at-emacs-startup-tabs-make-frame nil)
-    (setopt bufferlo-bookmarks-auto-save-idle-interval (* 60 5)) ; 5 minutes
+    (setopt bufferlo-bookmarks-auto-save-interval (* 60 5)) ; 5 minutes
     (setq bufferlo-bookmarks-auto-save-messages 'saved)
     (setq bufferlo-set-restore-geometry-policy 'all)
     (setq bufferlo-set-restore-tabs-reuse-init-frame 'reuse) ; nil 'reuse 'reuse-reset-geometry

@@ -393,12 +393,11 @@ advance that prevent duplicate frame and tab bookmarks."
 (defcustom bufferlo-bookmarks-save-predicate-functions
   (list #'bufferlo-bookmarks-save-all-p)
   "Functions to filter active bufferlo bookmarks to save.
-These are applied when
-`bufferlo-bookmarks-auto-save-idle-interval' is > 0, or manually
-via `bufferlo-bookmarks-save'.  Functions are passed the bufferlo
-bookmark name and invoked until the first positive result.  Set to
-`#'bufferlo-bookmarks-save-all-p' to save all bookmarks or
-provide your own predicates (note: be sure to remove
+These are applied when `bufferlo-bookmarks-auto-save-interval' is > 0,
+or manually via `bufferlo-bookmarks-save'.  Functions are passed the
+bufferlo bookmark name and invoked until the first positive result.  Set
+to `#'bufferlo-bookmarks-save-all-p' to save all bookmarks or provide
+your own predicates (note: be sure to remove
 `#'bufferlo-bookmarks-save-all-p' from the list)."
   :type 'hook)
 
@@ -523,7 +522,7 @@ frame bookmark is a collection of tab bookmarks."
 
 (defvar bufferlo--bookmarks-auto-save-timer nil
   "Timer to save bufferlo bookmarks.
-This is controlled by `bufferlo-bookmarks-auto-save-idle-interval'.")
+This is controlled by `bufferlo-bookmarks-auto-save-interval'.")
 
 (defun bufferlo--bookmarks-auto-save-timer-maybe-cancel ()
   "Cancel and clear the bufferlo bookmark auto-save timer, if set."
@@ -531,19 +530,20 @@ This is controlled by `bufferlo-bookmarks-auto-save-idle-interval'.")
     (cancel-timer bufferlo--bookmarks-auto-save-timer))
   (setq bufferlo--bookmarks-auto-save-timer nil))
 
-(defvar bufferlo-bookmarks-auto-save-idle-interval) ; byte compiler
+(defvar bufferlo-bookmarks-auto-save-interval) ; byte compiler
 (defun bufferlo--bookmarks-auto-save-timer-maybe-start ()
   "Start the bufferlo auto-save bookmarks timer, if needed."
   (bufferlo--bookmarks-auto-save-timer-maybe-cancel)
-  (when (> bufferlo-bookmarks-auto-save-idle-interval 0)
+  (when (and (integerp bufferlo-bookmarks-auto-save-interval)
+             (> bufferlo-bookmarks-auto-save-interval 0))
     (setq bufferlo--bookmarks-auto-save-timer
-          (run-with-idle-timer
-           bufferlo-bookmarks-auto-save-idle-interval
-           bufferlo-bookmarks-auto-save-idle-interval
+          (run-with-timer
+           bufferlo-bookmarks-auto-save-interval
+           bufferlo-bookmarks-auto-save-interval
            #'bufferlo-bookmarks-save))))
 
-(defcustom bufferlo-bookmarks-auto-save-idle-interval 0
-  "Save bufferlo bookmarks when Emacs has been idle this many seconds.
+(defcustom bufferlo-bookmarks-auto-save-interval 0
+  "Save bufferlo bookmarks every interval of this many seconds.
 Set to 0 to disable the timer.  Units are whole integer seconds."
   :type 'natnum
   :set (lambda (sym val)
@@ -3422,23 +3422,22 @@ Specify NO-MESSAGE to inhibit the bookmark save status message."
 
 (defun bufferlo-bookmarks-save (&optional all)
   "Save active bufferlo bookmarks.
-This is invoked via an optional idle timer which runs according
-to `bufferlo-bookmarks-auto-save-idle-interval', or and is
-optionally invoked at Emacs exit.
+This is invoked via an optional timer which runs according to
+`bufferlo-bookmarks-auto-save-interval', or and is optionally invoked at
+Emacs exit.
 
-You may invoke this manually at any time to save active
-bookmarks; however, doing so does not reset the save interval
-timer.
+You may invoke this manually at any time to save active bookmarks;
+however, doing so does not reset the save interval timer.
 
 Each bookmark is filtered according to
 `bufferlo-bookmarks-save-predicate-functions'.
 
-Specify ALL to ignore the predicates and save every active
-bufferlo bookmark or use a prefix argument across ALL frames,
-overriding `bufferlo-bookmarks-save-frame-policy'.
+Specify ALL to ignore the predicates and save every active bufferlo
+bookmark or use a prefix argument across ALL frames, overriding
+`bufferlo-bookmarks-save-frame-policy'.
 
-Note: if there are duplicate active bufferlo bookmarks, the last
-one to be saved will take precedence.
+Note: If there are duplicate active bufferlo bookmarks, the last one to
+be saved will take precedence.
 
 Duplicate bookmarks are handled according to
 `bufferlo-bookmarks-save-duplicates-policy'."
