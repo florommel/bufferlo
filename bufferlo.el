@@ -3003,26 +3003,32 @@ This closes their associated bookmarks and kills their buffers."
     (bufferlo--close-active-bookmarks abm-names-to-close abms)
     (bufferlo--set-clear comps)))
 
-(defvar-keymap bufferlo-set-list-mode-map
+
+
+(defvar-keymap bufferlo--set-list-mode-map
   :parent special-mode-map
   "<mouse-1>" #'bufferlo--set-list-raise-bookmark-mouse
   "RET"       #'bufferlo--set-list-raise-bookmark-kb)
 
-(define-derived-mode bufferlo-set-list-mode special-mode "bufferlo set list"
-  "Major mode for bufferlo set list.")
+(define-derived-mode bufferlo--set-list-mode special-mode "bufferlo-set-list"
+  "Major mode for bufferlo set list."
+  (setq-local help-at-pt-display-when-idle t)
+  (help-at-pt-set-timer)
+  (cursor-intangible-mode)
+  (cursor-face-highlight-mode))
 
 (defun bufferlo--set-list-raise-bookmark-mouse (event)
   "Handle mouse EVENT."
   (interactive "e")
-  (let* ((pos (event-start event))
-         (bname (get-text-property (posn-point pos) 'bookmark-name)))
+  (when-let* ((pos (event-start event))
+              (bname (get-text-property (posn-point pos) 'bookmark-name)))
     (quit-window)
     (bufferlo--bookmark-raise-by-name bname)))
 
 (defun bufferlo--set-list-raise-bookmark-kb ()
   "Handle keyboard event."
   (interactive)
-  (let ((bname (get-text-property (point) 'bookmark-name)))
+  (when-let* ((bname (get-text-property (point) 'bookmark-name)))
     (quit-window)
     (bufferlo--bookmark-raise-by-name bname)))
 
@@ -3031,46 +3037,66 @@ This closes their associated bookmarks and kills their buffers."
 (defun bufferlo-set-list-interactive ()
   "Enumerate the bookmarks in active `bookmark-sets'."
   (interactive)
+  (bufferlo--warn)
   (let* ((candidates (mapcar #'car bufferlo--active-sets))
          (comps (bufferlo--bookmark-completing-read-multiple
                  "Select sets to enumerate: "
                  candidates)))
-    (let* ((abms (bufferlo--active-bookmarks)))
+    (let* ((abms (bufferlo--active-bookmarks))
+           (intangible-text (lambda (&rest text)
+                              (let* ((text (mapconcat #'identity text))
+                                     (len (length text)))
+                                (put-text-property 0 len 'cursor-intangible t text)
+                                (put-text-property 0 len 'inhibit-isearch t text)
+                                text))))
       (with-current-buffer (get-buffer-create bufferlo--set-list-buffer-name)
         (let ((buffer-undo-list t))
           (read-only-mode -1)
           (erase-buffer))
-        (insert "----- Bufferlo Bookmarks Sets -----"
-                "\n"
-                "(RET or mouse-1 to raise a bookmark, q to quit)"
-                "\n" "\n")
-        (dolist (set-name (sort comps #'string<))
-          (insert (format "Set \"%s\"" set-name) ":"
-                  "\n")
-          (dolist (bname (sort
-                          (alist-get 'bufferlo-bookmark-names
-                                     (assoc set-name bufferlo--active-sets))
-                          #'string<))
-            (when-let* ((abm (cadr (assoc bname abms))))
-              (let* ((type (alist-get 'type abm))
-                     (frame (alist-get 'frame abm))
-                     (fname (or (frame-parameter frame 'explicit-name)
-                                (frame-parameter frame 'name)))
-                     (tab-number (alist-get 'tab-number abm))
-                     (text (format "  %-20s %-8s %-25s %s"
-                                   (truncate-string-to-width bname 20 nil nil t)
-                                   (alist-get type bufferlo--bookmark-type-names)
-                                   (truncate-string-to-width fname 25 nil nil t)
-                                   (if tab-number
-                                       (format "tab:%d" tab-number)
-                                     ""))))
-                (put-text-property 0 (length text) 'bookmark-name bname text)
-                (insert text "\n"))))
-          (insert "\n"))
-        (insert "----- END -----")
-        (bufferlo-set-list-mode)
-        (goto-char (point-min))
-        (pop-to-buffer (current-buffer) nil 'norecord)))))
+        (let ((start-point))
+          (insert (funcall intangible-text
+                           "----- Bufferlo Bookmarks Sets -----"
+                           "\n"
+                           "(RET or mouse-1 to raise a bookmark, q to quit)"
+                           "\n"
+                           "\n"))
+          (dolist (set-name (sort comps #'string<))
+            (insert (funcall intangible-text
+                             (format "Set \"%s\":\n" set-name)))
+            (unless start-point (setq start-point (1+ (point))))
+            (dolist (bname (sort
+                            (alist-get 'bufferlo-bookmark-names
+                                       (assoc set-name bufferlo--active-sets))
+                            #'string<))
+              (when-let* ((abm (cadr (assoc bname abms))))
+                (let* ((type (alist-get 'type abm))
+                       (frame (alist-get 'frame abm))
+                       (fname (or (frame-parameter frame 'explicit-name)
+                              (frame-parameter frame 'name)))
+                       (tab-number (alist-get 'tab-number abm))
+                       (text (format "  %-20s %-8s %-25s %s"
+                                 (truncate-string-to-width bname 20 nil nil t)
+                                 (alist-get type bufferlo--bookmark-type-names)
+                                 (truncate-string-to-width fname 25 nil nil t)
+                                 (if tab-number
+                                     (format "tab:%d" tab-number)
+                                   "")))
+                       (len (length text)))
+                  (put-text-property 0 len 'bookmark-name bname text)
+                  (put-text-property 0 len 'help-echo (format "RET or mouse-1: Raise bookmark %s" bname) text)
+                  (put-text-property 0 len 'kbd-help nil text) ; nil to use help-echo text
+                  (put-text-property 0 len 'mouse-face 'highlight text)
+                  (put-text-property 0 len 'cursor-face 'highlight text)
+                  (insert text)
+                  (insert (funcall intangible-text "\n")))))
+            (insert "\n"))
+          (insert (funcall intangible-text
+                           "----- END -----"))
+          (bufferlo--set-list-mode)
+          (goto-char start-point)
+          (pop-to-buffer (current-buffer) nil 'norecord))))))
+
+
 
 (defun bufferlo--bookmark-get-names (&rest handlers)
   "Get the names of all existing bookmarks for HANDLERS."
