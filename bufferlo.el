@@ -2131,20 +2131,22 @@ local buffer list to use.  If it is nil, the current frame is used."
                         buffers)))
     (seq-union buffers-excl buffers-incl)))
 
-(defun bufferlo--bookmark-get-for-buffers-in-tab (frame)
+(defun bufferlo--bookmark-get-for-buffers-in-tab (buffers)
   "Get bookmarks for all buffers of the selected tab in FRAME."
-  (with-selected-frame (or frame (selected-frame))
-    (seq-filter #'identity
-                (mapcar #'bufferlo--bookmark-get-for-buffer
-                        (bufferlo--bookmark-filter-buffers frame)))))
+  (seq-filter #'identity
+              (mapcar #'bufferlo--bookmark-get-for-buffer
+                      buffers)))
 
 (defun bufferlo--bookmark-tab-make (&optional frame)
   "Get the bufferlo tab bookmark for the current tab in FRAME.
 FRAME specifies the frame; the default value of nil selects the current frame."
-  `((buffer-bookmarks . ,(bufferlo--bookmark-get-for-buffers-in-tab frame))
-    (buffer-list . ,(mapcar #'buffer-name (bufferlo-buffer-list frame nil t)))
-    (window . ,(window-state-get (frame-root-window frame) 'writable))
-    (handler . ,#'bufferlo--bookmark-tab-handler)))
+  (let ((filtered-buffers
+         (with-selected-frame (or frame (selected-frame))
+           (bufferlo--bookmark-filter-buffers frame))))
+    `((buffer-bookmarks . ,(bufferlo--bookmark-get-for-buffers-in-tab filtered-buffers))
+      (buffer-list . ,(mapcar #'buffer-name filtered-buffers))
+      (window . ,(window-state-get (frame-root-window frame) 'writable))
+      (handler . ,#'bufferlo--bookmark-tab-handler))))
 
 (defun bufferlo--ws-replace-buffer-names (ws replace-alist)
   "Replace buffer names according to REPLACE-ALIST in the window state WS."
