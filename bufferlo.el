@@ -2310,7 +2310,8 @@ this bookmark is embedded in a frame bookmark."
             ('replace)
             ('new
              (unless (consp current-prefix-arg) ; user new tab suppression
-               (tab-bar-new-tab-to)))))
+               (let ((tab-bar-new-tab-choice t))
+                 (tab-bar-new-tab-to))))))
 
         ;; Handle an independent tab bookmark inside a frame bookmark
         (when (and bookmark-name
