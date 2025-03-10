@@ -637,6 +637,23 @@ bookmark set is loaded.
   (setq bufferlo-set-restore-tabs-reuse-init-frame nil) ; always make new frames
 #+end_src
 
+*** Bookmark handler hooks
+
+You can add your own functions to the following abnormal hooks to be
+called upon successful loading of tab, frame, and set bookmarks. See
+the docstrings for each function for its calling conventions.
+
+Example: You could use a tab handler function to set the tab-bar group
+for each loaded tab to its source bookmark name. While tab-bar does
+have ~tab-bar-tab-post-open-functions~, the bookmark context will not
+be available when those functions are called.
+
+#+begin_src emacs-lisp
+  (add-hook 'bufferlo-bookmark-tab-handler-functions #'tab-bookmark-fun)
+  (add-hook 'bufferlo-bookmark-frame-handler-functions #'frame-bookmark-fun)
+  (add-hook 'bufferlo-bookmark-set-handler-functions #'set-bookmark-fun)
+#+end_src
+
 *** Frame geometry options
 
 Bufferlo provides wrappers around Emacs frame functions to provide

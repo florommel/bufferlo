@@ -515,6 +515,30 @@ These functions are also called when creating a frame bookmark, since a
 frame bookmark is a collection of tab bookmarks."
   :type 'hook)
 
+(defcustom bufferlo-bookmark-tab-handler-functions nil
+  "Abnormal hooks to call after a bookmark tab is handled.
+Each function takes the following arguments:
+  bookmark-name: source bookmark name
+  effective-bookmark-name: nil, if tab bookmark cleared
+  tab: the handled tab"
+  :type 'hook)
+
+(defcustom bufferlo-bookmark-frame-handler-functions nil
+  "Abnormal hooks to call after a bookmark frame is handled.
+Each function takes the following arguments:
+  bookmark-name: source bookmark name
+  effective-bookmark-name: nil, if frame bookmark cleared
+  new-frame-p: t if this is a new frame, nil if a reused frame
+  frame: the handled frame"
+  :type 'hook)
+
+(defcustom bufferlo-bookmark-set-handler-functions nil
+  "Abnormal hooks to call after a bookmark set is handled.
+Each function takes the following arguments:
+  bookmark-name: source bookmark name
+  set-bookmark-names: bookmark names handled"
+  :type 'hook)
+
 (defvar bufferlo--desktop-advice-active nil)
 (defvar bufferlo--desktop-advice-active-force nil)
 
@@ -2331,7 +2355,13 @@ this bookmark is embedded in a frame bookmark."
         (set-frame-parameter nil 'buried-buffer-list nil)
         (setf (alist-get 'bufferlo-bookmark-tab-name
                          (cdr (bufferlo--current-tab)))
-              (unless disconnect-tbm-p bookmark-name)))
+              (unless disconnect-tbm-p bookmark-name))
+
+        (run-hook-with-args
+         'bufferlo-bookmark-tab-handler-functions
+         bookmark-name
+         (unless disconnect-tbm-p bookmark-name)
+         (bufferlo--current-tab)))
 
       ;; Log message
       (unless (or no-message bufferlo--bookmark-handler-no-message)
@@ -2494,7 +2524,14 @@ the message after successfully restoring the bookmark."
 
          ;; Select and raise the restored frame outside the context
          ;; of with-selected-frame
-         (select-frame-set-input-focus frame)))
+         (select-frame-set-input-focus frame)
+
+         (run-hook-with-args
+          'bufferlo-bookmark-frame-handler-functions
+          bookmark-name
+          fbm
+          new-frame-p
+          frame)))
 
       (unless (or new-frame-p pop-up-frames)
         ;; Switch to the to-be-selected buffer in the current frame.
@@ -2843,6 +2880,11 @@ the message after successfully restoring the bookmark."
     ;; Add the set to the active list
     (push `(,bookmark-name (bufferlo-bookmark-names . ,bufferlo-bookmark-names))
           bufferlo--active-sets)
+
+    (run-hook-with-args
+     'bufferlo-bookmark-set-handler-functions
+     bookmark-name
+     bufferlo-bookmark-names)
 
     (unless (or no-message bufferlo--bookmark-handler-no-message)
       (message "Restored bufferlo bookmark set %s %s"
