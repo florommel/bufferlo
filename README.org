@@ -747,8 +747,8 @@ references to your files and buffers. Many Emacs modes support Emacs
 bookmarks and can be saved and recalled including ~eshell~ and
 ~magit-status~ buffers. The state of non-bookmarkable buffers is not
 saved. However, during bookmark saving, they are included in the
-bookmark record. At this time, Emacs does not support ~*shell*~ buffer
-bookmarks.
+bookmark record. Emacs 31 has support for ~shell-mode~ local and
+remote buffer bookmarks.
 
 Restoring bookmarks correctly handles renamed buffers with unchanged
 file association (e.g., when Emacs had to "uniquify" buffer names).
@@ -1130,6 +1130,8 @@ remain in force until they are saved if this policy is set to t.
     (setq bufferlo-frameset-restore-geometry 'bufferlo)
     (setq bufferlo-frame-geometry-function #'bufferlo-frame-geometry-default)
     (setq bufferlo-frame-sleep-for 0.3)
+
+    (setq bookmark-bmenu-type-column-width 12) ; supported in Emacs 31 (innocuous on earlier versions)
 
     (setq bufferlo-bookmark-buffers-exclude-filters
           (list
