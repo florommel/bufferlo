@@ -720,6 +720,7 @@ No delay seems needed on macOS."
 
 (defvar bufferlo-mode) ; byte compiler
 (defvar bufferlo-mode-line-menu) ; byte compiler
+
 (defun bufferlo--mode-line-format-helper (abm str face)
   "Bufferlo mode-line helper to add face and mouse features.
 Where ABM is the current active bookmark, STR is the mode-line
@@ -745,6 +746,7 @@ string, FACE is the face for STR."
              map)))
 
 (defvar bufferlo--active-sets) ; byte compiler
+
 (defun bufferlo-mode-line-format ()
   "Bufferlo mode-line format to display the current active frame or tab bookmark."
   (when bufferlo-mode
@@ -753,37 +755,51 @@ string, FACE is the face for STR."
                            (tab-bar--current-tab-find
                             (frame-parameter nil 'tabs))))
            (set-active (> (length bufferlo--active-sets) 0))
-           (abm (concat (when fbm (format "%s (Frame)" fbm))
-                        (when (and fbm tbm) ", ")
-                        (when tbm (format "%s (Tab)" tbm)))))
-      (concat
-       (bufferlo--mode-line-format-helper abm bufferlo-mode-line-prefix
-                                          'bufferlo-mode-line-face)
-       (when (and bufferlo-mode-line-left-prefix (or set-active fbm tbm))
-         (bufferlo--mode-line-format-helper
-          abm bufferlo-mode-line-left-prefix 'bufferlo-mode-line-face))
-       (when set-active
-         (bufferlo--mode-line-format-helper
-          abm
-          (concat bufferlo-mode-line-set-active-prefix
-                  (when (or fbm tbm) bufferlo-mode-line-delimiter))
-          'bufferlo-mode-line-set-face))
-       (when fbm
-         (bufferlo--mode-line-format-helper
-          abm
-          (concat bufferlo-mode-line-frame-prefix
-                  fbm (when tbm bufferlo-mode-line-delimiter))
-          'bufferlo-mode-line-frame-bookmark-face))
-       (when tbm
-         (bufferlo--mode-line-format-helper
-          abm
-          (concat bufferlo-mode-line-tab-prefix tbm)
-          'bufferlo-mode-line-tab-bookmark-face))
-       (when (and bufferlo-mode-line-right-suffix (or set-active fbm tbm))
-         (bufferlo--mode-line-format-helper
-          abm bufferlo-mode-line-right-suffix 'bufferlo-mode-line-face))))))
+           (cache (window-parameter nil 'bufferlo--mode-line-cache)))
+      (if (equal (cdr cache) (list fbm tbm set-active))
+          (car cache)
+        (let* ((abm (concat (when fbm (format "%s (Frame)" fbm))
+                            (when (and fbm tbm) ", ")
+                            (when tbm (format "%s (Tab)" tbm))))
+               (str (concat
+                     (bufferlo--mode-line-format-helper
+                      abm bufferlo-mode-line-prefix 'bufferlo-mode-line-face)
+                     (when (and bufferlo-mode-line-left-prefix
+                                (or set-active fbm tbm))
+                       (bufferlo--mode-line-format-helper
+                        abm
+                        bufferlo-mode-line-left-prefix
+                        'bufferlo-mode-line-face))
+                     (when set-active
+                       (bufferlo--mode-line-format-helper
+                        abm
+                        (concat bufferlo-mode-line-set-active-prefix
+                                (when (or fbm tbm) bufferlo-mode-line-delimiter))
+                        'bufferlo-mode-line-set-face))
+                     (when fbm
+                       (bufferlo--mode-line-format-helper
+                        abm
+                        (concat bufferlo-mode-line-frame-prefix
+                                fbm
+                                (when tbm bufferlo-mode-line-delimiter))
+                        'bufferlo-mode-line-frame-bookmark-face))
+                     (when tbm
+                       (bufferlo--mode-line-format-helper
+                        abm
+                        (concat bufferlo-mode-line-tab-prefix tbm)
+                        'bufferlo-mode-line-tab-bookmark-face))
+                     (when (and bufferlo-mode-line-right-suffix
+                                (or set-active fbm tbm))
+                       (bufferlo--mode-line-format-helper
+                        abm
+                        bufferlo-mode-line-right-suffix
+                        'bufferlo-mode-line-face))))
+               (str (if (string-empty-p str) "" (concat " " str))))
+          (set-window-parameter nil 'bufferlo--mode-line-cache
+                                (list str fbm tbm set-active))
+          str)))))
 
-(defcustom bufferlo-mode-line '(:eval (bufferlo-mode-line-format))
+(defcustom bufferlo-mode-line '(bufferlo-mode (:eval (bufferlo-mode-line-format)))
   "Bufferlo mode line definition."
   :type 'sexp
   :risky t)
@@ -855,11 +871,13 @@ string, FACE is the face for STR."
   :global t
   :require 'bufferlo
   :init-value nil
+  :lighter nil
   :keymap bufferlo-mode-map
   (setq mode-line-misc-info (delete bufferlo-mode-line mode-line-misc-info))
   (if bufferlo-mode
       (progn
-        (bufferlo--parse-command-line) ; parse user-provided settings first
+        (unless after-init-time
+          (bufferlo--parse-command-line)) ; parse user-provided settings first
         ;; Prefer local buffers
         (when bufferlo-prefer-local-buffers
           (dolist (frame (frame-list))
@@ -902,9 +920,10 @@ string, FACE is the face for STR."
         (when (not (eq bufferlo-bookmarks-save-at-emacs-exit 'nosave))
           (add-hook 'kill-emacs-hook #'bufferlo--bookmarks-save-at-emacs-exit))
         ;; load bookmarks at startup option
-        (when (and (not bufferlo--command-line-noload)
-                   (not (eq bufferlo-bookmarks-load-at-emacs-startup 'noload)))
-          (add-hook 'window-setup-hook #'bufferlo--bookmarks-load-startup))
+        (unless after-init-time
+          (when (and (not bufferlo--command-line-noload)
+                     (not (eq bufferlo-bookmarks-load-at-emacs-startup 'noload)))
+            (add-hook 'window-setup-hook #'bufferlo--bookmarks-load-startup)))
         ;; Save bookmark on close-tab and delete-frame
         (add-hook 'tab-bar-tab-pre-close-functions
                   #'bufferlo-bookmark--tab-save-on-close)
