@@ -1918,45 +1918,19 @@ The parameters OTHER-WINDOW-P NOSELECT SHRINK are passed to `ibuffer'."
     (ibuffer other-window-p name '((bufferlo-orphan-buffers . nil))
              noselect shrink)))
 
-(eval-when-compile
-  (if (< emacs-major-version 31)
-      (define-ibuffer-op ibuffer-do-bufferlo-remove ()
-        "Remove marked buffers from bufferlo's local buffer list."
-        (
-         :active-opstring "remove from bufferlo locals" ; prompt
-         :opstring "removed from bufferlo locals:" ; success
-         :modifier-p t
-         :dangerous t
-         :complex t
-         :after (ibuffer-update nil t)
-         )
-        (when bufferlo-mode
-          (bufferlo-remove buf)
-          t))
-
-    (defun bufferlo--ibuffer-do-bufferlo-remove-prompt (op)
-      "`ibuffer' prompt helper for OP."
-      (let ((bookmark-name (bufferlo--current-bookmark-name)))
-        (format "%s from %slocals:" op
-                (if bookmark-name
-                    (format "bufferlo bookmark \"%s\" " bookmark-name)
-                  ""))))
-
-    (define-ibuffer-op ibuffer-do-bufferlo-remove ()
-      "Remove marked buffers from bufferlo\'s local buffer list."
-      (
-       :active-opstring (lambda ()
-                        (bufferlo--ibuffer-do-bufferlo-remove-prompt "remove"))
-       :opstring (lambda ()
-                 (bufferlo--ibuffer-do-bufferlo-remove-prompt "removed"))
-       :modifier-p t
-       :dangerous t
-       :complex t
-       :after (ibuffer-update nil t)
-       )
-      (when bufferlo-mode
-        (bufferlo-remove buf)
-        t))))
+(define-ibuffer-op ibuffer-do-bufferlo-remove ()
+  "Remove marked buffers from bufferlo's local buffer list."
+  (
+   :active-opstring "remove from bufferlo locals" ; prompt
+   :opstring "removed from bufferlo locals:" ; success
+   :modifier-p t
+   :dangerous t
+   :complex t
+   :after (ibuffer-update nil t)
+   )
+  (when bufferlo-mode
+    (bufferlo-remove buf)
+    t))
 
 (when bufferlo-ibuffer-bind-keys
   (define-key ibuffer-mode-map "-" #'ibuffer-do-bufferlo-remove))
@@ -2132,7 +2106,7 @@ local buffer list to use.  If it is nil, the current frame is used."
     (seq-union buffers-excl buffers-incl)))
 
 (defun bufferlo--bookmark-get-for-buffers-in-tab (buffers)
-  "Get bookmarks for all buffers of the selected tab in FRAME."
+  "Get bookmarks for all BUFFERS of the selected tab in FRAME."
   (seq-filter #'identity
               (mapcar #'bufferlo--bookmark-get-for-buffer
                       buffers)))
