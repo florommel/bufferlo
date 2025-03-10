@@ -891,10 +891,11 @@ string, FACE is the face for STR."
         (advice-add #'tab-bar-undo-close-tab
                     :around #'bufferlo--tab-bar-undo-close-tab-advice)
         ;; Switch-tab workaround
-        (advice-add #'tab-bar-select-tab
-                    :around #'bufferlo--clear-buffer-lists-activate)
-        (advice-add #'tab-bar--tab
-                    :after #'bufferlo--clear-buffer-lists)
+        (when (< emacs-major-version 31)
+          (advice-add #'tab-bar-select-tab
+                      :around #'bufferlo--clear-buffer-lists-activate)
+          (advice-add #'tab-bar--tab
+                      :after #'bufferlo--clear-buffer-lists))
         ;; Set up bookmarks save timer
         (bufferlo--bookmarks-auto-save-timer-maybe-start)
         ;; kill-emacs-hook save bookmarks option
@@ -941,8 +942,9 @@ string, FACE is the face for STR."
     (advice-remove #'tab-bar-undo-close-tab
                    #'bufferlo--tab-bar-undo-close-tab-advice)
     ;; Switch-tab workaround
-    (advice-remove #'tab-bar-select-tab #'bufferlo--clear-buffer-lists-activate)
-    (advice-remove #'tab-bar--tab #'bufferlo--clear-buffer-lists)
+    (when (< emacs-major-version 31)
+      (advice-remove #'tab-bar-select-tab #'bufferlo--clear-buffer-lists-activate)
+      (advice-remove #'tab-bar--tab #'bufferlo--clear-buffer-lists))
     ;; Cancel bookmarks save timer
     (bufferlo--bookmarks-auto-save-timer-maybe-cancel)
     ;; kill-emacs-hook save bookmarks option
