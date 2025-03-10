@@ -2133,13 +2133,20 @@ local buffer list to use.  If it is nil, the current frame is used."
 (defun bufferlo--bookmark-tab-make (&optional frame)
   "Get the bufferlo tab bookmark for the current tab in FRAME.
 FRAME specifies the frame; the default value of nil selects the current frame."
-  (let ((filtered-buffers
-         (with-selected-frame (or frame (selected-frame))
-           (bufferlo--bookmark-filter-buffers frame))))
-    `((buffer-bookmarks . ,(bufferlo--bookmark-get-for-buffers-in-tab filtered-buffers))
-      (buffer-list . ,(mapcar #'buffer-name filtered-buffers))
-      (window . ,(window-state-get (frame-root-window frame) 'writable))
-      (handler . ,#'bufferlo--bookmark-tab-handler))))
+  (setq frame (or frame (selected-frame)))
+  (with-selected-frame frame
+    (let ((filtered-buffers
+           (bufferlo--bookmark-filter-buffers))
+          (current-tab (bufferlo--current-tab)))
+      `((tab-explicit-name . ,(when (alist-get 'explicit-name current-tab)
+                                (alist-get 'name current-tab)))
+        (tab-group . ,(alist-get 'group current-tab))
+        (buffer-bookmarks . ,(bufferlo--bookmark-get-for-buffers-in-tab
+                              filtered-buffers))
+        (buffer-list . ,(mapcar #'buffer-name
+                                filtered-buffers))
+        (window . ,(window-state-get (frame-root-window) 'writable))
+        (handler . ,#'bufferlo--bookmark-tab-handler)))))
 
 (defun bufferlo--ws-replace-buffer-names (ws replace-alist)
   "Replace buffer names according to REPLACE-ALIST in the window state WS."
@@ -2306,7 +2313,15 @@ this bookmark is embedded in a frame bookmark."
             ('new
              (unless (consp current-prefix-arg) ; user new tab suppression
                (let ((tab-bar-new-tab-choice t))
-                 (tab-bar-new-tab-to))))))
+                 (tab-bar-new-tab-to)
+                 (let ((current-tab (cdr (bufferlo--current-tab)))
+                       (tab-explicit-name (alist-get 'tab-explicit-name bookmark))
+                       (tab-group (alist-get 'tab-group bookmark)))
+                   (when tab-explicit-name
+                     (setf (alist-get 'name current-tab) tab-explicit-name)
+                     (setf (alist-get 'explicit-name current-tab) t))
+                   (when tab-group
+                     (tab-bar-change-tab-group tab-group))))))))
 
         ;; Handle an independent tab bookmark inside a frame bookmark
         (when (and bookmark-name
