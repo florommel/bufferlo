@@ -906,8 +906,11 @@ string, FACE is the face for STR."
           (advice-add #'undelete-frame :around
                       #'bufferlo--clone-undelete-frame-advice))
         ;; Undo close tab duplicate check
-        (advice-add #'tab-bar-undo-close-tab
-                    :around #'bufferlo--tab-bar-undo-close-tab-advice)
+        (if (< emacs-major-version 31)
+            (advice-add #'tab-bar-undo-close-tab
+                        :around #'bufferlo--tab-bar-undo-close-tab-advice)
+          (add-hook 'tab-bar-post-undo-close-tab-functions
+                    #'bufferlo--tab-post-undo-close-tab-function))
         ;; Switch-tab workaround
         (when (< emacs-major-version 31)
           (advice-add #'tab-bar-select-tab
@@ -958,8 +961,11 @@ string, FACE is the face for STR."
     (when (>= emacs-major-version 29)
       (advice-remove #'undelete-frame #'bufferlo--clone-undelete-frame-advice))
     ;; Undo close tab duplicate check
-    (advice-remove #'tab-bar-undo-close-tab
-                   #'bufferlo--tab-bar-undo-close-tab-advice)
+    (if (< emacs-major-version 31)
+        (advice-remove #'tab-bar-undo-close-tab
+                       #'bufferlo--tab-bar-undo-close-tab-advice)
+      (remove-hook 'tab-bar-post-undo-close-tab-functions
+                   #'bufferlo--tab-post-undo-close-tab-function))
     ;; Switch-tab workaround
     (when (< emacs-major-version 31)
       (advice-remove #'tab-bar-select-tab #'bufferlo--clear-buffer-lists-activate)
@@ -1379,15 +1385,10 @@ advised functions.  Honors `bufferlo-bookmark-frame-duplicate-policy'."
                          (or msg ""))))
           (delete-frame))))))
 
-(defun bufferlo--tab-bar-undo-close-tab-advice (oldfn &rest args)
-  "Activate the advice for `tab-bar-undo-close-tab'.
-OLDFN is the original function.  ARGS is for compatibility with
-the advised functions.  Honors `bufferlo-bookmark-tab-duplicate-policy'."
-  (let ((bufferlo--desktop-advice-active t)
-        (bufferlo--desktop-advice-active-force t))
-    (apply oldfn args))
-  (when-let* ((current-tab (bufferlo--current-tab))
-              (bookmark-name (alist-get 'bufferlo-bookmark-tab-name current-tab))
+(defun bufferlo--tab-post-undo-close-tab-function (tab)
+  "Handle `tab-bar-undo-close-tab' TAB.
+Honors `bufferlo-bookmark-tab-duplicate-policy'."
+  (when-let* ((bookmark-name (alist-get 'bufferlo-bookmark-tab-name tab))
               (this+at-least-one-other
                (when (> (seq-count (lambda (x) (string= bookmark-name (car x)))
                                    (bufferlo--active-bookmarks)) 1)
@@ -1415,13 +1416,20 @@ the advised functions.  Honors `bufferlo-bookmark-tab-duplicate-policy'."
                     (assoc bookmark-name (bufferlo--active-bookmarks)))
                    (throw :raise t)))
                 (setf (alist-get 'bufferlo-bookmark-tab-name
-                                 (cdr current-tab))
+                                 (cdr tab))
                       bookmark-name))
               (when msg
                 (message "Undo close tab bufferlo bookmark%s%s"
                          (if bookmark-name (format ": %s" bookmark-name) "")
                          (or msg ""))))
           (tab-bar-close-tab))))))
+
+(defun bufferlo--tab-bar-undo-close-tab-advice (oldfn &rest args)
+  "Activate the advice for `tab-bar-undo-close-tab'."
+  (let ((bufferlo--desktop-advice-active t)
+        (bufferlo--desktop-advice-active-force t))
+    (apply oldfn args))
+  (bufferlo--tab-post-undo-close-tab-function (bufferlo--current-tab)))
 
 (defsubst bufferlo--warn ()
   "Warn if `bufferlo-mode' is not enabled."
