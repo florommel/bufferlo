@@ -1962,13 +1962,13 @@ The parameters OTHER-WINDOW-P NOSELECT SHRINK are passed to `ibuffer'."
            (bufferlo-remove buf)
            t))
 
-    '(defun bufferlo--ibuffer-do-bufferlo-remove-prompt (op)
-       "`ibuffer' prompt helper for OP."
-       (let ((bookmark-name (bufferlo--current-bookmark-name)))
-         (format "%s from %slocals:" op
-                 (if bookmark-name
-                     (format "bufferlo bookmark \"%s\" " bookmark-name)
-                   ""))))
+    (defun bufferlo--ibuffer-do-bufferlo-remove-prompt (op)
+      "`ibuffer' prompt helper for OP."
+      (let ((bookmark-name (bufferlo--current-bookmark-name)))
+        (format "%s from %slocals:" op
+                (if bookmark-name
+                    (format "bufferlo bookmark \"%s\" " bookmark-name)
+                  ""))))
 
     '(define-ibuffer-op ibuffer-do-bufferlo-remove ()
        "Remove marked buffers from bufferlo's local buffer list."
