@@ -2425,7 +2425,8 @@ this bookmark is embedded in a frame bookmark."
   "Make a bufferlo frame bookmark.
 FRAME specifies the frame; the default value of nil selects the current frame."
   (let ((orig-tab (1+ (tab-bar--current-tab-index nil frame)))
-        (tabs nil))
+        (tab-bar-tab-post-select-functions)
+        (tabs))
     (dotimes (i (length (funcall tab-bar-tabs-function frame)))
       (tab-bar-select-tab (1+ i))
       (let* ((curr (alist-get 'current-tab
@@ -3568,7 +3569,7 @@ Equality test is \\='equal."
 Specify NO-MESSAGE to inhibit the bookmark save status message."
   (let ((bookmarks-saved nil)
         (start-time (current-time)))
-    ; Inhibit built-in bookmark file saving until we're done
+    ;; Inhibit built-in bookmark file saving until we're done
     (let ((bookmark-save-flag nil))
       (dolist (abm-name active-bookmark-names)
         (when-let* ((abm (assoc abm-name active-bookmarks))
@@ -3579,7 +3580,8 @@ Specify NO-MESSAGE to inhibit the bookmark save status message."
              ((eq abm-type 'fbm)
               (bufferlo--bookmark-frame-save abm-name nil t))
              ((eq abm-type 'tbm)
-              (let ((orig-tab-number (1+ (tab-bar--current-tab-index))))
+              (let ((orig-tab-number (1+ (tab-bar--current-tab-index)))
+                    (tab-bar-tab-post-select-functions))
                 (tab-bar-select-tab (alist-get 'tab-number (cadr abm)))
                 (bufferlo--bookmark-tab-save abm-name nil t)
                 (tab-bar-select-tab orig-tab-number))))
@@ -3922,7 +3924,8 @@ which defaults to all frames, if not specified."
     (dolist (abm tbms)
       (let ((abm-frame (alist-get 'frame (cadr abm)))
             (orig-frame (selected-frame))
-            (abm-tab-number (alist-get 'tab-number (cadr abm))))
+            (abm-tab-number (alist-get 'tab-number (cadr abm)))
+            (tab-bar-tab-post-select-functions))
         (with-selected-frame abm-frame
           ;; If called in a batch, raise frame in case of prompts for buffers
           ;; that need saving:
