@@ -447,9 +447,9 @@ To save your bufferlo bookmarks at Emacs exit (set in advance of
 enabling ~bufferlo-mode~):
 
 #+begin_src emacs-lisp
-  (setq bufferlo-bookmarks-save-at-emacs-exit-policy 'nosave) ; inhibit saving at exit (default)
-  (setq bufferlo-bookmarks-save-at-emacs-exit-policy 'pred) ; save active bookmark names that match your predicates
-  (setq bufferlo-bookmarks-save-at-emacs-exit-policy 'all) ; save all active bookmarks
+  (setq bufferlo-bookmarks-save-at-emacs-exit 'nosave) ; inhibit saving at exit (default)
+  (setq bufferlo-bookmarks-save-at-emacs-exit 'pred) ; save active bookmark names that match your predicates
+  (setq bufferlo-bookmarks-save-at-emacs-exit 'all) ; save all active bookmarks
 #+end_src
 
 Workflow tip: If you would like to be able to restore a bookmark's
@@ -1120,7 +1120,7 @@ remain in force until they are saved if this policy is set to t.
     (setq bufferlo-bookmarks-save-duplicates-policy 'prompt)
     (setq bufferlo-bookmarks-save-frame-policy 'all)
     (setq bufferlo-bookmarks-load-tabs-make-frame t)
-    (setq bufferlo-bookmarks-save-at-emacs-exit-policy 'all)
+    (setq bufferlo-bookmarks-save-at-emacs-exit 'all)
     (setq bufferlo-bookmarks-load-at-emacs-startup 'pred)
     (setq bufferlo-bookmarks-load-at-emacs-startup-tabs-make-frame nil)
     (setopt bufferlo-bookmarks-auto-save-interval (* 60 5)) ; 5 minutes
