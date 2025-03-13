@@ -2398,6 +2398,17 @@ this bookmark is embedded in a frame bookmark."
              (bl (mapcar #'get-buffer bl)))
         (kill-buffer dummy)
         (bufferlo--ws-replace-buffer-names ws renamed)
+        ;; We do the following to work around two problems with
+        ;; bookmark--jump-via.  In older versions, when called
+        ;; interactively and not through bufferlo commands, it calls a
+        ;; display-function which could interfere with
+        ;; window-state-put.
+        ;;
+        ;; In Emacs 31, bookmark--jump-via wraps the bookmark-handler
+        ;; call with save-window-excursion which restores the
+        ;; window-configuration after we've just restored the one from
+        ;; the bookmark.  We let bookmark--jump-via be evil and defer
+        ;; window-state-put until after bookmark--jump-via is done.
         (progn
           ;; NOTE: We are assuming that no intervening timers that may
           ;; run here will change the selected frame, or alter the tab
