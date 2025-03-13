@@ -2398,7 +2398,22 @@ this bookmark is embedded in a frame bookmark."
              (bl (mapcar #'get-buffer bl)))
         (kill-buffer dummy)
         (bufferlo--ws-replace-buffer-names ws renamed)
-        (window-state-put ws (frame-root-window) 'safe)
+        (progn
+          ;; NOTE: We are assuming that no intervening timers that may
+          ;; run here will change the selected frame, or alter the tab
+          ;; bar which may alter tab order, invalidating tab-number.
+          (run-at-time nil nil
+	               (lambda (frame tab-number ws)
+                         (with-selected-frame frame ; defensive
+                           (let ((tab-bar-tab-post-select-functions))
+                             (tab-bar-select-tab tab-number)
+		             (window-state-put ws (frame-root-window) 'safe))))
+                       (selected-frame)
+                       (1+ (tab-bar--current-tab-index))
+                       ws)
+          ;; Force the timer to run immediately before the next tab is
+          ;; loaded by `bufferlo--bookmark-frame-handler'.
+          (sit-for 0))
         (set-frame-parameter nil 'buffer-list bl)
         (set-frame-parameter nil 'buried-buffer-list nil)
         (setf (alist-get 'bufferlo-bookmark-tab-name
