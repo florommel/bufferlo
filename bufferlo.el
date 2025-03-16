@@ -2424,18 +2424,40 @@ this bookmark is embedded in a frame bookmark."
         ;; Note that we replace buffer names with buffers in ws.
         ;; `window-state-put' accepts this.
         (bufferlo--ws-replace-buffer-names ws renamed)
-        (window-state-put ws (frame-root-window) 'safe)
-        (set-frame-parameter nil 'buffer-list bl)
-        (set-frame-parameter nil 'buried-buffer-list nil)
-        (setf (alist-get 'bufferlo-bookmark-tab-name
-                         (cdr (bufferlo--current-tab)))
-              (unless disconnect-tbm-p bookmark-name))
-
-        (run-hook-with-args
-         'bufferlo-bookmark-tab-handler-functions
-         bookmark-name
-         (unless disconnect-tbm-p bookmark-name)
-         (bufferlo--current-tab)))
+        ;; We do the following to work around two problems with
+        ;; bookmark--jump-via.  In older versions, when called
+        ;; interactively and not through bufferlo commands, it calls a
+        ;; display-function which could interfere with
+        ;; window-state-put.
+        ;;
+        ;; In Emacs 31, bookmark--jump-via wraps the bookmark-handler
+        ;; call with save-window-excursion which restores the
+        ;; window-configuration after we've just restored the one from
+        ;; the bookmark.  We let bookmark--jump-via be evil and defer
+        ;; window-state-put until after bookmark--jump-via is done.
+        (let ((bm-after-jump-hook-sym (gensym "bufferlo-bm-after-jump-"))
+              (frame (selected-frame))
+              (tab-number (1+ (tab-bar--current-tab-index)))
+              (buffer (current-buffer)))
+          (fset bm-after-jump-hook-sym
+                (lambda ()
+                  (remove-hook 'bookmark-after-jump-hook bm-after-jump-hook-sym)
+                  (with-selected-frame frame ; defensive
+                    (let ((tab-bar-tab-post-select-functions))
+                      (tab-bar-select-tab tab-number) ; defensive
+	              (window-state-put ws (frame-root-window) 'safe)
+                      (set-frame-parameter nil 'buffer-list bl)
+                      (set-frame-parameter nil 'buried-buffer-list nil)
+                      (setf (alist-get 'bufferlo-bookmark-tab-name
+                                       (cdr (bufferlo--current-tab)))
+                            (unless disconnect-tbm-p bookmark-name))
+                      (sit-for 0)
+                      (run-hook-with-args
+                       'bufferlo-bookmark-tab-handler-functions
+                       bookmark-name
+                       (unless disconnect-tbm-p bookmark-name)
+                       (bufferlo--current-tab))))))
+          (add-hook 'bookmark-after-jump-hook bm-after-jump-hook-sym -99)))
 
       ;; Log message
       (unless (or no-message bufferlo--bookmark-handler-no-message)
