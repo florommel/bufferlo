@@ -2185,14 +2185,26 @@ FRAME specifies the frame; the default value of nil selects the current frame."
 
 (defun bufferlo--ws-replace-buffer-names (ws replace-alist)
   "Replace buffer names according to REPLACE-ALIST in the window state WS."
-  (dolist (el ws)
-    (when-let* ((type (and (listp el) (car el))))
-      (cond ((memq type '(vc hc))
-             (bufferlo--ws-replace-buffer-names (cdr el) replace-alist))
-            ((eq type 'leaf)
-             (let ((bc (assq 'buffer (cdr el))))
-               (when-let* ((replace (assoc (cadr bc) replace-alist)))
-                 (setf (cadr bc) (cdr replace)))))))))
+  (mapc (lambda (el)
+          (when (memq (car el) '(leaf vc hc))
+            (bufferlo--ws-replace-buffer-names el replace-alist)))
+        (if (consp (car ws))
+            (list (cdr ws))
+          (cdr ws)))
+  ;; Replace name in the buffer field
+  (when-let* ((buffer-loc (assq 'buffer ws))
+              (buffer (cadr buffer-loc))
+              (replace (assoc buffer replace-alist)))
+    (setf (cadr buffer-loc) (cdr replace)))
+  ;; Replace names in the prev-buffers list
+  (when-let* ((prev-buffers-loc (assq 'prev-buffers ws))
+              (prev-buffers (cdr prev-buffers-loc)))
+    (setf (cdr prev-buffers-loc)
+          (mapcar (lambda (be)
+                    (if-let ((replace (assoc (car be) replace-alist)))
+                        (cons (cdr replace) (cdr be))
+                      be))
+                  prev-buffers))))
 
 (defvar bufferlo--bookmark-set-loading nil
   "Let bind to t when a bookmark set is being loaded.
@@ -2386,17 +2398,25 @@ this bookmark is embedded in a frame bookmark."
                              (message "Bufferlo bookmark: Could not restore %s (error %s)"
                                       orig-name err)))
                           (unless (eq (current-buffer) dummy)
-                            (unless (string-equal orig-name (buffer-name))
-                              (cons orig-name (buffer-name)))))))
+                            ;; Return a list of (cons <string> <buffer>).
+                            ;; The buffer may be renamed later (by uniquify).
+                            ;; Using the buffer name directly would not
+                            ;; account for this!
+                            (cons orig-name (current-buffer))))))
              (renamed (mapcar restore (alist-get 'buffer-bookmarks bookmark)))
              (replace-renamed (lambda (b)
                                 (if-let* ((replace
                                            (assoc b renamed)))
                                     (cdr replace) b)))
              (bl (mapcar replace-renamed (alist-get 'buffer-list bookmark)))
+             ;; Some of the bl items may already be buffers after renaming.
+             ;; Others are still buffer names (strings).  These items had no
+             ;; bookmark associated with them.
              (bl (seq-filter #'get-buffer bl))
              (bl (mapcar #'get-buffer bl)))
         (kill-buffer dummy)
+        ;; Note that we replace buffer names with buffers in ws.
+        ;; `window-state-put' accepts this.
         (bufferlo--ws-replace-buffer-names ws renamed)
         (window-state-put ws (frame-root-window) 'safe)
         (set-frame-parameter nil 'buffer-list bl)
