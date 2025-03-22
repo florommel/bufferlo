@@ -1355,11 +1355,14 @@ advised functions.  Honors `bufferlo-bookmark-frame-duplicate-policy'."
         (bufferlo--desktop-advice-active-force t))
     (apply oldfn args))
   (when-let* ((bookmark-name (frame-parameter nil 'bufferlo-bookmark-frame-name))
-              (abm (assoc bookmark-name (bufferlo--active-bookmarks))))
+              (abm (assoc bookmark-name (bufferlo--active-bookmarks)))
+              (this+at-least-one-other
+               (> (seq-count (lambda (x) (string= bookmark-name (car x)))
+                             (bufferlo--active-bookmarks))
+                  1)))
     (let* ((msg nil)
-           (msg-append (lambda (s) (setq msg (concat msg "; " s)))))
-      (catch :raise
-        (when
+           (msg-append (lambda (s) (setq msg (concat msg "; " s))))
+           (aborted
             (catch :abort
               (let ((duplicate-policy (bufferlo--bookmark-get-duplicate-policy
                                        bookmark-name
@@ -1376,27 +1379,28 @@ advised functions.  Honors `bufferlo-bookmark-frame-duplicate-policy'."
                   ('raise
                    (delete-frame)
                    (bufferlo--bookmark-raise abm)
-                   (throw :raise t)))
+                   (throw :abort nil)))
                 (set-frame-parameter nil 'bufferlo-bookmark-frame-name
                                      bookmark-name))
               (when msg
                 (message "Undelete frame bufferlo bookmark%s%s"
                          (if bookmark-name (format ": %s" bookmark-name) "")
-                         (or msg ""))))
-          (delete-frame))))))
+                         (or msg "")))
+              nil)))
+      (when aborted
+        (delete-frame)))))
 
 (defun bufferlo--tab-post-undo-close-tab-function (tab)
   "Handle `tab-bar-undo-close-tab' TAB.
 Honors `bufferlo-bookmark-tab-duplicate-policy'."
   (when-let* ((bookmark-name (alist-get 'bufferlo-bookmark-tab-name tab))
               (this+at-least-one-other
-               (when (> (seq-count (lambda (x) (string= bookmark-name (car x)))
-                                   (bufferlo--active-bookmarks)) 1)
-                 t)))
+               (> (seq-count (lambda (x) (string= bookmark-name (car x)))
+                             (bufferlo--active-bookmarks))
+                  1)))
     (let* ((msg nil)
-           (msg-append (lambda (s) (setq msg (concat msg "; " s)))))
-      (catch :raise
-        (when
+           (msg-append (lambda (s) (setq msg (concat msg "; " s))))
+           (aborted
             (catch :abort
               (let ((duplicate-policy (bufferlo--bookmark-get-duplicate-policy
                                        bookmark-name "tab"
@@ -1414,15 +1418,17 @@ Honors `bufferlo-bookmark-tab-duplicate-policy'."
                    ;; Find bookmark to raise; tab numbers changes when closing.
                    (bufferlo--bookmark-raise
                     (assoc bookmark-name (bufferlo--active-bookmarks)))
-                   (throw :raise t)))
+                   (throw :abort nil)))
                 (setf (alist-get 'bufferlo-bookmark-tab-name
                                  (cdr tab))
                       bookmark-name))
               (when msg
                 (message "Undo close tab bufferlo bookmark%s%s"
                          (if bookmark-name (format ": %s" bookmark-name) "")
-                         (or msg ""))))
-          (tab-bar-close-tab))))))
+                         (or msg "")))
+              nil)))
+      (when aborted
+        (tab-bar-close-tab)))))
 
 (defun bufferlo--tab-bar-undo-close-tab-advice (oldfn &rest args)
   "Activate the advice for `tab-bar-undo-close-tab'."
