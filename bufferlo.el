@@ -2239,7 +2239,7 @@ This functions throws :abort when the user quits."
                          "Clear bookmark after loading")
                         ('undelete ; invalid in bufferlo--bookmark-set-loading
                          "Clear bookmark after undeleting/undoing")))
-           (question (concat (format "%s bookmark name \"%s\" already active: "
+           (question (concat (format "%s bookmark \"%s\" already active: "
                                      (capitalize thing)
                                      bookmark-name)
                              (format "Allow, %s, Raise existing "
@@ -2267,9 +2267,8 @@ This functions throws :abort when the user quits."
            (answers (if bufferlo--bookmark-set-loading
                         (list a-allow a-clear a-help a-quit)
                       (list a-allow a-clear a-raise a-help a-quit))))
-      (pcase (let ((read-answer-short t))
-               (with-local-quit
-                 (read-answer question answers)))
+      (pcase (with-local-quit
+               (read-answer question answers))
         ("allow" 'allow)
         ("clear" 'clear)
         ("raise" 'raise)
@@ -2283,13 +2282,12 @@ Prompt if `bufferlo-bookmark-tab-replace-policy' is set to \\='prompt.
 This functions throws :abort when the user quits."
   (if (not (eq bufferlo-bookmark-tab-replace-policy 'prompt))
       bufferlo-bookmark-tab-replace-policy
-    (pcase (let ((read-answer-short t))
-             (with-local-quit
-               (read-answer "Replace current tab, New tab "
-                            '(("replace" ?o "Replace tab")
-                              ("new" ?n "New tab")
-                              ("help" ?h "Help")
-                              ("quit" ?q "Quit to abort")))))
+    (pcase (with-local-quit
+             (read-answer "Replace current tab, New tab "
+                          '(("replace" ?o "Replace tab")
+                            ("new" ?n "New tab")
+                            ("help" ?h "Help")
+                            ("quit" ?q "Quit to abort"))))
       ("replace" 'replace)
       ("new" 'new)
       (_ (throw :abort t)))))
@@ -2302,22 +2300,21 @@ MODE is either \\='load, \\='save, or \\='save-frame, depending on the
 invoking action.  This functions throws :abort when the user quits."
   (if (not (eq bufferlo-bookmark-tab-in-bookmarked-frame-policy 'prompt))
       bufferlo-bookmark-tab-in-bookmarked-frame-policy
-    (pcase (let ((read-answer-short t))
-             (with-local-quit
-               (read-answer
-                (concat
-                 (pcase mode
-                   ('load "Tab bookmark conflicts with frame bookmark: ")
-                   ('save "Frame already bookmarked: ")
-                   ('save-frame "Tabs in this frame are bookmarked: "))
-                 (format "Allow tab bookmark, Clear %s bookmark "
-                         (if (eq mode 'save) "frame" "tab")))
-                `(("allow" ?a "Allow tab bookmark")
-                  ("clear" ?c ,(if (eq mode 'save)
-                                   "Clear frame bookmark, set tab bookmark"
-                                 "Clear tab bookmark"))
-                  ("help" ?h "Help")
-                  ("quit" ?q "Quit to abort")))))
+    (pcase (with-local-quit
+             (read-answer
+              (concat
+               (pcase mode
+                 ('load "Tab bookmark conflicts with frame bookmark: ")
+                 ('save "Frame already bookmarked: ")
+                 ('save-frame "Tabs in this frame are bookmarked: "))
+               (format "Allow tab bookmark, Clear %s bookmark "
+                       (if (eq mode 'save) "frame" "tab")))
+              `(("allow" ?a "Allow tab bookmark")
+                ("clear" ?c ,(if (eq mode 'save)
+                                 "Clear frame bookmark, set tab bookmark"
+                               "Clear tab bookmark"))
+                ("help" ?h "Help")
+                ("quit" ?q "Quit to abort"))))
       ("allow" 'allow)
       ("clear" 'clear)
       (_ (throw :abort t)))))
@@ -2477,17 +2474,16 @@ Prompt if `bufferlo-bookmark-frame-load-policy' is set to \\='prompt.
 This functions throws :abort when the user quits."
   (if (not (eq bufferlo-bookmark-frame-load-policy 'prompt))
       bufferlo-bookmark-frame-load-policy
-    (pcase (let ((read-answer-short t))
-             (with-local-quit
-               (read-answer
-                (concat
-                 "Current frame already bookmarked: "
-                 "load and retain Current, Replace with new, Merge with existing ")
-                '(("current" ?c "Replace frame, retain the current bookmark")
-                  ("replace" ?r "Replace frame, adopt the loaded bookmark")
-                  ("merge" ?m "Merge the new tab content with the existing bookmark")
-                  ("help" ?h "Help")
-                  ("quit" ?q "Quit to abort")))))
+    (pcase (with-local-quit
+             (read-answer
+              (concat
+               "Current frame already bookmarked: "
+               "load and retain Current, Replace with new, Merge with existing ")
+              '(("current" ?c "Replace frame, retain the current bookmark")
+                ("replace" ?r "Replace frame, adopt the loaded bookmark")
+                ("merge" ?m "Merge the new tab content with the existing bookmark")
+                ("help" ?h "Help")
+                ("quit" ?q "Quit to abort"))))
       ("current" 'replace-frame-retain-current-bookmark)
       ("replace" 'replace-frame-adopt-loaded-bookmark)
       ("merge" 'merge)
@@ -3688,15 +3684,14 @@ Duplicate bookmarks are handled according to
 
       (when (> (length dupes-to-save) 0)
         (when (eq duplicate-policy 'prompt)
-          (pcase (let ((read-answer-short t))
-                   (with-local-quit
-                     (read-answer
-                      (format "Duplicate active bookmarks %s: Allow to save, Disallow to cancel "
-                              dupes-to-save)
-                      '(("allow" ?a "Allow duplicate")
-                        ("disallow" ?d "Disallow duplicates; cancel saving")
-                        ("help" ?h "Help")
-                        ("quit" ?q "Quit with no changes")))))
+          (pcase (with-local-quit
+                   (read-answer
+                    (format "Duplicate active bookmarks %s: Allow to save, Disallow to cancel "
+                            dupes-to-save)
+                    '(("allow" ?a "Allow duplicate")
+                      ("disallow" ?d "Disallow duplicates; cancel saving")
+                      ("help" ?h "Help")
+                      ("quit" ?q "Quit with no changes"))))
             ("allow" (setq duplicate-policy 'allow))
             ("disallow" (setq duplicate-policy 'disallow))
             (_ (throw :abort t))))
@@ -3992,15 +3987,14 @@ A prefix argument inhibits the prompt and bypasses saving."
     (if (null abms)
         (message "No active bufferlo bookmarks")
       (unless (consp current-prefix-arg)
-        (pcase (let ((read-answer-short t))
-                 (with-local-quit
-                   (read-answer
-                    "Save bookmarks before closing them: All, Predicate, No save "
-                    '(("all" ?a "Save all active bookmarks")
-                      ("pred" ?p "Save predicate-filtered bookmarks, if set")
-                      ("nosave" ?n "Don't save")
-                      ("help" ?h "Help")
-                      ("quit" ?q "Quit")))))
+        (pcase (with-local-quit
+                 (read-answer
+                  "Save bookmarks before closing them: All, Predicate, No save "
+                  '(("all" ?a "Save all active bookmarks")
+                    ("pred" ?p "Save predicate-filtered bookmarks, if set")
+                    ("nosave" ?n "Don't save")
+                    ("help" ?h "Help")
+                    ("quit" ?q "Quit"))))
           ("all"
            (bufferlo-bookmarks-save 'all))
           ("pred"
