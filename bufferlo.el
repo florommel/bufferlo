@@ -1565,18 +1565,21 @@ If INVERT is non-nil, return the non-exclusive buffers instead."
 
 (defun bufferlo--kill-buffer (buffer)
   "Kill BUFFER respecting `bufferlo-kill-modified-buffers-policy'."
-  (pcase bufferlo-kill-modified-buffers-policy
-    ('retain-modified
-     (unless (buffer-modified-p buffer)
-       (kill-buffer buffer)))
-    ('retain-modified-kill-without-file-name
-     (if (not (buffer-file-name buffer))
-         (bufferlo--kill-buffer-forced buffer)
-       (unless (buffer-modified-p buffer)
-         (kill-buffer buffer))))
-    ('kill-modified
-     (bufferlo--kill-buffer-forced buffer))
-    (_ (kill-buffer buffer))))
+  (condition-case-unless-debug err
+      (pcase bufferlo-kill-modified-buffers-policy
+        ('retain-modified
+         (unless (buffer-modified-p buffer)
+           (kill-buffer buffer)))
+        ('retain-modified-kill-without-file-name
+         (if (not (buffer-file-name buffer))
+             (bufferlo--kill-buffer-forced buffer)
+           (unless (buffer-modified-p buffer)
+             (kill-buffer buffer))))
+        ('kill-modified
+         (bufferlo--kill-buffer-forced buffer))
+        (_ (kill-buffer buffer)))
+    (error (message "Bufferlo could not kill buffer \"%s\": %S"
+                    (buffer-name buffer) (error-message-string err)))))
 
 (defun bufferlo-kill-buffers (&optional killall frame tabnum internal-too)
   "Kill the buffers of the frame/tab-local buffer list.
