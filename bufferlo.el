@@ -1357,7 +1357,7 @@ advised functions.  Honors `bufferlo-bookmark-frame-duplicate-policy'."
   (when-let* ((bookmark-name (frame-parameter nil 'bufferlo-bookmark-frame-name))
               (abm (assoc bookmark-name (bufferlo--active-bookmarks)))
               (this+at-least-one-other
-               (> (seq-count (lambda (x) (string= bookmark-name (car x)))
+               (> (seq-count (lambda (x) (equal bookmark-name (car x)))
                              (bufferlo--active-bookmarks))
                   1)))
     (let* ((msg nil)
@@ -1395,7 +1395,7 @@ advised functions.  Honors `bufferlo-bookmark-frame-duplicate-policy'."
 Honors `bufferlo-bookmark-tab-duplicate-policy'."
   (when-let* ((bookmark-name (alist-get 'bufferlo-bookmark-tab-name tab))
               (this+at-least-one-other
-               (> (seq-count (lambda (x) (string= bookmark-name (car x)))
+               (> (seq-count (lambda (x) (equal bookmark-name (car x)))
                              (bufferlo--active-bookmarks))
                   1)))
     (let* ((msg nil)
