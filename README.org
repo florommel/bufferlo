@@ -5,15 +5,6 @@
 #+options: num:nil
 #+options: toc:nil
 
-# Uncomment below for decent local preview (would be nicer to have local GitHub rendering).
-# +options: html-style:nil
-# +html_head: <link rel="stylesheet" type="text/css" href="https://fniessen.github.io/org-html-themes/src/readtheorg_theme/css/htmlize.css"/>
-# +html_head: <link rel="stylesheet" type="text/css" href="https://fniessen.github.io/org-html-themes/src/readtheorg_theme/css/readtheorg.css"/>
-# +html_head: <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
-# +html_head: <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
-# +html_head: <script type="text/javascript" src="https://fniessen.github.io/org-html-themes/src/lib/js/jquery.stickytableheaders.min.js"></script>
-# +html_head: <script type="text/javascript" src="https://fniessen.github.io/org-html-themes/src/readtheorg_theme/js/readtheorg.js"></script>
-
 Easy-to-use buffer management and workspace persistence tools for
 Emacs workflow management. Headbutt your way to productivity and moove
 ahead with bufferlo.
@@ -45,26 +36,6 @@ with built-in features such as ~bookmark-bmenu-list~ and third-party
 packages such as [[https://github.com/minad/consult][consult]] which offers consult-bookmark for interactive
 bookmark selection.
 
-Bufferlo's default mode-line indicator shows the currently active
-frame- and/or tab-bookmark name and also indicates if at least one
-bookmark set is active.
-
-A bufferlo menu bar is enabled by default to encourage discovery of
-bufferlo features.
-
-Note: Code examples use ~setq~ to customize options. You may also use
-~M-x customize-group bufferlo~. Emacs 29 introduced ~setopt~ which
-works correctly in the presence of ~defcustom~ setters. Currently the
-only bufferlo option with such a setter is
-~bufferlo-bookmarks-auto-save-interval~ so be sure to set that
-interval timer in advance of enabling ~bufferlo-mode~.
-
-Note: Many bufferlo commands have short-hand aliases to accommodate
-the helpful ~which-key~ display (now a built-in for Emacs 30+).
-Bufferlo's menu references these aliases and not the main commands. We
-recommend that you use the short-hand aliases when binding your
-preferred keys to ensure the bufferlo menu reflects your key bindings.
-
 * Installation
 
 Bufferlo is available in [[https://elpa.gnu.org/packages/bufferlo.html][GNU ELPA]].
@@ -73,24 +44,11 @@ Install it via ~package-install~ and enable ~bufferlo-mode~
   (bufferlo-mode)
 #+end_src
 
-Or via ~use-package~ (see below for a more comprehensive configuration example)
+Or via ~use-package~ (see below for a comprehensive configuration example)
 #+begin_src emacs-lisp
   (use-package bufferlo
     :ensure t
     :init
-    ;; To install ibuffer filters, set the below in advance of enabling
-    ;; bufferlo-mode
-    (setq bufferlo-ibuffer-bind-local-buffer-filter t)
-    ;; To narrow previous-buffer and next-buffer candidates to local
-    ;; frame or tab buffer lists, pick one of:
-    (setq bufferlo-prefer-local-buffers t) ; frame locals
-    (setq bufferlo-prefer-local-buffers 'tabs) ; frame + tab locals
-    :config
-    (setq switch-to-prev-buffer-skip-regexp ; set this to filter out buffers in previous/next-buffer
-          (concat "\\` *" ; ignore hidden buffers
-                  "\\(\\*\\(Messages\\|Ibuffer\\|scratch\\|Completions\\|Help\\|Warnings\\|Apropos\\|vc-diff\\)\\*\\)"
-                  "\\|" (rx  "*helpful " (1+ anything) "*")
-                  "\\'"))
     (bufferlo-mode))
 #+end_src
 
@@ -100,6 +58,19 @@ frame-only workflow. If you use ~tab-line-mode~ without
 ~tab-bar-mode~, your bufferlo experience will be the same as a
 frame-only user. Tab-oriented functions are active even if the tab-bar
 is hidden.
+
+The following code examples use ~setq~ to customize options. You may
+also use ~M-x customize-group bufferlo~. Emacs 29 introduced ~setopt~
+which works correctly in the presence of ~defcustom~ setters. Currently
+the only bufferlo option with such a setter is
+~bufferlo-bookmarks-auto-save-interval~ so be sure to set that
+interval timer in advance of enabling ~bufferlo-mode~.
+
+Many bufferlo commands have short-hand aliases to accommodate the
+helpful ~which-key~ display (now a built-in for Emacs 30+). Bufferlo's
+menu references these aliases and not the main commands. We recommend
+that you use the short-hand aliases when binding your preferred keys
+to ensure the bufferlo menu reflects your key bindings.
 
 * Usage
 
@@ -659,8 +630,7 @@ be available when those functions are called.
 Bufferlo provides wrappers around Emacs frame functions to provide
 more precision. This is due to issues that affect ~make-frame~ and
 hence ~frameset-restore~. One bug preventing pixel-level precision was
-reported and fixed for Emacs 31 (it was too late for the Emacs 30
-release cycle).
+reported and fixed for Emacs 31.
 
 Frames stored in bufferlo frame bookmarks have their geometries stored
 individually and are recreated on demand. Bookmark sets frame
@@ -757,7 +727,7 @@ If files are deleted between Emacs sessions and a bookmarked buffer
 cannot be restored, after loading a bookmark with a missing file, a
 message similar to this can be found in your ~*Messages*~ buffer:
 
-~Bufferlo tab: Could not restore emacs-todo.md (error (bookmark-error-no-filename stringp ~/.emacs/emacs-todo.md))~
+~Bufferlo bookmark: Could not restore file.txt (error (bookmark-error-no-filename stringp /etc/file.txt))~
 
 Please note: Emacs ~bookmark-jump-other-frame~ and
 ~bookmark-jump-other-window~ commands are not compatible with bufferlo
@@ -775,7 +745,11 @@ following assumptions:
 - You share a directory hierarchy for files in common such as
   programming or writing projects on which you collaborate.
 
-*** mode-line
+** Mode line
+
+Bufferlo's default mode-line indicator shows the currently active
+frame- and/or tab-bookmark name and also indicates if at least one
+bookmark set is active.
 
 - If you prefer iconic mode-line prefixes, set one like this:
 #+begin_src emacs-lisp
@@ -810,7 +784,7 @@ following assumptions:
                       :foreground "#000fff")
 #+end_src
 
-*** Menu bar
+** Menu bar
 
 Bufferlo enables its menu bar entry by default to encourage feature
 discovery and menu-item entries are adorned with key mappings from
@@ -1213,9 +1187,9 @@ bookmarks at once using ~bufferlo-bookmarks-load-interactive~. Emacs
 31 will be getting a proper CRM prompt that displays the CRM separator
 character as a reminder hint. Note: The default separator is a comma.
 
-Per https://github.com/minad/vertico#completing-read-multiple from the
-author of the Emacs CRM patch, we recommend adding the following
-snippet to your Emacs configuration.
+Per [[https://github.com/minad/vertico#completing-read-multiple][vertico#completing-read-multiple]] from the author of the Emacs CRM
+patch, we recommend adding the following snippet to your Emacs
+configuration.
 
 #+begin_src emacs-lisp
 ;; Prompt indicator for `completing-read-multiple'.
@@ -1228,24 +1202,21 @@ snippet to your Emacs configuration.
                       (cdr args))))))
 #+end_src
 
-* Alternatives
+* Related Packages
 
 ** desktop.el
 
-In contrast to ~desktop.el~, Emacs's built-in persistence feature,
-bufferlo's persistence is lightweight. ~desktop.el~ is an
-all-or-nothing solution saving your entire Emacs environment for
-future recall. When you have a long-lived Emacs session that may
-include hundreds of buffers that may not relate to one another or are
-not relevant to your current tasks, ~desktop.el~ is cumbersome and
-slow restoring an entire session when you may need only a subset.
-Bufferlo gives you finer-grained control over what collections of
-frames and tabs to save and load.
+The built-in ~desktop.el~ package provides the possibility to persist
+the state of the current Emacs session for future recall. Bufferlo is
+fully compatible with ~desktop.el~. Bufferlo's local buffer lists for
+frames/tabs are saved and restored by ~desktop.el~.
 
-Similar to ~desktop.el~, bufferlo supports storing "framesets" using
-bufferlo bookmark sets. When a bookmark set is restored, bufferlo
-attempts to recreate your frames with their geometries, and their
-frame and tab bookmarks.
+With its bookmark feature, bufferlo offers an alternative session
+persistence solution. In contrast to ~desktop.el~'s all-or-nothing
+solution, bufferlo's ability to bookmark tabs, frames, and sets are
+more fine-grained and lightweight. They are particularly suited for
+long-lived Emacs sessions with a large number of buffers that belong
+to different contexts.
 
 Unlike ~desktop.el~, bufferlo does not persist each buffer's enabled
 major or minor modes, instead relying on your Emacs configuration to
@@ -1258,48 +1229,42 @@ treesitter behaviors. This minor mode will not be reenabled by
 bufferlo. If you want this behavior automatically, add
 ~treesit-explore-mode~ to your major-mode hook.
 
-** Other Emacs packages
+Bufferlo bookmarks are still compatible with ~desktop.el~. It is even
+possible to use both features together.
 
-The packages [[https://github.com/alpaker/frame-bufs][frame-bufs]] (unmaintained) and [[https://protesilaos.com/emacs/beframe][beframe]] provide similar
-functionality, but only at the frame level, and without support for
-tabs.
+** Similar packages
 
-You may also have a look at workspace-oriented solutions like [[https://github.com/alphapapa/bufler.el][bufler]]
-(rule-based workspace management and buffer grouping) and its related
-package [[https://github.com/alphapapa/activities.el][activities.el]] (purpose-based session management on frame/tab
-level), [[https://github.com/minad/bookmark-view][bookmark-view]], or [[https://github.com/nex3/perspective-el][perspective]] (comprehensive workspace
-isolation and persistence).
+There are other Emacs packages that provide functionality with varying
+degrees of similarity to bufferlo. These packages offer some form of
+frame or tab-based buffer-list isolation and/or session management.
 
-- https://github.com/iqbalansari/restart-emacs/blob/master/restart-emacs.el
-- https://github.com/alphapapa/bufler.el
-- https://github.com/alphapapa/activities.el
-- https://github.com/alphapapa/burly.el
-- https://github.com/alphapapa/frame-purpose.el
-- https://github.com/overideal/perject
-- https://github.com/nex3/perspective-el
-- https://github.com/Bad-ptr/persp-mode.el
-- https://github.com/protesilaos/beframe
-- https://github.com/jamescherti/easysession.el
-- https://github.com/minad/bookmark-view
-- https://github.com/minad/tab-bookmark
-- https://github.com/ajrosen/tab-bar-buffers
-- https://github.com/localauthor/tab-sets
-- https://github.com/mclear-tools/tabspaces
-- https://github.com/chumpage/chumpy-windows
-- https://github.com/thisirs/state
-- https://emacs-session.sourceforge.net
-- https://github.com/vspinu/sesman
-- https://codeberg.org/akib/emacs-workroom
-- https://github.com/thierryvolpiatto/psession
-- https://github.com/noctuid/framegroups.el
-- https://github.com/petergardfjall/emacs-wsp
-- https://github.com/vijumathew/windwow
-- https://github.com/alpaker/frame-bufs
-- https://github.com/jdtsmith/mac-tab-desktop/blob/main/mac-tab-desktop.el
-- https://github.com/ffevotte/desktop-plus/blob/master/desktop%2B.el
-- https://www.emacswiki.org/emacs/BookmarkPlus
-- https://github.com/emacsmirror/bookmark-plus
-- https://github.com/tlh/workgroups.el
-- https://github.com/emacsmirror/winring
+- [[https://github.com/protesilaos/beframe][Beframe]]: frame-based buffer isolation
+- [[https://github.com/mclear-tools/tabspaces][Tabspaces]]: project-based buffer isolation for tabs and frames
+- [[https://github.com/alphapapa/activities.el][activities.el]]: purpose-based sessions on frame/tab level
+- [[https://github.com/alphapapa/bufler.el][Bufler]]: rule-based workspace management and buffer grouping
+- [[https://github.com/alphapapa/burly.el][Burly]]: save and restore window configurations for single or multiple frames
+- [[https://github.com/alphapapa/frame-purpose.el][frame-purpose]]: specialize frames to only display certain buffers
+- [[https://github.com/overideal/perject][perject]]: purpose/project-based buffer isolation and session management based
+  on ~desktop.el~
+- [[https://github.com/nex3/perspective-el][Perspective]]: frame-based workspace isolation and persistence
+- [[https://github.com/Bad-ptr/persp-mode.el][persp-mode]]: based on perspective; allows multiple frames per workspace
+- [[https://github.com/jamescherti/easysession.el][easysession.el]]: session management
+- [[https://github.com/minad/bookmark-view][bookmark-view.el]]: save and restore window configurations
+- [[https://github.com/minad/tab-bookmark][tab-bookmark.el]]: save and restore window configurations for tabs
+- [[https://github.com/ajrosen/tab-bar-buffers][tab-bar-buffers]]: isolate selected buffers and show them in the tab bar
+- [[https://github.com/localauthor/tab-sets][tab-sets.el]]: save and restore tabs
+- [[https://codeberg.org/akib/emacs-workroom][Workroom]]: buffer isolation
+- [[https://github.com/thierryvolpiatto/psession][psession]]: session management
+- [[https://github.com/chumpage/chumpy-windows][Chumpy-windows (Spaces)]]: switch between named window configurations
+- [[https://github.com/thisirs/state][state]]: switch between window configurations
+- [[https://emacs-session.sourceforge.net][Emacs-session]]: session management
+- [[https://github.com/vspinu/sesman][Sesman]]: session management
+- [[https://github.com/petergardfjall/emacs-wsp][wsp]]: session management
+- [[https://github.com/vijumathew/windwow][Windwow]]: session management
+- [[https://github.com/alpaker/frame-bufs][frame-bufs]]: frame-based buffer isolation
+- [[https://github.com/ffevotte/desktop-plus/blob/master/desktop%2B.el][desktop+.el]]: extended ~desktop.el~ session management
+- [[https://github.com/tlh/workgroups.el][Workgroups]]: session management
+- [[https://github.com/iqbalansari/restart-emacs][restart-emacs]]: reatart Emacs; can restore session via ~desktop.el~
+- [[https://github.com/noctuid/framegroups.el][framegroups.el]]: session management via ~desktop.el~
 
 # END
