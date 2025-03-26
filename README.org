@@ -583,6 +583,14 @@ Note: 'raise is considered to act as 'clear by bookmark set loading.
   (setq bufferlo-bookmark-tab-in-bookmarked-frame-policy 'clear) ; silently clear the loaded tab bookmark
   (setq bufferlo-bookmark-tab-in-bookmarked-frame-policy 'clear-warn) ; clear the loaded tab bookmark with a message
 #+end_src
+#+begin_src emacs-lisp
+  ;; handle buffer bookmarks that could not be restored
+  (setq bufferlo-bookmark-tab-failed-buffer-policy 'placeholder) ; placeholder buffer and buffer name; the default
+  (setq bufferlo-bookmark-tab-failed-buffer-policy 'placeholder-orig) ; placeholder buffer with original buffer name
+  (setq bufferlo-bookmark-tab-failed-buffer-policy "*scratch*") ; default to a specific buffer
+  (setq bufferlo-bookmark-tab-failed-buffer-policy #'my/failed-bookmark-handler) ; function to call that returns a buffer
+  (setq bufferlo-bookmark-tab-failed-buffer-policy nil) ; ignore
+#+end_src
 
 *** Bookmark set options
 
@@ -1091,6 +1099,7 @@ remain in force until they are saved if this policy is set to t.
     (setq bufferlo-bookmark-tab-replace-policy 'new)
     (setq bufferlo-bookmark-tab-duplicate-policy 'prompt)
     (setq bufferlo-bookmark-tab-in-bookmarked-frame-policy 'prompt)
+    (setq bufferlo-bookmark-tab-failed-buffer-policy 'placeholder)
     (setq bufferlo-bookmarks-save-duplicates-policy 'prompt)
     (setq bufferlo-bookmarks-save-frame-policy 'all)
     (setq bufferlo-bookmarks-load-tabs-make-frame t)
