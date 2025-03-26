@@ -933,8 +933,9 @@ string, FACE is the face for STR."
         (add-hook 'delete-frame-functions
                   #'bufferlo-bookmark--frame-save-on-delete)
         ;; bookmark advice
-        (advice-add 'bookmark-rename :around #'bufferlo--bookmark-rename-advice)
-        (advice-add 'bookmark-delete :around #'bufferlo--bookmark-delete-advice)
+        (advice-add #'bookmark--jump-via :around #'bufferlo--bookmark--jump-via-advice)
+        (advice-add #'bookmark-rename :around #'bufferlo--bookmark-rename-advice)
+        (advice-add #'bookmark-delete :around #'bufferlo--bookmark-delete-advice)
         ;; mode line
         (setq mode-line-misc-info (cons bufferlo-mode-line mode-line-misc-info)))
     ;; Prefer local buffers
@@ -982,8 +983,9 @@ string, FACE is the face for STR."
     (remove-hook 'delete-frame-functions
                  #'bufferlo-bookmark--frame-save-on-delete)
     ;; bookmark advice
-    (advice-remove 'bookmark-rename #'bufferlo--bookmark-rename-advice)
-    (advice-remove 'bookmark-delete #'bufferlo--bookmark-delete-advice)))
+    (advice-remove #'bookmark--jump-via #'bufferlo--bookmark--jump-via-advice)
+    (advice-remove #'bookmark-rename #'bufferlo--bookmark-rename-advice)
+    (advice-remove #'bookmark-delete #'bufferlo--bookmark-delete-advice)))
 
 (defun bufferlo--current-bookmark-name ()
   "Current bufferlo bookmark name, where frame beats tab."
@@ -4127,13 +4129,24 @@ exist."
 ;; (defun bookmark-set-no-overwrite (&optional name push-bookmark)
 ;; Leave these alone for now. They warn about duplicate bookmarks.
 
+;; (defun bookmark--jump-via (bookmark-name-or-record display-function)
+(defun bufferlo--bookmark--jump-via-advice (oldfn bookmark-name-or-record display-function)
+  "`bookmark--jump-via' advice to nullify `display-function'.
+OLDFN BOOKMARK-NAME-OR-RECORD DISPLAY-FUNCTION"
+  (when-let* ((bookmark-record (bookmark-get-bookmark bookmark-name-or-record 'noerror)))
+    (if (rassoc (bookmark-type-from-full-record bookmark-record)
+                bufferlo--bookmark-type-names)
+        (let ((bookmark-fringe-mark nil))
+          (funcall oldfn bookmark-record #'ignore))
+      (funcall oldfn bookmark-record display-function))))
+
 ;; (defun bookmark-rename (old-name &optional new-name)
 (defun bufferlo--bookmark-rename-advice (oldfn &optional old-name new-name)
   "`bookmark-rename' advice to prevent renaming active bufferlo bookmarks.
 OLDFN OLD-NAME NEW-NAME"
   (interactive)
-  (if (called-interactively-p 'interactive)
-      (setq old-name (bookmark-completing-read "Old bookmark name")))
+  (when (called-interactively-p 'interactive)
+    (setq old-name (bookmark-completing-read "Old bookmark name")))
   (if-let* ((abm (assoc old-name (bufferlo--active-bookmarks))))
       (user-error
        "%s is an active bufferlo bookmark--close its frame/tab, or clear it before renaming"
@@ -4147,9 +4160,9 @@ OLDFN OLD-NAME NEW-NAME"
   "`bookmark-delete' advice to prevent deleting active bufferlo bookmarks.
 OLDFN BOOKMARK-NAME BATCH"
   (interactive)
-  (if (called-interactively-p 'interactive)
-      (setq bookmark-name (bookmark-completing-read "Delete bookmark"
-                                                    bookmark-current-bookmark)))
+  (when (called-interactively-p 'interactive)
+    (setq bookmark-name (bookmark-completing-read "Delete bookmark"
+                                                  bookmark-current-bookmark)))
   (if-let* ((abm (assoc bookmark-name (bufferlo--active-bookmarks))))
       (user-error
        "%s is an active bufferlo bookmark--close its frame/tab, or clear it before deleting"
