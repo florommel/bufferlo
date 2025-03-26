@@ -1205,6 +1205,14 @@ Includes hidden buffers."
                (concat "\\(?:" x "\\)"))
              regexp-list "\\|"))
 
+(defun bufferlo--normalize-buffer-name (&optional buffer)
+  "Return normalized BUFFER name, accommodating `uniquify'."
+  (setq buffer (or buffer (current-buffer)))
+  (or (and (fboundp 'uniquify-buffer-base-name)
+           (with-current-buffer buffer
+             (uniquify-buffer-base-name)))
+      (buffer-name buffer)))
+
 (defun bufferlo--include-exclude-buffers (frame)
   "Include and exclude buffers from the local buffer list of FRAME."
   (let* ((include (bufferlo--merge-regexp-list
@@ -1302,9 +1310,22 @@ buffers, see `bufferlo-hidden-buffers'."
   "Save the frame's buffer list to the window state.
 Used as advice around `window-state-get'.  OLDFN is the original
 function.  WINDOW and WRITABLE are passed to the function."
-  (let ((ws (apply oldfn (list window writable))))
+  (let ((ws
+         (if (< emacs-major-version 31)
+             ;; Emacs 31 has the below built in.  We have to override
+             ;; buffer-name to normalize in earlier Emacs versions.
+             (let ((buffer-name-func (symbol-function 'buffer-name)))
+               (cl-letf (((symbol-function 'buffer-name)
+                          (lambda (&optional buffer)
+                            (or (and (fboundp 'uniquify-buffer-base-name)
+                                     (uniquify-buffer-base-name))
+                                (funcall buffer-name-func buffer)))))
+                 (apply oldfn (list window writable))))
+           (apply oldfn (list window writable)))))
+    ;; We normalize buffer names to help restore buffers when uniquify
+    ;; is used either when saving or restoring.
     (let* ((buffers (bufferlo--current-buffers (window-frame window)))
-           (names (mapcar #'buffer-name buffers)))
+           (names (mapcar #'bufferlo--normalize-buffer-name buffers)))
       (if names
           (append ws (list (list 'bufferlo-buffer-list names)))
         ws))))
@@ -2144,7 +2165,7 @@ empty (no-op) display-func."
              bufferlo-bookmark-inhibit-bookmark-point
              record)
         (bookmark-set-position record nil))
-      (list (buffer-name buffer) record))))
+      (list (bufferlo--normalize-buffer-name buffer) record))))
 
 (defun bufferlo--bookmark-filter-buffers (&optional frame)
   "Filter out buffers to exclude for bookmarks.
@@ -2187,7 +2208,7 @@ FRAME specifies the frame; the default value of nil selects the current frame."
         (tab-group . ,(alist-get 'group current-tab))
         (buffer-bookmarks . ,(bufferlo--bookmark-get-for-buffers-in-tab
                               filtered-buffers))
-        (buffer-list . ,(mapcar #'buffer-name
+        (buffer-list . ,(mapcar #'bufferlo--normalize-buffer-name
                                 filtered-buffers))
         (window . ,(window-state-get (frame-root-window) 'writable))
         (handler . ,#'bufferlo--bookmark-tab-handler)))))
