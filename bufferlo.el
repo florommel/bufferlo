@@ -1431,7 +1431,8 @@ Honors `bufferlo-bookmark-tab-duplicate-policy'."
         (tab-bar-close-tab)))))
 
 (defun bufferlo--tab-bar-undo-close-tab-advice (oldfn &rest args)
-  "Activate the advice for `tab-bar-undo-close-tab'."
+  "Activate the advice for `tab-bar-undo-close-tab'.
+Pass ARGS to OLDFN."
   (let ((bufferlo--desktop-advice-active t)
         (bufferlo--desktop-advice-active-force t))
     (apply oldfn args))
@@ -1954,8 +1955,8 @@ The parameters OTHER-WINDOW-P NOSELECT SHRINK are passed to `ibuffer'."
     (ibuffer other-window-p name '((bufferlo-orphan-buffers . nil))
              noselect shrink)))
 
-;; Below allows both old and new define-ibuffer-op macros to coexist.
 (defmacro bufferlo--ibuffer-do-wrapper ()
+  "Wrapper to support both <31 and 31+ `define-ibuffer-op macro'."
   (if (< emacs-major-version 31)
       '(define-ibuffer-op ibuffer-do-bufferlo-remove ()
          "Remove marked buffers from bufferlo's local buffer list."
