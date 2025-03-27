@@ -357,6 +357,33 @@ bookmark if the frame bookmark is saved."
                 (const :tag "Clear (silently)" clear)
                 (const :tag "Clear (with message)" clear-warn)))
 
+(defcustom bufferlo-bookmark-tab-failed-buffer-policy 'placeholder
+  "Control failed buffer bookmark restore handling.
+Duplicate active bookmarks cause potentially confusing race
+conditions.
+
+\\='placeholder creates a placeholder buffer in place of the buffer that
+could not be restored.  By default, the placeholder buffer has a special
+bufferlo name with **.  This buffer will not have a file associated with
+it.
+
+\\='placeholder-orig creates a placeholder buffer with the original
+buffer name.  This buffer will not have a file associated with it.
+
+Use a string to select or create the buffer named by the string; e.g.,
+\"*scratch*\".
+
+Use a function that returns a buffer.  The function is passed the
+original buffer name that failed to load.
+
+nil ignores the failed bookmark buffer.  If all tab bookmark buffers
+fail to restore, the default buffer shown will be chosen by Emacs."
+  :type '(radio (const :tag "Placeholder" placeholder)
+                (const :tag "Placeholder w/failed buffer name" placeholder-orig)
+                (string :tag "Buffer to select")
+                (function :tag "Function to call")
+                (const :tag "Ignore" nil)))
+
 (defcustom bufferlo-bookmarks-save-duplicates-policy 'prompt
   "Control duplicates when saving all bookmarks.
 
@@ -520,7 +547,9 @@ frame bookmark is a collection of tab bookmarks."
 Each function takes the following arguments:
   bookmark-name: source bookmark name
   effective-bookmark-name: nil, if tab bookmark cleared
-  tab: the handled tab"
+  tab: the handled tab
+  succ-buffer-names: list of buffer names successfully restored
+  fail-buffer-names: list of buffer names that could not be restored"
   :type 'hook)
 
 (defcustom bufferlo-bookmark-frame-handler-functions nil
@@ -2337,6 +2366,8 @@ this bookmark is embedded in a frame bookmark."
                             nil))
            (abm (assoc bookmark-name (bufferlo--active-bookmarks)))
            (disconnect-tbm-p)
+           (succ-buffer-names)
+           (fail-buffer-names)
            (msg)
            (msg-append (lambda (s) (setq msg (concat msg "; " s)))))
 
@@ -2390,25 +2421,63 @@ this bookmark is embedded in a frame bookmark."
       ;; Do the real work: restore the tab
       ;; NOTE: No :abort throws after this point
       (let* ((ws (copy-tree (alist-get 'window bookmark)))
-             (dummy (generate-new-buffer " *bufferlo dummy buffer*"));
+             (dummy (generate-new-buffer " *bufferlo dummy buffer*"))
              (restore (lambda (bm)
                         (let ((orig-name (car bm))
-                              (record (cadr bm)))
+                              (record (cadr bm))
+                              (restore-failed))
                           (set-buffer dummy)
-                          (condition-case err
-                              (progn (funcall (or (bookmark-get-handler record)
-                                                  'bookmark-default-handler)
-                                              record)
-                                     (run-hooks 'bookmark-after-jump-hook))
-                            (error
-                             (message "Bufferlo bookmark: Could not restore %s (error %s)"
-                                      orig-name err)))
-                          (unless (eq (current-buffer) dummy)
-                            ;; Return a list of (cons <string> <buffer>).
-                            ;; The buffer may be renamed later (by uniquify).
-                            ;; Using the buffer name directly would not
-                            ;; account for this!
-                            (cons orig-name (current-buffer))))))
+                          ;; Test if bookmark-handler did not complain...
+                          (setq restore-failed
+                                (condition-case err
+                                    (progn (funcall (or (bookmark-get-handler record)
+                                                        'bookmark-default-handler)
+                                                    record)
+                                           (run-hooks 'bookmark-after-jump-hook)
+                                           nil)
+                                  (error
+                                   (message "Bufferlo bookmark: Could not restore %s (error %s)"
+                                            orig-name err)
+                                   t)))
+                          ;; ...then test that the buffer actually changed.
+                          (setq restore-failed (or restore-failed
+                                                   (eq (current-buffer) dummy)))
+                          (if restore-failed
+                              (progn
+                                ;; bufferlo-bookmark-tab-failed-buffer-policy
+                                (let ((fail-buffer
+                                       (cond
+                                        ((eq 'placeholder
+                                             bufferlo-bookmark-tab-failed-buffer-policy)
+                                         (generate-new-buffer
+                                          (format-message "*bufferlo failed buffer `%s'*"
+                                                          orig-name)))
+                                        ((eq 'placeholder-orig
+                                             bufferlo-bookmark-tab-failed-buffer-policy)
+                                         (get-buffer-create orig-name))
+                                        ((stringp
+                                          bufferlo-bookmark-tab-failed-buffer-policy)
+                                         (get-buffer-create
+                                          bufferlo-bookmark-tab-failed-buffer-policy))
+                                        ((functionp
+                                          bufferlo-bookmark-tab-failed-buffer-policy)
+                                         (funcall
+                                          bufferlo-bookmark-tab-failed-buffer-policy
+                                          orig-name))
+                                        (t nil))))
+                                  (push orig-name fail-buffer-names)
+                                  (when fail-buffer
+                                    (switch-to-buffer fail-buffer nil 'force-same-window)
+                                    (when (memq bufferlo-bookmark-tab-failed-buffer-policy
+                                                '(placeholder placeholder-orig))
+                                      (insert
+                                       (format-message
+                                        "Bufferlo could not restore buffer `%s'" orig-name))
+                                      (set-buffer-modified-p nil)))
+                                  (cons orig-name (buffer-name fail-buffer))))
+                            (push orig-name succ-buffer-names)
+                            (unless (string-equal orig-name (buffer-name))
+                              (cons orig-name (buffer-name)))))))
              (renamed (mapcar restore (alist-get 'buffer-bookmarks bookmark)))
              (replace-renamed (lambda (b)
                                 (if-let* ((replace
@@ -2456,14 +2525,21 @@ this bookmark is embedded in a frame bookmark."
                        'bufferlo-bookmark-tab-handler-functions
                        bookmark-name
                        (unless disconnect-tbm-p bookmark-name)
-                       (bufferlo--current-tab))))))
+                       (bufferlo--current-tab)
+                       succ-buffer-names
+                       fail-buffer-names)
+                      buffer))))
           (add-hook 'bookmark-after-jump-hook bm-after-jump-hook-sym -99)))
 
       ;; Log message
       (unless (or no-message bufferlo--bookmark-handler-no-message)
-        (message "Restored bufferlo tab bookmark%s%s"
+        (message "Restored bufferlo tab bookmark%s%s%s%s"
                  (if bookmark-name (format ": %s" bookmark-name) "")
-                 (or msg ""))))))
+                 (or msg "")
+                 (if succ-buffer-names (format " (%s)"
+                                               (mapconcat #'identity succ-buffer-names ",")) "")
+                 (if fail-buffer-names (format " (failed: %s)"
+                                               (mapconcat #'identity fail-buffer-names ",")) ""))))))
 
 ;; We use a short name here as bookmark-bmenu-list hard codes width of 8 chars
 (put #'bufferlo--bookmark-tab-handler 'bookmark-handler-type "B-Tab")
