@@ -924,10 +924,27 @@ string, FACE is the face for STR."
                                 (list str fbm tbm set-active))
           str)))))
 
-(defcustom bufferlo-mode-line '(bufferlo-mode (:eval (bufferlo-mode-line-format)))
+(defvar bufferlo-mode-line)
+
+(defun bufferlo--reset-mode-line ()
+  "Remove the current bufferlo mode line entry."
+  (setq mode-line-misc-info (delq (assq 'bufferlo-mode mode-line-misc-info)
+                                  mode-line-misc-info)))
+
+(defun bufferlo--set-mode-line ()
+  "Set the current bufferlo mode line entry."
+  (setq mode-line-misc-info (cons (list 'bufferlo-mode bufferlo-mode-line)
+                                  mode-line-misc-info)))
+
+(defcustom bufferlo-mode-line '(:eval (bufferlo-mode-line-format))
   "Bufferlo mode line definition."
   :package-version '(bufferlo . "1.1")
   :type 'sexp
+  :set (lambda (variable value)
+         (bufferlo--reset-mode-line) ; do before we overwrite the value
+         (set-default variable value)
+         (bufferlo--set-mode-line))
+  :initialize #'custom-initialize-default
   :risky t)
 
 (defgroup bufferlo-faces nil
@@ -1004,7 +1021,7 @@ string, FACE is the face for STR."
   :init-value nil
   :lighter nil
   :keymap bufferlo-mode-map
-  (setq mode-line-misc-info (delete bufferlo-mode-line mode-line-misc-info))
+  (bufferlo--reset-mode-line)
   (if bufferlo-mode
       (progn
         (unless after-init-time
@@ -1068,7 +1085,7 @@ string, FACE is the face for STR."
         (advice-add #'bookmark-rename :around #'bufferlo--bookmark-rename-advice)
         (advice-add #'bookmark-delete :around #'bufferlo--bookmark-delete-advice)
         ;; mode line
-        (setq mode-line-misc-info (cons bufferlo-mode-line mode-line-misc-info)))
+        (bufferlo--set-mode-line))
     ;; Prefer local buffers
     (dolist (frame (frame-list))
       (bufferlo--reset-buffer-predicate frame))
