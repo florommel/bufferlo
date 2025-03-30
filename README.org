@@ -547,6 +547,7 @@ settings.
   (setq bufferlo-bookmark-frame-duplicate-policy 'allow) ; old default behavior
   (setq bufferlo-bookmark-frame-duplicate-policy 'clear) ; silently clear the loaded frame bookmark
   (setq bufferlo-bookmark-frame-duplicate-policy 'clear-warn) ; clear the loaded frame bookmark with a message
+  (setq bufferlo-bookmark-frame-duplicate-policy 'ignore) ; bypass loading the duplicate frame bookmark
   (setq bufferlo-bookmark-frame-duplicate-policy 'raise) ; do not load, raise the existing frame
 #+end_src
 Note: 'raise is considered to act as 'clear by bookmark set loading.
@@ -573,6 +574,7 @@ settings.
   (setq bufferlo-bookmark-tab-duplicate-policy 'allow) ; old default behavior
   (setq bufferlo-bookmark-tab-duplicate-policy 'clear) ; silently clear the loaded tab bookmark
   (setq bufferlo-bookmark-tab-duplicate-policy 'clear-warn) ; clear the loaded tab bookmark with a message
+  (setq bufferlo-bookmark-tab-duplicate-policy 'ignore) ; bypass loading the duplicate tab bookmark
   (setq bufferlo-bookmark-tab-duplicate-policy 'raise) ; do not load, raise the existing frame/tab
 #+end_src
 Note: 'raise is considered to act as 'clear by bookmark set loading.
@@ -614,6 +616,13 @@ bookmark set is loaded.
   (setq bufferlo-set-restore-tabs-reuse-init-frame 'reuse) ; reuse the existing first frame; the default
   (setq bufferlo-set-restore-tabs-reuse-init-frame 'reuse-reset-geometry) ; like 'reuse but also alters the reused frame's geometry
   (setq bufferlo-set-restore-tabs-reuse-init-frame nil) ; always make new frames
+#+end_src
+
+#+begin_src emacs-lisp
+  ;; ignore already-active bufferlo bookmarks when loading a bookmark set
+  (setq bufferlo-set-restore-ignore-already-active nil) ; prompt for each duplicate bookmark; the default
+  (setq bufferlo-set-restore-ignore-already-active 'prompt) ; prompt to ignore already-active bookmarks in bulk
+  (setq bufferlo-set-restore-ignore-already-active 'ignore) ; always ignore already-active bookmarks
 #+end_src
 
 *** Bookmark handler hooks
@@ -1110,6 +1119,7 @@ remain in force until they are saved if this policy is set to t.
     (setq bufferlo-bookmarks-auto-save-messages 'saved)
     (setq bufferlo-set-restore-geometry-policy 'all)
     (setq bufferlo-set-restore-tabs-reuse-init-frame 'reuse) ; nil 'reuse 'reuse-reset-geometry
+    (setq bufferlo-set-restore-ignore-already-active 'prompt) ; nil 'prompt 'ignore
     (setq bufferlo-frameset-restore-geometry 'bufferlo)
     (setq bufferlo-frame-geometry-function #'bufferlo-frame-geometry-default)
     (setq bufferlo-frame-sleep-for 0.3)
