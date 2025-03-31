@@ -169,7 +169,8 @@ without remorse including those with running processes such as
 
 (defcustom bufferlo-bookmark-inhibit-bookmark-point nil
   "If non-nil, inhibit point in bookmarks.
-This is useful if `save-place-mode' mode is enabled."
+This is useful if `save-place-mode' mode is enabled and you want it to
+handle the place restoration in bufferlo bookmarks."
   :package-version '(bufferlo . "1.1")
   :type 'boolean)
 
@@ -334,7 +335,7 @@ with the loaded tab.
 option `tab-bar-new-tab-to'."
   :package-version '(bufferlo . "1.1")
   :type '(radio (const :tag "Prompt" prompt)
-                (const :tag "Replace)" replace)
+                (const :tag "Replace" replace)
                 (const :tag "New" new)))
 
 (defcustom bufferlo-bookmark-tab-duplicate-policy 'prompt
@@ -1488,7 +1489,8 @@ advised functions.  Honors `bufferlo-bookmark-frame-duplicate-policy'."
            (msg-append (lambda (s) (setq msg (concat msg "; " s))))
            (aborted
             (catch :abort
-              (let ((duplicate-policy (bufferlo--bookmark-get-duplicate-policy ; throws :abort
+              ;; `bufferlo--bookmark-get-duplicate-policy' throws :abort
+              (let ((duplicate-policy (bufferlo--bookmark-get-duplicate-policy
                                        bookmark-name
                                        "frame"
                                        bufferlo-bookmark-frame-duplicate-policy
@@ -1503,7 +1505,8 @@ advised functions.  Honors `bufferlo-bookmark-frame-duplicate-policy'."
                   ('ignore
                    (throw :abort t))
                   ('raise
-                   ;; NOTE: we throw nil here we need to delete the frame before raising
+                   ;; NOTE: We throw nil here!
+                   ;; We delete the frame ourselfs before raising.
                    (delete-frame)
                    (bufferlo--bookmark-raise abm)
                    (throw :abort nil)))
@@ -1543,8 +1546,10 @@ Honors `bufferlo-bookmark-tab-duplicate-policy'."
                   ('ignore
                    (throw :abort t))
                   ('raise
-                   ;; NOTE: we throw nil here we need to close the tab before raising
-                   (tab-bar-close-tab)
+                   ;; NOTE: We throw nil here!
+                   ;; We delete the frame ourselfs before raising.
+                   (let (tab-bar-tab-prevent-close-functions)
+                     (tab-bar-close-tab))
                    ;; Find bookmark to raise; tab numbers changes when closing.
                    (bufferlo--bookmark-raise
                     (assoc bookmark-name (bufferlo--active-bookmarks)))
@@ -1558,7 +1563,8 @@ Honors `bufferlo-bookmark-tab-duplicate-policy'."
                          (or msg "")))
               nil)))
       (when aborted
-        (tab-bar-close-tab)))))
+        (let (tab-bar-tab-prevent-close-functions)
+          (tab-bar-close-tab))))))
 
 (defun bufferlo--tab-bar-undo-close-tab-advice (oldfn &rest args)
   "Activate the advice for `tab-bar-undo-close-tab'.
@@ -1711,7 +1717,8 @@ If BUFFER is nil, the current buffer is killed."
     ;; buffer.  The caller will close the tab or frame under its control.
     (switch-to-buffer-other-window " *bufferlo temp*"))
   (let ((frame-auto-hide-function) ; inhibit automatic frame deletion
-        (switch-to-prev-buffer-skip)) ; no interference for buffer replacement selection
+        ;; No interference for buffer replacement selection
+        (switch-to-prev-buffer-skip))
     (kill-buffer buffer)))
 
 (defun bufferlo--kill-buffer-forced (buffer)
@@ -1732,7 +1739,8 @@ If BUFFER is nil, the current buffer is killed."
          (if (not (buffer-file-name buffer))
              (bufferlo--kill-buffer-forced buffer)
            (unless (buffer-modified-p buffer)
-             (let ((kill-buffer-query-functions)) ; no prompting (these are unmodified buffers)
+             ;; No prompting (these are unmodified buffers)
+             (let ((kill-buffer-query-functions))
                (bufferlo--kill-buffer-safely buffer)))))
         ('kill-modified
          (bufferlo--kill-buffer-forced buffer))
@@ -1837,19 +1845,33 @@ The optional arguments KILLALL and INTERNAL-TOO are passed to
   (bufferlo--warn)
   (when (or (not bufferlo-close-tab-kill-buffers-prompt)
             (y-or-n-p "Kill tab and its buffers? "))
-    (let ((tbm (alist-get 'bufferlo-bookmark-tab-name (bufferlo--current-tab))))
+    (let* ((orig-frame (selected-frame))
+           (orig-tab (bufferlo--current-tab))
+           (tbm (alist-get 'bufferlo-bookmark-tab-name orig-tab))
+           kill-buffer-closed-tab)
       (pcase bufferlo-bookmark-tab-save-on-close
         ((or 't 'on-kill-buffers)
          (when (y-or-n-p (format-message "Save tab bookmark `%s'? " tbm))
            (bufferlo-bookmark-tab-save-current)))
         ((or 'when-bookmarked 'on-kill-buffers-when-bookmarked)
          (when tbm (bufferlo-bookmark-tab-save tbm))))
-      (let ((bufferlo-kill-buffers-prompt nil))
+      (let* ((bufferlo-kill-buffers-prompt nil)
+             ;; Emacs 31 `window--delete' can call tab-bar-close-tab
+             (tab-bar-tab-prevent-close-functions nil)
+             (tab-bar-tab-pre-close-functions
+              (list (lambda (_tab _last-tab-p)
+                      (setq kill-buffer-closed-tab t)))))
         (bufferlo-kill-buffers killall nil nil internal-too))
       (let ((bufferlo-bookmark-tab-save-on-close nil)
             (tab-bar-close-last-tab-choice 'delete-frame))
-        ;; Catch errors in case this is the last tab on the last frame
-        (ignore-errors (tab-bar-close-tab))))))
+        ;; Close the tab only if we can detect that it's hasn't been closed by
+        ;; `'kill-buffer' (via `replace-buffer-in-windows',
+        ;; `window-deletable-p', `window--delete').
+        (unless (or kill-buffer-closed-tab
+                    (not (eq orig-frame (selected-frame)))
+                    (not (eq orig-tab (bufferlo--current-tab))))
+          ;; Catch errors in case this is the last tab on the last frame
+          (ignore-errors (tab-bar-close-tab)))))))
 
 (defun bufferlo-isolate-project (&optional file-buffers-only)
   "Isolate a project in the frame or tab.
@@ -2615,7 +2637,8 @@ Returns nil on success, non-nil on abort."
 
       ;; Bookmark already loaded in another tab?
       (when abm
-        (let ((duplicate-policy (bufferlo--bookmark-get-duplicate-policy ; throws :abort
+        ;; Throws :abort
+        (let ((duplicate-policy (bufferlo--bookmark-get-duplicate-policy
                                  bookmark-name "tab"
                                  bufferlo-bookmark-tab-duplicate-policy
                                  'load
@@ -2637,11 +2660,13 @@ Returns nil on success, non-nil on abort."
       ;; Frame and set handlers manage tabs, so we don't do it here.
       (unless (or embedded-tab bufferlo--bookmark-set-loading)
 
-        ;; Handle an independent tab bookmark on a frame with an active frame bookmark.
-        ;; Do this first, before a new tab is created.
+        ;; Handle an independent tab bookmark on a frame with an
+        ;; active frame bookmark.  Do this first, before a new tab is
+        ;; created.
         (when (and bookmark-name
                    (frame-parameter nil 'bufferlo-bookmark-frame-name))
-          (let ((clear-policy (bufferlo--bookmark-tab-get-clear-policy 'load))) ; throws :abort
+          ;; Throws :abort
+          (let ((clear-policy (bufferlo--bookmark-tab-get-clear-policy 'load)))
             (pcase clear-policy
               ('clear
                (setq disconnect-tbm-p t))
@@ -2650,7 +2675,8 @@ Returns nil on success, non-nil on abort."
                (funcall msg-append "cleared tab bookmark")))))
 
         ;; Replace current tab or create new tab?
-        (let ((replace-policy (bufferlo--bookmark-tab-get-replace-policy))) ; throws :abort
+        ;; Throws :abort
+        (let ((replace-policy (bufferlo--bookmark-tab-get-replace-policy)))
           (pcase replace-policy
             ('replace)
             ('new
@@ -2925,11 +2951,14 @@ Returns nil on success, non-nil on abort."
                   ;; and other user prompts are bypassed.
                   ;;
                   ;; Handler abort is non-nil.
-                  (if (bufferlo--bookmark-tab-handler tbm 'not-jump 'no-message 'embedded-tab)
+                  (if (bufferlo--bookmark-tab-handler tbm 'not-jump
+                                                      'no-message 'embedded-tab)
                       (if first
                           (let ((switch-to-buffer-obey-display-actions))
-                            (switch-to-buffer orig-buffer 'no-record 'force-same-window))
-                        (tab-bar-close-tab))
+                            (switch-to-buffer orig-buffer 'no-record
+                                              'force-same-window))
+                        (let (tab-bar-tab-prevent-close-functions)
+                          (tab-bar-close-tab)))
                     (when-let* ((tab-name (alist-get 'tab-name tbm)))
                       (tab-bar-rename-tab tab-name)))
                   (setq first nil)))
@@ -2974,8 +3003,8 @@ Returns nil on success, non-nil on abort."
         (message "Restored bufferlo frame bookmark%s%s"
                  (if bookmark-name (format ": %s" bookmark-name) "")
                  (or msg "")))
-      nil) ; explicitly return success; abort returns non-nil
-    ))
+      ;; Explicitly return success; abort returns non-nil
+      nil)))
 
 ;; We use a short name here as bookmark-bmenu-list hard codes width of 8 chars
 (put #'bufferlo--bookmark-frame-handler 'bookmark-handler-type "B-Frame")
@@ -3292,18 +3321,22 @@ Returns nil on success, non-nil on abort."
              (dolist (tbm-name tbm-names)
                (unless (and ignore-already-active
                             (member tbm-name already-abm-names))
-                 (when-let* ((tbm-bookmark-record (bufferlo--bookmark-get-bookmark tbm-name)))
+                 (when-let* ((tbm-bookmark-record
+                              (bufferlo--bookmark-get-bookmark tbm-name)))
                    (let ((orig-buffer (current-buffer)))
                      (unless first-tab
                        (tab-bar-new-tab-to))
                      ;; NOTE: bufferlo--bookmark-tab-handler disallows raise for
                      ;; embedded-tab to avoid selected frame/tab state issues
                      ;; Handler abort is non-nil.
-                     (when (bufferlo--bookmark-tab-handler tbm-bookmark-record 'not-jump)
+                     (when (bufferlo--bookmark-tab-handler tbm-bookmark-record
+                                                           'not-jump)
                        (if first-tab
                            (let ((switch-to-buffer-obey-display-actions))
-                             (switch-to-buffer orig-buffer 'no-record 'force-same-window))
-                         (tab-bar-close-tab)))))
+                             (switch-to-buffer orig-buffer 'no-record
+                                               'force-same-window))
+                         (let (tab-bar-tab-prevent-close-functions)
+                           (tab-bar-close-tab))))))
                  (setq first-tab nil)))))
          (setq first-tab-frame nil)))
       (select-frame-set-input-focus (selected-frame)))
@@ -3316,28 +3349,32 @@ Returns nil on success, non-nil on abort."
       (funcall bufferlo-frameset-restore-function frameset)
       (dolist (frame (frame-list))
         (with-selected-frame frame
-          ;; 'bufferlo--frame-to-restore is a hint from `bufferlo-frameset-restore-default'
+          ;; 'bufferlo--frame-to-restore is a hint from
+          ;; `bufferlo-frameset-restore-default'
           (when (frame-parameter nil 'bufferlo--frame-to-restore)
             (when-let* ((fbm-name (frame-parameter
                                    nil 'bufferlo--bookmark-frame-name))
-                        (fbm-bookmark-record (bufferlo--bookmark-get-bookmark fbm-name)))
+                        (fbm-bookmark-record (bufferlo--bookmark-get-bookmark
+                                              fbm-name)))
               (if (and ignore-already-active
                        (member fbm-name already-abm-names))
                   (delete-frame)
-                (let ((bufferlo-bookmark-frame-load-make-frame nil) ; frame already made
+                (let ((bufferlo-bookmark-frame-load-make-frame nil)
                       (bufferlo-bookmark-frame-load-policy
                        'replace-frame-adopt-loaded-bookmark)
                       (bufferlo--bookmark-handler-no-message t))
                   ;; NOTE: bufferlo--bookmark-frame-handler disallows raise
                   ;; for frames in sets to avoid selected frame/tab state issues
                   ;; Handler abort is non-nil.
-                  (if (bufferlo--bookmark-frame-handler fbm-bookmark-record 'not-jump)
+                  (if (bufferlo--bookmark-frame-handler fbm-bookmark-record
+                                                        'not-jump)
                       (delete-frame)
                     (when (and
                            (display-graphic-p frame)
                            (memq bufferlo-set-restore-geometry-policy
                                  '(all frames)))
-                      (when-let* ((fg (frame-parameter nil 'bufferlo--frame-geometry)))
+                      (when-let* ((fg (frame-parameter
+                                       nil 'bufferlo--frame-geometry)))
                         (funcall bufferlo-set-frame-geometry-function fg)))
                     (set-frame-parameter nil 'bufferlo--frame-to-restore nil))
                   (select-frame-set-input-focus (selected-frame)))))))))
@@ -3361,8 +3398,8 @@ Returns nil on success, non-nil on abort."
                               x))
                           bufferlo-bookmark-names
                           ", ")))
-    nil) ; explicitly return success; abort returns non-nil
-  )
+    ;; Explicitly return success; abort returns non-nil
+    nil))
 
 ;; We use a short name here as bookmark-bmenu-list hard codes width of 8 chars
 (put #'bufferlo--bookmark-set-handler 'bookmark-handler-type "B-Set")
