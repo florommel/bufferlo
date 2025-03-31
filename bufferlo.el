@@ -2408,125 +2408,134 @@ FRAME specifies the frame; the default value of nil selects the current frame."
 This controls `bufferlo--bookmark-get-duplicate-policy' to inhibit raise
 and quit which are cumbersome during set loading.")
 
-(defun bufferlo--bookmark-get-duplicate-policy (bookmark-name
-                                                thing default-policy
-                                                mode &optional embedded-tab)
+(defun bufferlo--bookmark-get-duplicate-policy (bookmark-name thing default-policy mode &optional embedded-tab)
   "Get the duplicate policy for THING BOOKMARK-NAME.
 THING should be either \"frame\" or \"tab\".
 Ask the user if DEFAULT-POLICY is set to \\='prompt.
-MODE can be one of \\='load \\='save \\='undelete, depending on the
-invoking action.
-EMBEDDED-TAB should be non-nil for that case.
-The variable `bufferlo--bookmark-set-loading' is consulted for that case.
-This functions throws :abort when the user quits."
-  ;; This function implements the following logic.
-  ;;
-  ;; duplicate tab:
-  ;;   - solo tab: all options
-  ;;   - undo close tab: all options
-  ;;   - solo tab in bookmarked frame (prompt default): all options
-  ;;   - solo tab in bookmarked frame (no prompt default): all options
-  ;;   - solo tab in a set (prompt default): allow, clear, ignore, disallow raise
-  ;;   - solo tab in a set (no prompt default), allow, clear, ignore, disallow raise
-  ;;   - embedded tab in a set: allow, clear, ignore,
-  ;;     disallow prompt (coerce to ignore), disallow raise (coerce to ignore)
-  ;;
-  ;; duplicate frame:
-  ;;   - solo frame: all options
-  ;;   - undelete frame: all options
-  ;;   - frame in a set: allow, clear, ignore, disallow prompt (coerce to ignore),
-  ;;     disallow raise (coerce to ignore)
+MODE can be one of \\='load \\='save \\='undelete, depending on the invoking
+action.
+EMBEDDED-TAB is non-nil if the tab bookmark is embedded in a frame bookmark.
+This functions throws :abort when the user quits.
 
-  ;; embedded tab in a set, frame in a set:
-  ;; allow, clear, ignore, disallow prompt (coerce to ignore), disallow raise (coerce to ignore)
-  (if (and bufferlo--bookmark-set-loading
-           (or embedded-tab
-               (equal thing "frame")))
-      (pcase default-policy
-        ('prompt 'ignore)
-        ('allow default-policy)
-        ('clear default-policy)
-        ('clear-warn default-policy)
-        ('ignore default-policy)
-        ('raise 'ignore))
-    ;; solo tab in a set (no prompt default): allow, clear, ignore, disallow prompt, disallow raise
-    (if (and bufferlo--bookmark-set-loading
-             (equal thing "tab")
-             (not (eq default-policy 'prompt)))
-        (pcase default-policy
-          ('allow default-policy)
-          ('clear default-policy)
-          ('clear-warn default-policy)
-          ('ignore default-policy)
-          ('raise 'ignore))
-      (if (not (eq default-policy 'prompt))
-          ;; tab in frame not prompt: allow, clear, ignore, disallow raise (coerce to ignore)
-          (if embedded-tab
-              (pcase default-policy
-                ('allow default-policy)
-                ('clear default-policy)
-                ('clear-warn default-policy)
-                ('ignore default-policy)
-                ('raise 'ignore))
-            ;; allow all others
-            default-policy)
-        ;; Prompt for a policy
-        (let* ((mode-text (pcase mode
-                            ('save
-                             "Clear other bookmark")
-                            ('load
-                             "Clear bookmark after loading")
-                            ('undelete ; invalid in bufferlo--bookmark-set-loading
-                             "Clear bookmark after undeleting/undoing")))
-               ;; solo tab in a set (prompt default): allow, clear, ignore, disallow raise
-               (disallow-raise (and bufferlo--bookmark-set-loading
-                                    (equal thing "tab")))
-               (question (concat (format-message "%s bookmark `%s' already active: "
-                                                 (capitalize thing)
-                                                 bookmark-name)
-                                 "Allow"
-                                 (format ", %s" mode-text) ; clear thing
-                                 ", Ignore"
-                                 (unless disallow-raise
-                                   (format ", Raise existing"))
-                                 " "))
-               (a-allow `("allow" ?a "Allow duplicate"))
-               (a-clear `("clear" ?c
-                          ,(pcase mode
+The varaible `bufferlo--bookmark-set-loading' should be non-nil if the function
+is invoked as part of a bookmark set restoration.
+
+The functions presents the user with the following options:
+  allow, clear, ignore, raise, help, quit
+
+Depending on the inputs, not all of these options are visible.
+
+In case of a duplicate tab:
+- solo tab: all options
+- undo close tab: all options
+- solo tab in bookmarked frame (default: prompt): all options
+- solo tab in bookmarked frame (default: no prompt): all options
+- solo tab in a set (default: prompt): allow, clear, ignore, disallow raise
+- solo tab in a set (default: no prompt), allow, clear, ignore, disallow raise
+- embedded tab in a set: allow, clear, ignore,
+  disallow prompt (coerce to ignore), disallow raise (coerce to ignore)
+
+In case of a duplicate frame:
+- solo frame: all options
+- undelete frame: all options
+- frame in a set: allow, clear, ignore, disallow prompt (coerce to ignore),
+  disallow raise (coerce to ignore)"
+  (cond ((and bufferlo--bookmark-set-loading
+              (or embedded-tab (equal thing "frame")))
+         ;; An embedded tab in a set, or a frame in a set:
+         ;;   allow, clear, ignore, disallow prompt (coerce to ignore),
+         ;;   disallow raise (coerce to ignore)
+         (pcase default-policy
+           ('prompt 'ignore)
+           ('allow default-policy)
+           ('clear default-policy)
+           ('clear-warn default-policy)
+           ('ignore default-policy)
+           ('raise 'ignore)))
+
+        ((and bufferlo--bookmark-set-loading
+              (equal thing "tab")
+              (not (eq default-policy 'prompt)))
+         ;; A solo tab in a set (and default: no prompt):
+         ;;   allow, clear, ignore, disallow prompt, disallow raise
+         (pcase default-policy
+           ('allow default-policy)
+           ('clear default-policy)
+           ('clear-warn default-policy)
+           ('ignore default-policy)
+           ('raise 'ignore)))
+
+        ((not (eq default-policy 'prompt))
+         ;; A tab in a frame; do not prompt:
+         ;;   allow, clear, ignore, disallow raise (coerce to ignore)
+         (if embedded-tab
+             (pcase default-policy
+               ('allow default-policy)
+               ('clear default-policy)
+               ('clear-warn default-policy)
+               ('ignore default-policy)
+               ('raise 'ignore))
+           ;; allow all others
+           default-policy))
+
+        (t ; Prompt for a policy
+         (let* ((mode-text (pcase mode
                              ('save
-                              (format "Clear the other %s's bookmark association"
-                                      thing))
+                              "Clear other bookmark")
                              ('load
-                              (format "Clear this %s's bookmark association after loading"
-                                      thing))
-                             ('undelete
-                              (format "Clear this %s's bookmark association after undeleting/undoing"
-                                      thing)))))
-               (a-ignore `("ignore" ?i "Ignore duplicate"))
-               (a-raise `("raise" ?r
-                          ,(format "Raise the %s with the active bookmark and quit"
-                                   thing)))
-               (a-help `("help" ?h "Help"))
-               (a-quit `("quit" ?q ,(format "Quit to %s"
-                                            (if bufferlo--bookmark-set-loading
-                                                "ignore"
-                                              "abort"))))
-               ;; embedded tab in a set:  all options
-               ;; solo tab in a set: allow, clear, ignore, disallow raise
-               (answers (if (or embedded-tab
-                                (and bufferlo--bookmark-set-loading
+                              "Clear bookmark after loading")
+                             ('undelete ; invalid in bufferlo--bookmark-set-loading
+                              "Clear bookmark after undeleting/undoing")))
+                ;; A solo tab in a set (and default: prompt):
+                ;;   allow, clear, ignore, disallow raise
+                (disallow-raise (and bufferlo--bookmark-set-loading
                                      (equal thing "tab")))
-                            (list a-allow a-clear a-ignore a-help a-quit)
-                          (list a-allow a-clear a-ignore a-raise a-help a-quit))))
-          (pcase (with-local-quit
-                   (read-answer question answers))
-            ("allow" 'allow)
-            ("clear" 'clear)
-            ("ignore" 'ignore)
-            ("raise" 'raise)
-            (_ (if bufferlo--bookmark-set-loading
-                   'ignore
-                 (throw :abort t)))))))))
+                (question (concat (format-message "%s bookmark `%s' already active: "
+                                                  (capitalize thing)
+                                                  bookmark-name)
+                                  "Allow"
+                                  (format ", %s" mode-text) ; clear thing
+                                  ", Ignore"
+                                  (unless disallow-raise
+                                    (format ", Raise existing"))
+                                  " "))
+                (a-allow `("allow" ?a "Allow duplicate"))
+                (a-clear `("clear" ?c
+                           ,(pcase mode
+                              ('save
+                               (format "Clear the other %s's bookmark association"
+                                       thing))
+                              ('load
+                               (format "Clear this %s's bookmark association after loading"
+                                       thing))
+                              ('undelete
+                               (format "Clear this %s's bookmark association after undeleting/undoing"
+                                       thing)))))
+                (a-ignore `("ignore" ?i "Ignore duplicate"))
+                (a-raise `("raise" ?r
+                           ,(format "Raise the %s with the active bookmark and quit"
+                                    thing)))
+                (a-help `("help" ?h "Help"))
+                (a-quit `("quit" ?q ,(format "Quit to %s"
+                                             (if bufferlo--bookmark-set-loading
+                                                 "ignore"
+                                               "abort"))))
+                ;; An embedded tab in a set: all options
+                ;; A solo tab in a set: allow, clear, ignore, disallow raise
+                (answers (if (or embedded-tab
+                                 (and bufferlo--bookmark-set-loading
+                                      (equal thing "tab")))
+                             (list a-allow a-clear a-ignore a-help a-quit)
+                           (list a-allow a-clear a-ignore a-raise a-help a-quit))))
+           (pcase (with-local-quit
+                    (read-answer question answers))
+             ("allow" 'allow)
+             ("clear" 'clear)
+             ("ignore" 'ignore)
+             ("raise" 'raise)
+             (_ (if bufferlo--bookmark-set-loading
+                    'ignore
+                  (throw :abort t))))))))
 
 (defun bufferlo--bookmark-tab-get-replace-policy ()
   "Get the replace policy for tab bookmarks.
