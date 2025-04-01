@@ -1,6 +1,6 @@
-;;; bufferlo.el --- Manage frame/tab-local buffer lists -*- lexical-binding: t -*-
+;;; bufferlo.el --- Frame/Tab Local Buffer Lists with Persistence -*- lexical-binding: t -*-
 
-;; Copyright (C) 2021-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2021-2025 Free Software Foundation, Inc.
 
 ;; Author: Florian Rommel <mail@florommel.de>
 ;;         Stephane Marks <shipmints@gmail.com>
@@ -27,24 +27,30 @@
 
 ;;; Commentary:
 
-;; This gives you separate buffer lists per frame and per (tab-bar) tab.
+;; With bufferlo, every frame and tab (i.e., tab-bar-mode tab) has an
+;; additional manageable local buffer list. A buffer is added to the
+;; local buffer list when displayed in the frame/tab (e.g., by opening a
+;; new file in the tab or by switching to the buffer from the global
+;; buffer list).
 
-;; Bufferlo is a lightweight wrapper around Emacs's buffer-list frame
-;; parameter.  In contrast to similar solutions, it integrates
-;; seamlessly with the standard frame and tab management facilities,
-;; including undeletion of frame and tabs, tab duplication and moving,
-;; frame cloning, and persisting sessions (via desktop.el).
+;; Using Emacs's built-in buffer-list frame parameter, bufferlo
+;; integrates seamlessly with all standard frame and tab management
+;; facilities, including undeletion of frames and tabs, tab duplication
+;; and moving, frame cloning, and session persistence with desktop.el
+;; (though bufferlo frame and tab bookmarks offer an alternative
+;; persistence method).
 
-;; With bufferlo, every frame or tab (if you use tab-bar tabs) has an
-;; additional manageable local buffer list.  A buffer is added to the
-;; local buffer list when displayed in the frame/tab (e.g., by opening
-;; a new file in the tab or by switching to the buffer from the global
-;; buffer list).  Bufferlo provides extensive management functions for
-;; the local list and frame/tab-local variants of the switch-buffer
-;; function, buffer menu, and Ibuffer.  In addition, you can configure
-;; any command that selects a buffer to use the local buffer list
-;; (bufferlo anyhwere).  Bufferlo also allows you to bookmark and
-;; persist the state of individual frames or tabs.
+;; Bufferlo provides extensive management functions for its local lists
+;; and offers features on top of switch-buffer functions, buffer menu,
+;; and ibuffer. You can configure any command that selects a buffer to
+;; use the local buffer list via bufferlo-anywhere-mode.
+
+;; In addition, bufferlo offers lightweight Emacs bookmarks-based
+;; persistence for frames, tabs, and sets of frames/tabs to help you
+;; manage your transient workflows. Bufferlo bookmarks are compatible
+;; with built-in features such as bookmark-bmenu-list and third-party
+;; packages such as consult which offers consult-bookmark for interactive
+;; bookmark selection.
 
 ;;; Code:
 
