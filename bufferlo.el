@@ -103,9 +103,9 @@ Use `bufferlo-bury' to remove and bury a buffer if this is set to t."
 This is a list of regular expressions that match buffer names.
 This is applied on frame and tab creation.  Included buffers can be
 explicitly removed later.
-This overrides buffers excluded by `bufferlo-exclude-buffer-filters.'"
+This overrides buffers excluded by `bufferlo-exclude-buffer-filters'."
   :package-version '(bufferlo . "0.8")
-  :type '(repeat string))
+  :type '(repeat regexp))
 
 (defcustom bufferlo-exclude-buffer-filters '(".*")
   "Buffers that should always get excluded in a new tab or frame.
@@ -115,20 +115,20 @@ added explicitly later.  Use `bufferlo-hidden-buffers' to permanently
 hide buffers from the local list.
 Buffers included by `bufferlo-include-buffer-filters' take precedence."
   :package-version '(bufferlo . "0.8")
-  :type '(repeat string))
+  :type '(repeat regexp))
 
 (defcustom bufferlo-hidden-buffers nil
   "List of regexps matching names of buffers to hide in the local buffer lists.
 Matching buffers are hidden even if displayed in the current frame or tab."
   :package-version '(bufferlo . "0.8")
-  :type '(repeat string))
+  :type '(repeat regexp))
 
 (defcustom bufferlo-kill-buffers-exclude-filters
   '("\\` " "\\`\\*Messages\\*\\'" "\\`\\*scratch\\*\\'")
   "Buffers that should not be killed by `bufferlo-kill-buffers'.
 This is a list of regular expressions that match buffer names."
   :package-version '(bufferlo . "0.8")
-  :type '(repeat string))
+  :type '(repeat regexp))
 
 (defcustom bufferlo-kill-buffers-prompt nil
   "If non-nil, confirm before killing local or orphan buffers."
@@ -176,13 +176,16 @@ handle the place restoration in bufferlo bookmarks."
 
 (defcustom bufferlo-bookmark-buffers-exclude-filters nil
   "Buffers that should be excluded from bufferlo bookmarks.
-This is a list of regular expressions to filter buffer names."
+This is a list of regular expressions to filter buffer names.
+Buffers included by `bufferlo-bookmark-buffers-include-filters' take
+precedence."
   :package-version '(bufferlo . "1.1")
   :type '(repeat regexp))
 
 (defcustom bufferlo-bookmark-buffers-include-filters nil
   "Buffers that should be stored in bufferlo bookmarks.
-This is a list of regular expressions to filter buffer names."
+This is a list of regular expressions to filter buffer names.
+This overrides buffers excluded by `bufferlo-bookmark-buffers-exclude-filters'."
   :package-version '(bufferlo . "1.1")
   :type '(repeat regexp))
 
