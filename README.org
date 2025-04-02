@@ -587,11 +587,11 @@ Note: 'raise is considered to act as 'clear by bookmark set loading.
 #+end_src
 #+begin_src emacs-lisp
   ;; handle buffer bookmarks that could not be restored
-  (setq bufferlo-bookmark-tab-failed-buffer-policy 'placeholder) ; placeholder buffer and buffer name; the default
+  (setq bufferlo-bookmark-tab-failed-buffer-policy nil) ; ignore; the default
+  (setq bufferlo-bookmark-tab-failed-buffer-policy 'placeholder) ; placeholder buffer and buffer name
   (setq bufferlo-bookmark-tab-failed-buffer-policy 'placeholder-orig) ; placeholder buffer with original buffer name
   (setq bufferlo-bookmark-tab-failed-buffer-policy "*scratch*") ; default to a specific buffer
   (setq bufferlo-bookmark-tab-failed-buffer-policy #'my/failed-bookmark-handler) ; function to call that returns a buffer
-  (setq bufferlo-bookmark-tab-failed-buffer-policy nil) ; ignore
 #+end_src
 
 *** Bookmark set options
