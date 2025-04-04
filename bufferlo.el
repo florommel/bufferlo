@@ -1716,6 +1716,9 @@ If INVERT is non-nil, return the non-exclusive buffers instead."
                   (lambda (b) (not (memq b other-bufs))))
                 this-bufs)))
 
+(defvar bufferlo--kill-buffer-frame-or-tab-closing nil
+  "Bind to non-nil when closing frame/tab and calling bufferlo kill buffers.")
+
 (defun bufferlo--kill-buffer-safely (buffer)
   "Kill BUFFER respecting that `replace-buffer-in-windows' might kill the frame."
   ;; bug#71386
@@ -1739,10 +1742,15 @@ If INVERT is non-nil, return the non-exclusive buffers instead."
         (switch-to-prev-buffer-skip-regexp))
     (when (and (one-window-p 'no-mini)
                (eq (window-deletable-p) 'frame))
-      ;; Kill the requested buffer but leave one live window on a "hidden"
-      ;; buffer.  The caller may close the tab or frame under its control.
+      ;; If this is the final window on the frame, and the frame would be
+      ;; deleted by kill-buffer / replace-buffer-in-windows, leave one live
+      ;; buffer to prevent the frame being killed.  The bufferlo calling
+      ;; functions that close tabs and frames will handle tab/frame closing.
       (switch-to-buffer " *bufferlo temp*" 'norecord 'force-same-window)
-      (switch-to-prev-buffer))
+      ;; This prevents the hidden buffer from visually leaking when the
+      ;; calling bufferlo function is not intending to close the tab or frame.
+      (unless bufferlo--kill-buffer-frame-or-tab-closing
+        (switch-to-prev-buffer)))
     (kill-buffer buffer)))
 
 (defun bufferlo--kill-buffer-forced (buffer)
@@ -1794,7 +1802,7 @@ argument INTERNAL-TOO is non-nil."
                         (bufferlo--get-exclusive-buffers frame tabnum)))
            (buffers (seq-filter
                      (lambda (b)
-                       (not (and
+                       (not (or
                              (and (not internal-too)
                                   (string-prefix-p " " (buffer-name b)))
                              (string-match-p exclude (buffer-name b)))))
@@ -1815,7 +1823,7 @@ Buffers matching `bufferlo-kill-buffers-exclude-filters' are never killed."
                      (append '("a^") bufferlo-kill-buffers-exclude-filters)))
            (buffers (seq-filter
                      (lambda (b)
-                       (not (and
+                       (not (or
                              (and (not internal-too)
                                   (string-prefix-p " " (buffer-name b)))
                              (string-match-p exclude (buffer-name b)))))
@@ -1846,7 +1854,8 @@ argument INTERNAL-TOO is non-nil."
          (when fbm (funcall save-as-current frame))))
       ;; If batch, raise frame in case of prompts for buffers that need saving.
       (raise-frame frame)
-      (let ((bufferlo-kill-buffers-prompt nil))
+      (let ((bufferlo-kill-buffers-prompt nil)
+            (bufferlo--kill-buffer-frame-or-tab-closing t))
         (bufferlo-kill-buffers nil frame 'all internal-too))
       ;; kill-buffer calls replace-buffer-in-windows which will
       ;; delete windows *and* their frame so we have to test if
@@ -1880,6 +1889,7 @@ The optional arguments KILLALL and INTERNAL-TOO are passed to
         ((or 'when-bookmarked 'on-kill-buffers-when-bookmarked)
          (when tbm (bufferlo-bookmark-tab-save tbm))))
       (let* ((bufferlo-kill-buffers-prompt nil)
+             (bufferlo--kill-buffer-frame-or-tab-closing t)
              ;; Emacs 31 `window--delete' can call tab-bar-close-tab
              (tab-bar-tab-prevent-close-functions nil)
              (tab-bar-tab-pre-close-functions
