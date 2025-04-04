@@ -1716,9 +1716,8 @@ If INVERT is non-nil, return the non-exclusive buffers instead."
                   (lambda (b) (not (memq b other-bufs))))
                 this-bufs)))
 
-(defun bufferlo--kill-buffer-safely (&optional buffer)
-  "Kill BUFFER respecting that `replace-buffer-in-windows' might kill the frame.
-If BUFFER is nil, the current buffer is killed."
+(defun bufferlo--kill-buffer-safely (buffer)
+  "Kill BUFFER respecting that `replace-buffer-in-windows' might kill the frame."
   ;; bug#71386
   ;; These shenanigans are needed because `kill-buffer' calls
   ;; `replace-buffer-in-windows' which, without regard to other
@@ -1734,15 +1733,16 @@ If BUFFER is nil, the current buffer is killed."
   ;; window."  If a bufferlo-managed tab has only a single buffer
   ;; and no `window-prev-buffers', we concoct one to retain the
   ;; window before closing the tab.
-  (when (and (one-window-p 'no-mini)
-             (eq (window-deletable-p) 'frame))
-    ;; Kill the requested buffer but leave one live window on a "hidden"
-    ;; buffer.  The caller may close the tab or frame under its control.
-    (switch-to-buffer " *bufferlo temp*" 'norecord 'force-same-window))
   (let ((frame-auto-hide-function) ; inhibit automatic frame deletion
         ;; No interference for buffer replacement selection
         (switch-to-prev-buffer-skip)
         (switch-to-prev-buffer-skip-regexp))
+    (when (and (one-window-p 'no-mini)
+               (eq (window-deletable-p) 'frame))
+      ;; Kill the requested buffer but leave one live window on a "hidden"
+      ;; buffer.  The caller may close the tab or frame under its control.
+      (switch-to-buffer " *bufferlo temp*" 'norecord 'force-same-window)
+      (switch-to-prev-buffer))
     (kill-buffer buffer)))
 
 (defun bufferlo--kill-buffer-forced (buffer)
@@ -1750,7 +1750,7 @@ If BUFFER is nil, the current buffer is killed."
   (let ((kill-buffer-query-functions nil))
     (with-current-buffer buffer
       (set-buffer-modified-p nil)
-      (bufferlo--kill-buffer-safely))))
+      (bufferlo--kill-buffer-safely buffer))))
 
 (defun bufferlo--kill-buffer (buffer)
   "Kill BUFFER respecting `bufferlo-kill-modified-buffers-policy'."
