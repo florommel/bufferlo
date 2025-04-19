@@ -9,7 +9,7 @@
 ;; Url: https://github.com/florommel/bufferlo
 ;; Created: 2021-09-15
 ;; Version: 1.1-pre
-;; Package-Requires: ((emacs "27.1"))
+;; Package-Requires: ((emacs "29.1"))
 ;; Keywords: buffer frame tabs local
 
 ;; This program is free software: you can redistribute it and/or modify
