@@ -246,8 +246,8 @@ nil does not save the tab bookmark when closing the tab.
 t always saves the tab bookmark when closing the tab.
 Prompts for a new bookmark name if the tab is not associated with a bookmark.
 
-\\='when-bookmarked saves the bookmark only if the tab is already associated with
-a current bookmark.
+\\='when-bookmarked saves the bookmark only if the tab is already associated
+with a current bookmark.
 
 \\='on-kill-buffers behaves like t but only for the function
 `bufferlo-tab-close-kill-buffers'.
