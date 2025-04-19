@@ -1603,7 +1603,7 @@ Pass ARGS to OLDFN."
   (when (and (not bufferlo-mode)
              (not (eq this-command bufferlo--warn-current-command)))
     (setq bufferlo--warn-current-command this-command)
-    (message (format "%s: bufferlo-mode should be enabled"
+    (message (format "Warning: %s: bufferlo-mode should be enabled"
                      this-command))))
 
 (defun bufferlo-clear (&optional frame)
@@ -3587,6 +3587,7 @@ consider (usually all active bookmarks)."
 (defun bufferlo-set-save-current-interactive ()
   "Save active constituents in selected `bookmark-sets'."
   (interactive)
+  (bufferlo--warn)
   (let* ((candidates (mapcar #'car bufferlo--active-sets))
          (comps (bufferlo--bookmark-completing-read-multiple
                  "Select sets to save: "
@@ -3618,6 +3619,7 @@ This does not close associated active frame and tab bookmarks."
   "Clear the specified `bookmark-sets'.
 This does not close its associated bookmarks or kill their buffers."
   (interactive)
+  (bufferlo--warn)
   (let* ((candidates (mapcar #'car bufferlo--active-sets))
          (comps (bufferlo--bookmark-completing-read-multiple
                  "Select sets to clear: "
@@ -3628,6 +3630,7 @@ This does not close its associated bookmarks or kill their buffers."
   "Close the specified `bookmark-sets'.
 This closes their associated bookmarks and kills their buffers."
   (interactive)
+  (bufferlo--warn)
   (let* ((candidates (mapcar #'car bufferlo--active-sets))
          (comps (bufferlo--bookmark-completing-read-multiple
                  "Select sets to close/kill: "
@@ -4363,6 +4366,7 @@ current or new frame according to
 (defun bufferlo-bookmarks-close-interactive ()
   "Prompt for active bufferlo bookmarks to close."
   (interactive)
+  (bufferlo--warn)
   (let* ((abms (bufferlo--active-bookmarks))
          (abm-names (mapcar #'car abms))
          (comps (bufferlo--bookmark-completing-read-multiple
@@ -4372,6 +4376,7 @@ current or new frame according to
 (defun bufferlo-bookmarks-save-interactive ()
   "Prompt for active bufferlo bookmarks to save."
   (interactive)
+  (bufferlo--warn)
   (let* ((abms (bufferlo--active-bookmarks))
          (abm-names (mapcar #'car abms))
          (comps (bufferlo--bookmark-completing-read-multiple
@@ -4383,6 +4388,7 @@ current or new frame according to
 Use a single prefix argument to narrow the candidates to frame
 bookmarks, double for bookmarks, triple for bookmark sets."
   (interactive)
+  (bufferlo--warn)
   (let* ((bookmark-names
           (apply 'bufferlo--bookmark-get-names
                  (cond
@@ -4541,6 +4547,7 @@ save all.
 
 A prefix argument inhibits the prompt and bypasses saving."
   (interactive)
+  (bufferlo--warn)
   (let* ((close t)
          (abms (bufferlo--active-bookmarks))
          (abm-names (mapcar #'car abms)))
@@ -4586,6 +4593,7 @@ A prefix argument inhibits the prompt and bypasses saving."
 Note: If there are duplicated bookmarks, the first one found is
 raised."
   (interactive)
+  (bufferlo--warn)
   (let* ((abms (bufferlo--active-bookmarks))
          (abm-names (mapcar #'car abms))
          (comps (bufferlo--bookmark-completing-read
