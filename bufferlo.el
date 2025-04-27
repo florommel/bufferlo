@@ -1044,12 +1044,10 @@ string, FACE is the face for STR."
         ;; Duplicate/move tabs
         (advice-add #'tab-bar-select-tab :around #'bufferlo--activate-force)
         ;; Clone & undelete frame
-        (when (>= emacs-major-version 28)
-          (advice-add #'clone-frame :around
-                      #'bufferlo--clone-undelete-frame-advice))
-        (when (>= emacs-major-version 29)
-          (advice-add #'undelete-frame :around
-                      #'bufferlo--clone-undelete-frame-advice))
+        (advice-add #'clone-frame :around
+                    #'bufferlo--clone-undelete-frame-advice)
+        (advice-add #'undelete-frame :around
+                    #'bufferlo--clone-undelete-frame-advice)
         ;; Undo close tab duplicate check
         (if (< emacs-major-version 31)
             (advice-add #'tab-bar-undo-close-tab
@@ -1102,10 +1100,8 @@ string, FACE is the face for STR."
     ;; Duplicate/move tabs
     (advice-remove #'tab-bar-select-tab #'bufferlo--activate-force)
     ;; Clone & undelete frame
-    (when (>= emacs-major-version 28)
-      (advice-remove #'clone-frame #'bufferlo--clone-undelete-frame-advice))
-    (when (>= emacs-major-version 29)
-      (advice-remove #'undelete-frame #'bufferlo--clone-undelete-frame-advice))
+    (advice-remove #'clone-frame #'bufferlo--clone-undelete-frame-advice)
+    (advice-remove #'undelete-frame #'bufferlo--clone-undelete-frame-advice)
     ;; Undo close tab duplicate check
     (if (< emacs-major-version 31)
         (advice-remove #'tab-bar-undo-close-tab
@@ -1383,9 +1379,7 @@ Includes hidden buffers."
 Argument IGNORE is for compatibility with `tab-bar-tab-post-open-functions'."
   (ignore ignore)
   ;; Reset the local buffer list unless we clone the tab (tab-duplicate).
-  (unless (or (eq tab-bar-new-tab-choice 'clone)
-              (and (< emacs-major-version 29)
-                   (not tab-bar-new-tab-choice)))
+  (unless (eq tab-bar-new-tab-choice 'clone)
     (bufferlo--include-exclude-buffers nil)))
 
 (defun bufferlo--current-buffers (frame)
@@ -2978,9 +2972,7 @@ Returns nil on success, non-nil on abort."
 
              ;; Clear existing tabs unless merging
              (unless (eq load-policy 'merge)
-               (if (>= emacs-major-version 28)
-                   (tab-bar-tabs-set nil)
-                 (set-frame-parameter nil 'tabs nil)))
+               (tab-bar-tabs-set nil))
 
              ;; Load tabs
              (let ((first (if (eq load-policy 'merge) nil t))
@@ -3760,9 +3752,7 @@ This closes their associated bookmarks and kills their buffers."
 
 (defun bufferlo--current-tab ()
   "Get the current tab record."
-  (if (>= emacs-major-version 28)
-      (tab-bar--current-tab-find)
-    (assq 'current-tab (funcall tab-bar-tabs-function nil))))
+  (tab-bar--current-tab-find))
 
 (defun bufferlo--bookmark-tab-save (name &optional no-overwrite no-message msg)
 "Save the current tab as a bookmark.
