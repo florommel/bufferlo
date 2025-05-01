@@ -1262,6 +1262,7 @@ frame or tab-based buffer-list isolation and/or session management.
 - [[https://github.com/alphapapa/activities.el][activities.el]]: purpose-based sessions on frame/tab level
 - [[https://github.com/alphapapa/bufler.el][Bufler]]: rule-based workspace management and buffer grouping
 - [[https://github.com/alphapapa/burly.el][Burly]]: save and restore window configurations for single or multiple frames
+- [[https://github.com/bmag/emacs-purpose][purpose]]: manage windows and buffers according to purposes
 - [[https://github.com/alphapapa/frame-purpose.el][frame-purpose]]: specialize frames to only display certain buffers
 - [[https://github.com/overideal/perject][perject]]: purpose/project-based buffer isolation and session management based
   on ~desktop.el~
