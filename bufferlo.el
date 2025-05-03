@@ -138,8 +138,7 @@ This is a list of regular expressions that match buffer names."
   :package-version '(bufferlo . "1.1")
   :type 'boolean)
 
-(defcustom bufferlo-kill-modified-buffers-policy
-  'retain-modified-kill-without-file-name
+(defcustom bufferlo-kill-modified-buffers-policy nil
   "Bufferlo behavior when killing modified or process buffers.
 
 This policy applies to all bufferlo functions that entail killing buffers,
