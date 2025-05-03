@@ -1,3 +1,19 @@
+* Version 1.1 (2025-05-03)
+- Bug fixes
+- Revamped documentation
+- New minimum required Emacs version: 29.1
+- Improved bookmark loading with support for load policies
+- Filters for buffer inclusion/exclusion in bookmarks
+- Filters for local buffers for switch-to-prev-buffer-skip (next/prev buffer switching)
+- Enhanced buffer save/restoration control during bookmark saving/loading (failed-buffer policy & hooks)
+- Support for automatic bookmark loading on startup
+- Support for automatic bookmark saving on timer activation and/or when frame/tab closing
+- Support for storing frame geometry with bookmarks
+- Experimental support for bookmark sets (combination of multiple frame/tab bookmarks)
+- New bufferlo menu-bar entry
+- New configurable bufferlo mode-line entry
+- Improved bufferlo ibuffer functionality
+
 * Version 0.8 (2024-05-16)
 - Bugfix
 
