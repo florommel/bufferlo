@@ -2998,7 +2998,9 @@ Returns nil on success, non-nil on abort."
                           (let (tab-bar-tab-prevent-close-functions)
                             (tab-bar-close-tab)))
                       (when-let* ((tab-name (alist-get 'tab-name tbm)))
-                        (tab-bar-rename-tab tab-name)))
+                        (tab-bar-rename-tab tab-name))
+                      (when-let* ((tab-group (alist-get 'tab-group tbm)))
+                        (tab-bar-change-tab-group tab-group)))
                     (setq first nil)))
                 (alist-get 'tabs bookmark)))
              ;; NOTE: We might not find a 'current tab if the tab handler aborts
