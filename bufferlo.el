@@ -327,11 +327,32 @@ Note: \\='raise is considered \\='clear during `bookmark-set' loading."
   :package-version '(bufferlo . "1.2")
   :type 'boolean)
 
+(defcustom bufferlo-bookmark-tab-restore-explicit-name t
+  "If non-nil, restore the tab's explicit name when loading a tab bookmark."
+  :package-version '(bufferlo . "1.2")
+  :type 'boolean)
+
 (defcustom bufferlo-bookmarks-load-tabs-make-frame nil
   "If non-nil, make a new frame for tabs loaded by `bufferlo-bookmarks-load'.
 If nil, tab bookmarks are loaded into the current frame."
   :package-version '(bufferlo . "1.1")
   :type 'boolean)
+
+(defcustom bufferlo-bookmark-restore-tab-groups nil
+  "Control the restoration of tab groups in frame and tab bookmarks
+
+nil never restores tab groups.
+
+t always restores tab groups.
+
+\\='tabs only restores tab groups for tab bookmarks.
+
+\\='frames only restores tab groups for frame bookmarks."
+  :package-version '(bufferlo . "1.2")
+  :type '(radio (const :tag "Never" nil)
+                (const :tag "Always" t)
+                (const :tag "Only for tab bookmarks" tabs)
+                (const :tag "Only for frame bookmarks" frames)))
 
 (defcustom bufferlo-bookmark-tab-replace-policy 'replace
   "Control whether loaded tabs replace current tabs or occupy new tabs.
@@ -2802,6 +2823,18 @@ Returns nil on success, non-nil on abort."
           ;; `window-state-put' accepts this.
           (bufferlo--ws-replace-buffer-names ws renamed)
 
+          ;; Restore tab name
+          (when (or embedded-tab bufferlo-bookmark-tab-restore-explicit-name)
+            (when-let* ((tab-name (alist-get 'tab-explicit-name bookmark)))
+              (tab-bar-rename-tab tab-name)))
+
+          ;; Restore tab group
+          (when (or (eq bufferlo-bookmark-restore-tab-groups t)
+                    (and embedded-tab (eq bufferlo-bookmark-restore-tab-groups 'frames))
+                    (and (not embedded-tab) (eq bufferlo-bookmark-restore-tab-groups 'tabs)))
+            (when-let* ((tab-group (alist-get 'tab-group bookmark)))
+              (tab-bar-change-tab-group tab-group)))
+
           ;; We do the following to work around two problems with
           ;; bookmark--jump-via.  In older versions, when called
           ;; interactively and not through bufferlo commands, it calls a
@@ -3019,9 +3052,7 @@ Returns nil on success, non-nil on abort."
                               (switch-to-buffer orig-buffer 'no-record
                                                 'force-same-window))
                           (let (tab-bar-tab-prevent-close-functions)
-                            (tab-bar-close-tab)))
-                      (when-let* ((tab-name (alist-get 'tab-name tbm)))
-                        (tab-bar-rename-tab tab-name)))
+                            (tab-bar-close-tab))))
                     (setq first nil)))
                 (alist-get 'tabs bookmark)))
              ;; NOTE: We might not find a 'current tab if the tab handler aborts

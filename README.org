@@ -582,6 +582,12 @@ Note: 'raise is considered to act as 'clear by bookmark set loading.
   ;; store frame names in their bookmarks, and restore them when loading
   (setq bufferlo-bookmark-frame-persist-frame-name t) ; default nil
 #+end_src
+#+begin_src emacs-lisp
+  ;; control the restoration of tab groups
+  (setq bufferlo-bookmark-restore-tab-groups nil) ; do not restore tab groups, the default
+  (setq bufferlo-bookmark-restore-tab-groups t) ; restore tab groups
+  (setq bufferlo-bookmark-restore-tab-groups 'frames) ; restore tab groups only for frame bookmarks
+#+end_src
 
 *** Tab bookmark options
 
@@ -623,6 +629,16 @@ Note: 'raise is considered to act as 'clear by bookmark set loading.
   (setq bufferlo-bookmark-tab-failed-buffer-policy 'placeholder-orig) ; placeholder buffer with original buffer name
   (setq bufferlo-bookmark-tab-failed-buffer-policy "*scratch*") ; default to a specific buffer
   (setq bufferlo-bookmark-tab-failed-buffer-policy #'my/failed-bookmark-handler) ; function to call that returns a buffer
+#+end_src
+#+begin_src emacs-lisp
+  ;; restore the tab's explicit name (if set)
+  (setq bufferlo-bookmark-tab-restore-explicit-name t) ; default
+#+end_src
+#+begin_src emacs-lisp
+  ;; control the restoration of tab groups
+  (setq bufferlo-bookmark-restore-tab-groups nil) ; do not restore tab groups, the default
+  (setq bufferlo-bookmark-restore-tab-groups t) ; restore tab groups
+  (setq bufferlo-bookmark-restore-tab-groups 'tabs) ; restore tab groups only for tab bookmarks
 #+end_src
 
 *** Bookmark set options
