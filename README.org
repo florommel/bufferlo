@@ -29,12 +29,12 @@ and offers features on top of switch-buffer functions, buffer menu,
 and ~ibuffer~. You can configure any command that selects a buffer to
 use the local buffer list via ~bufferlo-anywhere-mode~.
 
-In addition, bufferlo offers lightweight Emacs bookmarks-based
-persistence for frames, tabs, and sets of frames/tabs to help you
-manage your transient workflows. Bufferlo bookmarks are compatible
-with built-in features such as ~bookmark-bmenu-list~ and third-party
-packages such as [[https://github.com/minad/consult][consult]] which offers consult-bookmark for interactive
-bookmark selection.
+In addition, bufferlo offers lightweight Emacs bookmarks-based persistence for
+frames, tabs, and sets of frames/tabs to help you manage your transient
+workflows. Bufferlo bookmarks are compatible with built-in features such as
+~bookmark-bmenu-list~ and third-party packages such as [[https://github.com/minad/consult][consult]] which offers
+~consult-bookmark~ and ~consult-buffer~ for interactive bookmark and buffer
+selection.
 
 * Installation
 
@@ -909,9 +909,18 @@ bufferlo's local buffer list for the next command.
 
 ** Consult
 
-You can integrate bufferlo with ~consult-buffer~.
+You can integrate bufferlo with ~consult-buffer~ in two ways.
 
-This is an example configuration:
+The first can display both local and non-local bufferlo buffers in the
+~consult~ buffer list.
+
+The second ~consult~ integration is simpler to configure, but a little more
+cumbersome when you want to select non-local buffers.
+
+Don't configure both methods, pick one or the other to avoid consult narrowing
+keys interfering with one another.
+
+This is an example of the first configuration method:
 #+begin_src emacs-lisp
   (defvar my:bufferlo-consult--source-local-buffer
     (list :name "Bufferlo Local Buffers"
@@ -991,6 +1000,18 @@ A good alternative is to bind space to "All Buffers" (via ~:narrow
 (~consult--source-hidden-buffer~). If you still need the hidden buffer
 list, you can make a new source for it, for example, with period as
 the narrowing key (~:narrow ?.~).
+
+This is the second, simpler ~consult~ integration method using its native
+buffer filter. This shows local bufferlo buffers as the default ~consult~
+buffer list. To view non-local buffers, "narrow" the list using key sequence
+"< O" (where "<" is the default consult narrowing character) and the ~consult~
+buffer list switches to to non-local buffers. To return to the local buffer
+list, enter the key sequence "< <" to undo list narrowing.
+
+#+begin_src emacs-lisp
+  ;; This defaults to #'buffer-list which shows all buffers.
+  (setq consult-buffer-list-function #'bufferlo-local-buffers)
+#+end_src
 
 ** Ivy
 
