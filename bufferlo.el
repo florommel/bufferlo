@@ -1273,6 +1273,16 @@ a tab index in the given frame.  If INCLUDE-HIDDEN is set, include hidden
 buffers, see `bufferlo-hidden-buffers'."
   (not (bufferlo-local-buffer-p buffer frame tabnum include-hidden)))
 
+(defun bufferlo-local-buffers ()
+  "Return a list of local buffers for the current frame."
+  (seq-filter #'bufferlo-local-buffer-p
+              (buffer-list)))
+
+(defun bufferlo-non-local-buffers ()
+  "Return a list of non-local buffers for the current frame."
+  (seq-filter #'bufferlo-non-local-buffer-p
+              (buffer-list)))
+
 (defun bufferlo--clear-buffer-lists (&optional frame)
   "This is a workaround advice function to fix tab-bar's tab switching behavior.
 On `tab-bar-select-tab', if `wc-bl' or `wc-bbl' is nil, the function does not
