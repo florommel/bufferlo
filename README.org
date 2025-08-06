@@ -552,6 +552,11 @@ settings.
 #+end_src
 Note: 'raise is considered to act as 'clear by bookmark set loading.
 
+#+begin_src emacs-lisp
+  ;; store frame names in their bookmarks, and restore them when loading
+  (setq bufferlo-bookmark-frame-persist-frame-name t) ; default nil
+#+end_src
+
 *** Tab bookmark options
 
 Refine these options to suit your workflow as you gain experience with
@@ -1105,6 +1110,7 @@ remain in force until they are saved if this policy is set to t.
     (setq bufferlo-bookmark-frame-load-make-frame 'restore-geometry)
     (setq bufferlo-bookmark-frame-load-policy 'prompt)
     (setq bufferlo-bookmark-frame-duplicate-policy 'prompt)
+    (setq bufferlo-bookmark-frame-persist-frame-name nil)
     (setq bufferlo-bookmark-tab-replace-policy 'new)
     (setq bufferlo-bookmark-tab-duplicate-policy 'prompt)
     (setq bufferlo-bookmark-tab-in-bookmarked-frame-policy 'prompt)

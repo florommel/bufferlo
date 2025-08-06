@@ -322,6 +322,11 @@ Note: \\='raise is considered \\='clear during `bookmark-set' loading."
                 (const :tag "Ignore" ignore)
                 (const :tag "Raise" raise)))
 
+(defcustom bufferlo-bookmark-frame-persist-frame-name nil
+  "If non-nil, store frame's name in its bookmark, restore when loading."
+  :package-version '(bufferlo . "1.2")
+  :type 'boolean)
+
 (defcustom bufferlo-bookmarks-load-tabs-make-frame nil
   "If non-nil, make a new frame for tabs loaded by `bufferlo-bookmarks-load'.
 If nil, tab bookmarks are loaded into the current frame."
@@ -2862,6 +2867,8 @@ Returns nil on success, non-nil on abort."
     (tab-bar-select-tab orig-tab)
     `((tabs . ,(reverse tabs-to-bookmark))
       (current . ,orig-tab)
+      (bufferlo--frame-name . ,(when bufferlo-bookmark-frame-persist-frame-name
+                                 (frame-parameter nil 'name)))
       (bufferlo--frame-geometry . ,(funcall bufferlo-frame-geometry-function
                                             (selected-frame)))
       (handler . ,#'bufferlo--bookmark-frame-handler))))
@@ -2961,13 +2968,17 @@ Returns nil on success, non-nil on abort."
                                'restore-geometry))
                         (selected-frame))))
            (with-selected-frame frame
-             ;; Restore geometry
-             (when (and new-frame-p
-                        (display-graphic-p)
-                        (eq bufferlo-bookmark-frame-load-make-frame
-                            'restore-geometry))
-               (when-let* ((fg (alist-get 'bufferlo--frame-geometry bookmark)))
-                 (funcall bufferlo-set-frame-geometry-function fg)))
+             (when new-frame-p
+               ;; Restore name
+               (when bufferlo-bookmark-frame-persist-frame-name
+                 (when-let* ((frame-name (alist-get 'bufferlo--frame-name bookmark)))
+                   (set-frame-name frame-name)))
+               ;; Restore geometry
+               (when (and (display-graphic-p)
+                          (eq bufferlo-bookmark-frame-load-make-frame
+                              'restore-geometry))
+                 (when-let* ((fg (alist-get 'bufferlo--frame-geometry bookmark)))
+                   (funcall bufferlo-set-frame-geometry-function fg))))
 
              ;; Clear existing tabs unless merging
              (unless (eq load-policy 'merge)
