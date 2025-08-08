@@ -2668,10 +2668,10 @@ Returns nil on success, non-nil on abort."
                             nil))
            (orig-bookmark-name bookmark-name)
            (abm (assoc bookmark-name (bufferlo--active-bookmarks)))
-           (disconnect-tbm-p)
-           (restored-buffer-names)
-           (skipped-buffer-names)
-           (msg))
+           disconnect-tbm-p
+           restored-buffer-names
+           skipped-buffer-names
+           msg)
       (cl-labels
           ((msg-append (s) (setq msg (concat msg "; " s))))
         ;; Bookmark already loaded in another tab?
@@ -2915,9 +2915,9 @@ Returns nil on success, non-nil on abort."
                              ;; make-frame implied by functions like
                              ;; `bookmark-jump-other-frame'
                              (not pop-up-frames)))
-           (duplicate-policy)
-           (load-policy)
-           (msg))
+           duplicate-policy
+           load-policy
+           msg)
       (cl-labels
           ((msg-append (s) (setq msg (concat msg "; " s))))
 
@@ -3454,7 +3454,8 @@ Returns nil on success, non-nil on abort."
 (put #'bufferlo--bookmark-set-handler 'bookmark-handler-type "B-Set")
 (put #'bufferlo--bookmark-set-handler 'bookmark-inhibit 'insert)
 
-(defun bufferlo--set-save (bookmark-name active-bookmark-names active-bookmarks &optional no-overwrite)
+(defun bufferlo--set-save (bookmark-name active-bookmark-names active-bookmarks
+                                         &optional no-overwrite no-message msg)
   "Save a bufferlo bookmark set for the specified active bookmarks.
 Store the set in BOOKMARK-NAME for the named bookmarks in
 ACTIVE-BOOKMARK-NAMES represented in ACTIVE-BOOKMARKS.
@@ -3467,9 +3468,9 @@ frame.  New frames will be created to hold tab bookmarks in the
 same grouping.  Order may not be preserved.  Tab frame geometry is
 stored for optional restoration.
 
-If NO-OVERWRITE is non-nil, record the new bookmark without
-throwing away the old one.  NO-MESSAGE inhibits the save status
-message."
+If NO-OVERWRITE is non-nil, record the new bookmark without throwing
+away the old one.  NO-MESSAGE inhibits the save status message.  If MSG
+is non-nil, it is added to the save message."
   (let* ((abms (seq-filter
                 (lambda (x) (member (car x) active-bookmark-names))
                 active-bookmarks))
@@ -3540,11 +3541,14 @@ message."
                      (bufferlo--bookmark-set-make
                       active-bookmark-names tabsets frameset))
                     no-overwrite)
-    (message "Saved bookmark set `%s' containing: %s"
-             bookmark-name
-             (mapconcat #'identity active-bookmark-names ", "))))
+    (unless no-message
+      (message "Saved bookmark set `%s' containing: %s%s"
+               bookmark-name
+               (mapconcat #'identity active-bookmark-names ", ")
+               (if msg msg "")))))
 
-(defun bufferlo-set-save-interactive (bookmark-name &optional no-overwrite)
+(defun bufferlo-set-save-interactive (bookmark-name
+                                      &optional no-overwrite no-message)
   "Save a bufferlo bookmark set for the specified active bookmarks.
 The bookmark set will be stored under BOOKMARK-NAME.
 
@@ -3554,23 +3558,94 @@ the frame's geometry.
 Frame bookmarks represent themselves.
 
 If NO-OVERWRITE is non-nil, record the new bookmark without
-throwing away the old one."
+throwing away the old one.  NO-MESSAGE inhibits the save status
+message.
+
+Warn if this bookmark will overwrite a tab or frame bookmark, and clear
+them, if active, when overwriting."
   (interactive
    (list (completing-read
           "Save bufferlo bookmark set as: "
           (bufferlo--bookmark-get-names #'bufferlo--bookmark-set-handler)
           nil nil nil 'bufferlo-bookmark-set-history nil)))
   (bufferlo--warn)
-  (let* ((abms (bufferlo--active-bookmarks))
-         (abm-names (mapcar #'car abms))
-         (comps (bufferlo--bookmark-completing-read-multiple
-                 (format "Add bookmark(s) to %s: " bookmark-name) abm-names)))
-    (bufferlo--set-save bookmark-name comps abms no-overwrite)
-    (setq bufferlo--active-sets
-          (assoc-delete-all bookmark-name bufferlo--active-sets #'equal))
-    (push
-     `(,bookmark-name (bufferlo-bookmark-names . ,comps))
-     bufferlo--active-sets)))
+  (catch :abort
+    (let* ((tab-bm-names (bufferlo--bookmark-get-names
+                          #'bufferlo--bookmark-tab-handler))
+           (frame-bm-names (bufferlo--bookmark-get-names
+                            #'bufferlo--bookmark-frame-handler))
+           (is-tab-bm (member bookmark-name tab-bm-names))
+           (is-frame-bm (member bookmark-name frame-bm-names))
+           clear-active-tab-bm
+           clear-active-frame-bm)
+
+      (cond
+       ;; Overwriting a tab bookmark of the same name?  If we proceed, and the
+       ;; tab bookmark is active, mark it to deactivate, leaving its buffers
+       ;; intact, and after we know the replacement bookmark will be saved.
+       (is-tab-bm
+        (if (y-or-n-p (format "Overwrite the bufferlo tab bookmark `%s'? "
+                              bookmark-name))
+            (setq clear-active-tab-bm
+                  (assoc bookmark-name (bufferlo--active-bookmarks nil 'tbm)))
+          (throw :abort t)))
+       ;; Overwriting a frame bookmark of the same name?  If so, and the frame
+       ;; bookmark is active, mark it to deactivate, leaving its buffers
+       ;; intact, and after we know the replacement bookmark will be saved.
+       (is-frame-bm
+        (if (y-or-n-p (format "Overwrite the bufferlo frame bookmark `%s'? "
+                              bookmark-name))
+            (setq clear-active-frame-bm
+                  (assoc bookmark-name (bufferlo--active-bookmarks nil 'fbm)))
+          (throw :abort t))))
+
+      ;; Confirm if the about-to-be set bookmark is contained in a set, as it
+      ;; will not be loadable once converted.  (If this is a set, it will not
+      ;; be in a set.)
+      (when-let* ((containing-sets (bufferlo--sets-containing-bookmark
+                                    bookmark-name)))
+        (unless (y-or-n-p (format
+                           "Warning: `%s' is contained in set(s) %s and will be unloadable; proceed? "
+                           bookmark-name (mapconcat #'identity containing-sets ", ")))
+          (throw :abort t)))
+
+      (let* ((abms (bufferlo--active-bookmarks))
+             (abm-names (mapcar #'car abms))
+             ;; If we are about to overwrite a tab or frame bm, remove that
+             ;; name from the list of bookmarks available for the new set.
+             (abm-names (if (or is-tab-bm
+                                is-frame-bm)
+                            (remove bookmark-name abm-names)
+                          abm-names))
+             (comps (bufferlo--bookmark-completing-read-multiple
+                     (format "Add bookmark(s) to %s: " bookmark-name) abm-names))
+             msg)
+
+        ;; Do not create an empty bookmark set.
+        (when (not (length> comps 0))
+          (message "Select at least one bookmark to create the set")
+          (throw :abort t))
+
+        (cl-labels
+            ((msg-append (s) (setq msg (concat msg "; " s))))
+
+          (cond
+           ;; Clear the about-to-be overwritten tab bookmark.
+           (clear-active-tab-bm
+            (msg-append "cleared overwritten tab bookmark")
+            (bufferlo--clear-tab-bookmarks-by-name bookmark-name))
+           ;; Clear the about-to-be overwritten frame bookmark.
+           (clear-active-frame-bm
+            (msg-append "cleared overwritten frame bookmark")
+            (bufferlo--clear-frame-bookmarks-by-name bookmark-name)))
+
+          ;; Finally, save the bookmark, and replace the active bookmark.
+          (bufferlo--set-save bookmark-name comps abms no-overwrite no-message msg)
+          (setq bufferlo--active-sets
+                (assoc-delete-all bookmark-name bufferlo--active-sets #'equal))
+          (push
+           `(,bookmark-name (bufferlo-bookmark-names . ,comps))
+           bufferlo--active-sets))))))
 
 (defun bufferlo--set-get-constituents (bsets abms)
   "Get the constituents of the given `bookmark-sets' from the list of bookmarks.
@@ -3585,6 +3660,18 @@ consider (usually all active bookmarks)."
                         abm-names))
                      bsets)))
     (seq-uniq abm-names)))
+
+(defun bufferlo--sets-containing-bookmark (bookmark-name)
+  "Return a list of set bookmark names that contain BOOKMARK-NAME."
+  (let (sets)
+    (dolist (bookmark-set-name
+             (bufferlo--bookmark-get-names #'bufferlo--bookmark-set-handler))
+      (when-let* ((bookmark-record
+                   (bufferlo--bookmark-get-bookmark bookmark-set-name)))
+        (when (member bookmark-name
+                      (alist-get 'bufferlo-bookmark-names bookmark-record))
+          (push (car bookmark-record) sets))))
+    sets))
 
 (defun bufferlo-set-save-current-interactive ()
   "Save active constituents in selected `bookmark-sets'."
@@ -3796,7 +3883,10 @@ buffer list.
 Use `bufferlo-bookmark-tab-in-bookmarked-frame-policy' to
 influence how this function handles setting a tab bookmark in the
 presence of a frame bookmark.  Using both together is allowed, but
-is not recommended."
+is not recommended.
+
+Warn if this bookmark will overwrite a set or frame bookmark, and clear
+them, if active, when overwriting."
   (interactive
    (list (completing-read
           "Save bufferlo tab bookmark: "
@@ -3805,15 +3895,48 @@ is not recommended."
           (alist-get 'bufferlo-bookmark-tab-name (bufferlo--current-tab)))))
   (bufferlo--warn)
   (catch :abort
-    (let ((abm (assoc name (bufferlo--active-bookmarks)))
-          (tbm (alist-get 'bufferlo-bookmark-tab-name
-                          (tab-bar--current-tab-find)))
-          (msg))
+    (let* ((abm (assoc name (bufferlo--active-bookmarks)))
+           (tbm (alist-get 'bufferlo-bookmark-tab-name
+                           (tab-bar--current-tab-find)))
+           (set-bm-names (bufferlo--bookmark-get-names
+                          #'bufferlo--bookmark-set-handler))
+           (frame-bm-names (bufferlo--bookmark-get-names
+                            #'bufferlo--bookmark-frame-handler))
+           (is-set-bm (member name set-bm-names))
+           (is-frame-bm (member name frame-bm-names))
+           clear-active-set-bm
+           clear-active-frame-bm
+           msg)
+
+      (cond
+       ;; Overwriting a set bookmark of the same name?  If so, and the set
+       ;; bookmark is active, mark it to deactivate, leaving its bookmarks and
+       ;; buffers intact, and after we know the replacement bookmark will be
+       ;; saved.
+       (is-set-bm
+        (if (y-or-n-p (format "Overwrite the bufferlo set bookmark `%s'? " name))
+            (setq clear-active-set-bm
+                  (assoc name bufferlo--active-sets))
+          (throw :abort t)))
+       ;; Overwriting a frame bookmark of the same name?  If so, and the frame
+       ;; bookmark is active, mark it to deactivate, leaving its buffers
+       ;; intact, and after we know the replacement bookmark will be saved.
+       (is-frame-bm
+        (if (y-or-n-p (format "Overwrite the bufferlo frame bookmark `%s'? " name))
+            (setq clear-active-frame-bm
+                  (assoc name (bufferlo--active-bookmarks nil 'fbm)))
+          (throw :abort t))))
+
       (cl-labels
           ((msg-append (s) (setq msg (concat msg "; " s))))
 
-        ;; Only check policies when the bm is not already associated with this tab
-        (unless (and tbm (equal tbm (car abm)))
+        ;; Only check policies when the bm is a tab bm, and not already
+        ;; associated with this tab.
+        (unless (or is-set-bm
+                    is-frame-bm
+                    (and
+                     tbm
+                     (equal tbm (car abm))))
 
           ;; Bookmark already loaded in another tab?
           (when abm
@@ -3841,6 +3964,16 @@ is not recommended."
                (set-frame-parameter nil 'bufferlo-bookmark-frame-name nil)
                (msg-append "cleared frame bookmark"))
               (_ ))))
+
+        (cond
+         ;; Clear the about-to-be overwritten set bookmark.
+         (clear-active-set-bm
+          (msg-append "cleared overwritten set bookmark")
+          (bufferlo--clear-set-bookmarks-by-name name))
+         ;; Clear the about-to-be overwritten frame bookmark.
+         (clear-active-frame-bm
+          (msg-append "cleared overwritten frame bookmark")
+          (bufferlo--clear-frame-bookmarks-by-name name)))
 
         ;; Finally, save the bookmark
         (bufferlo--bookmark-tab-save name no-overwrite no-message msg)))))
@@ -3915,6 +4048,11 @@ This reuses the current tab even if
                  (frame-parameter frame 'bufferlo-bookmark-frame-name))
       (set-frame-parameter frame 'bufferlo-bookmark-frame-name nil))))
 
+(defun bufferlo--clear-set-bookmarks-by-name (bookmark-name)
+  "Clear BOOKMARK-NAME set bookmark."
+  (setq bufferlo--active-sets
+        (assoc-delete-all bookmark-name bufferlo--active-sets #'equal)))
+
 (defun bufferlo--bookmark-frame-save (name &optional no-overwrite no-message msg)
   "Save the current frame as a bookmark.
 NAME is the bookmark's name.  If NO-OVERWRITE is non-nil, record
@@ -3942,7 +4080,10 @@ the contents) of the bookmarkable buffers for each tab.
 Use `bufferlo-bookmark-tab-in-bookmarked-frame-policy' to
 influence how this function handles setting a frame bookmark in
 the presence of bookmarked tabs.  Using both together is allowed,
-but is not recommended."
+but is not recommended.
+
+Warn if this bookmark will overwrite a set or tab bookmark, and clear
+them, if active, when overwriting."
   (interactive
    (list (completing-read
           "Save bufferlo frame bookmark: "
@@ -3951,14 +4092,47 @@ but is not recommended."
           (frame-parameter nil 'bufferlo-bookmark-frame-name))))
   (bufferlo--warn)
   (catch :abort
-    (let ((abm (assoc name (bufferlo--active-bookmarks)))
-          (fbm (frame-parameter nil 'bufferlo-bookmark-frame-name))
-          (msg))
+    (let* ((abm (assoc name (bufferlo--active-bookmarks)))
+           (fbm (frame-parameter nil 'bufferlo-bookmark-frame-name))
+           (set-bm-names (bufferlo--bookmark-get-names
+                          #'bufferlo--bookmark-set-handler))
+           (tab-bm-names (bufferlo--bookmark-get-names
+                          #'bufferlo--bookmark-tab-handler))
+           (is-set-bm (member name set-bm-names))
+           (is-tab-bm (member name tab-bm-names))
+           clear-active-set-bm
+           clear-active-tab-bm
+           msg)
+
+      (cond
+       ;; Overwriting a set bookmark of the same name?  If so, and the set
+       ;; bookmark is active, mark it to deactivate, leaving its bookmarks and
+       ;; buffers intact, and after we know the replacement bookmark will be
+       ;; saved.
+       (is-set-bm
+        (if (y-or-n-p (format "Overwrite the bufferlo set bookmark `%s'? " name))
+            (setq clear-active-set-bm
+                  (assoc name bufferlo--active-sets))
+          (throw :abort t)))
+       ;; Overwriting a tab bookmark of the same name?  If so, and the tab
+       ;; bookmark is active, mark it to deactivate, leaving its buffers
+       ;; intact, and after we know the replacement bookmark will be saved.
+       (is-tab-bm
+        (if (y-or-n-p (format "Overwrite the bufferlo tab bookmark `%s'? " name))
+            (setq clear-active-tab-bm
+                  (assoc name (bufferlo--active-bookmarks nil 'tbm)))
+          (throw :abort t))))
+
       (cl-labels
           ((msg-append (s) (setq msg (concat msg "; " s))))
 
-        ;; Only check policies when bm is not already associated with this frame
-        (unless (and fbm (equal fbm (car abm)))
+        ;; Only check policies when bm is a frame bm, and is not already
+        ;; associated with this frame.
+        (unless (or is-set-bm
+                    is-tab-bm
+                    (and
+                     fbm
+                     (equal fbm (car abm))))
 
           ;; Bookmark already loaded in another frame?
           (when abm
@@ -3989,6 +4163,16 @@ but is not recommended."
                  (bufferlo-clear-active-bookmarks (list (selected-frame))))
                (msg-append "cleared tab bookmarks"))
               ('allow))))
+
+        (cond
+         ;; Clear the about-to-be overwritten set bookmark.
+         (clear-active-set-bm
+          (msg-append "cleared overwritten set bookmark")
+          (bufferlo--clear-set-bookmarks-by-name name))
+         ;; Clear the about-to-be overwritten tab bookmark.
+         (clear-active-tab-bm
+          (msg-append "cleared overwritten tab bookmark")
+          (bufferlo--clear-tab-bookmarks-by-name name)))
 
         ;; Finally, save the bookmark
         (bufferlo--bookmark-frame-save name no-overwrite no-message msg)))))
@@ -4598,8 +4782,8 @@ raised."
          (abm-names (mapcar #'car abms))
          (comps (bufferlo--bookmark-completing-read
                  "Select a bookmark to raise: " abm-names)))
-    (if (not (= (length comps) 1))
-        (message "Please select a single bookmark to raise")
+    (if (not (length= comps 1))
+        (message "Select a single bookmark to raise")
       (bufferlo--bookmark-raise-by-name (car comps) abms))))
 
 ;; DWIM convenience functions

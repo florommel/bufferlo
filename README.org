@@ -511,6 +511,22 @@ but they are likely to be enabled by default in the future.
   (setq bufferlo-bookmarks-save-duplicates-policy 'disallow) ; even better
 #+end_src
 
+*** Changing bookmark types
+
+You can save an active bookmark of one type, as another type. An active frame
+bookmark can be saved as a tab or set bookmark under the same name as the
+active one. Similarly, a tab can be saved as a frame or a set, and a set can
+be saved as a tab or a frame.
+
+Bufferlo will warn you if you are about to overwrite a bookmark of a different
+type with the same name. If you choose to proceed, the active open
+bookmark will be cleared in your session.
+
+If you save an active tab or frame bookmark as a set, existing set bookmarks
+are scanned to see if they contain the tab or frame bookmark, and bufferlo
+will warn you if one does. Note: When you load an existing sets that contain
+stale references to bookmarks now saved as a set, bufferlo skip those entries.
+
 *** Save current, other, or all frame bookmarks
 
 If you use batch or automatic saving, this option lets you control
