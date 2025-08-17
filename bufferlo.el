@@ -1218,6 +1218,8 @@ string, FACE is the face for STR."
      ["Create..."           bufferlo-set-save            :help "Create a new bookmark set"]
      ["Load..."             bufferlo-set-load            :help "Load a bookmark set"]
      ["Save Current..."     bufferlo-set-save-curr       :help "Save the specified bookmark sets"]
+     ["Add..."              bufferlo-set-add             :help "Add bookmark(s) to a set"]
+     ["Remove..."           bufferlo-set-remove          :help "Remove bookmark(s) from a set"]
      ["Close/Kill..."       bufferlo-set-close           :help "Close the specified bookmark sets (kills frames, tabs, buffers)"]
      ["Clear..."            bufferlo-set-clear           :help "Clear the specified bookmark set (does not kill frames, tabs, buffers)"]
      ["List..."             bufferlo-set-list            :help "List the bookmarks in specified active bookmark sets"]
@@ -3559,8 +3561,8 @@ is non-nil, it is added to the save message."
 
 (defun bufferlo-set-save-interactive (bookmark-name
                                       &optional no-overwrite no-message)
-  "Save a bufferlo bookmark set for the specified active bookmarks.
-The bookmark set will be stored under BOOKMARK-NAME.
+  "Save a bufferlo bookmark set for selected active bookmarks.
+Save the bookmark set under BOOKMARK-NAME.
 
 Tab bookmarks are grouped based on their shared frame along with
 the frame's geometry.
@@ -3695,6 +3697,60 @@ consider (usually all active bookmarks)."
          (abm-names-to-save (bufferlo--set-get-constituents comps abms)))
     (bufferlo--bookmarks-save abm-names-to-save abms)))
 
+(defun bufferlo-set-add-interactive (bookmark-name)
+  "Select active bookmarks to add to an active bookmark set.
+Amend the bookmark set BOOKMARK-NAME."
+  (interactive
+   (list (completing-read
+          "Bookmark set to add to: "
+          bufferlo--active-sets
+          nil nil nil 'bufferlo-bookmark-set-history nil)))
+  (bufferlo--warn)
+  (let* ((abms (bufferlo--active-bookmarks))
+         (abm-names
+          (seq-difference
+           (mapcar #'car abms)
+           (bufferlo--set-get-constituents (list bookmark-name) abms)))
+         (comps (bufferlo--bookmark-completing-read-multiple
+                 (format "Add bookmark(s) to %s: " bookmark-name)
+                 abm-names))
+         (bookmark-names (append
+                          comps
+                          (alist-get
+                           'bufferlo-bookmark-names
+                           (assoc bookmark-name bufferlo--active-sets)))))
+    (bufferlo--set-save bookmark-name bookmark-names abms)
+    (setf (alist-get 'bufferlo-bookmark-names
+                     (alist-get bookmark-name
+                                bufferlo--active-sets nil nil #'equal))
+          bookmark-names)))
+
+(defun bufferlo-set-remove-interactive (bookmark-name)
+  "Select active bookmarks to remove from an active bookmark set.
+Amend the bookmark set BOOKMARK-NAME."
+  (interactive
+   (list (completing-read
+          "Bookmark set to remove from: "
+          bufferlo--active-sets
+          nil nil nil 'bufferlo-bookmark-set-history nil)))
+  (bufferlo--warn)
+  (let* ((abms (bufferlo--active-bookmarks))
+         (abm-names
+          (bufferlo--set-get-constituents (list bookmark-name) abms))
+         (comps (bufferlo--bookmark-completing-read-multiple
+                 (format "Remove bookmark(s) from %s: " bookmark-name)
+                 abm-names))
+         (bookmark-names (seq-remove
+                          (lambda (elt) (member elt comps))
+                          abm-names)))
+    (when (= (length bookmark-names) 0)
+      (user-error "A bookmark set must retain at least one bookmark"))
+    (bufferlo--set-save bookmark-name bookmark-names abms)
+    (setf (alist-get 'bufferlo-bookmark-names
+                     (alist-get bookmark-name
+                                bufferlo--active-sets nil nil #'equal))
+          bookmark-names)))
+
 (defun bufferlo-set-load-interactive ()
   "Prompt for bufferlo set bookmarks to load."
   (interactive)
@@ -3716,7 +3772,7 @@ This does not close associated active frame and tab bookmarks."
 
 (defun bufferlo-set-clear-interactive ()
   "Clear the specified `bookmark-sets'.
-This does not close its associated bookmarks or kill their buffers."
+Do not close sets' associated bookmarks or kill buffers."
   (interactive)
   (bufferlo--warn)
   (let* ((candidates (mapcar #'car bufferlo--active-sets))
@@ -3727,7 +3783,7 @@ This does not close its associated bookmarks or kill their buffers."
 
 (defun bufferlo-set-close-interactive ()
   "Close the specified `bookmark-sets'.
-This closes their associated bookmarks and kills their buffers."
+Close each set's associated bookmarks and kill their buffers."
   (interactive)
   (bufferlo--warn)
   (let* ((candidates (mapcar #'car bufferlo--active-sets))
@@ -4931,6 +4987,8 @@ OLDFN BOOKMARK-NAME BATCH"
 (defalias 'bufferlo-bm-frame-close-curr 'bufferlo-delete-frame-kill-buffers)
 (defalias 'bufferlo-set-save            'bufferlo-set-save-interactive)
 (defalias 'bufferlo-set-save-curr       'bufferlo-set-save-current-interactive)
+(defalias 'bufferlo-set-add             'bufferlo-set-add-interactive)
+(defalias 'bufferlo-set-remove          'bufferlo-set-remove-interactive)
 (defalias 'bufferlo-set-load            'bufferlo-set-load-interactive)
 (defalias 'bufferlo-set-close           'bufferlo-set-close-interactive)
 (defalias 'bufferlo-set-clear           'bufferlo-set-clear-interactive)
