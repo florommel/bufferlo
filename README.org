@@ -284,6 +284,10 @@ rename or delete references to those bookmarks within bookmark sets.
 
 *** Bookmark set commands
 
+Most bookmark-set prompts use ~completing-read-multiple~ aka CRM, so keep in
+mind the default CRM separator key is a comma which you should press between
+each selection.
+
 - ~bufferlo-set-save-interactive~ (alias ~bufferlo-set-save~): Save a
   bufferlo bookmark set for the specified active bookmarks. Frame
   bookmark names are stored along with their geometry for optional
@@ -293,6 +297,12 @@ rename or delete references to those bookmarks within bookmark sets.
 - ~bufferlo-set-save-current-interactive~ (alias
   ~bufferlo-set-save-curr~): Update the content of all active
   constituent bookmarks in selected bookmark sets.
+
+- ~bufferlo-set-add-interactive~ (alias ~bufferlo-set-add~): Add an active
+  bookmark to an active bookmark set.
+
+- ~bufferlo-set-remove-interactive~ (alias ~bufferlo-set-remove~): Remove an
+  active bookmark from an active bookmark set.
 
 - ~bufferlo-set-load-interactive~ (alias ~bufferlo-set-load~): Prompt
   to load bufferlo set bookmarks. This will restore each set's
@@ -1092,6 +1102,9 @@ remain in force until they are saved if this policy is set to t.
      ;; sets
      ("C-z s s" . bufferlo-set-save)                  ; save
      ("C-z s u" . bufferlo-set-save-curr)             ; update
+     ("C-z s +" . bufferlo-set-add)                   ; add bookmark
+     ("C-z s =" . bufferlo-set-add)                   ; add bookmark
+     ("C-z s -" . bufferlo-set-remove)                ; remove bookmark
      ("C-z s l" . bufferlo-set-load)                  ; load
      ("C-z s 0" . bufferlo-set-close)                 ; kill
      ("C-z s c" . bufferlo-set-clear)                 ; clear
@@ -1247,7 +1260,7 @@ Bufferlo uses ~completing-read-multiple~ for the prompts where you can
 specify more than one input selection; e.g., when opening multiple
 bookmarks at once using ~bufferlo-bookmarks-load-interactive~. Emacs
 31 will be getting a proper CRM prompt that displays the CRM separator
-character as a reminder hint. Note: The default separator is a comma.
+character as a reminder hint. Note: The default separator key is a comma.
 
 Per [[https://github.com/minad/vertico#completing-read-multiple][vertico#completing-read-multiple]] from the author of the Emacs CRM
 patch, we recommend adding the following snippet to your Emacs
