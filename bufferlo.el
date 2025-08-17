@@ -4846,11 +4846,9 @@ raised."
   (bufferlo--warn)
   (let* ((abms (bufferlo--active-bookmarks))
          (abm-names (mapcar #'car abms))
-         (comps (bufferlo--bookmark-completing-read
-                 "Select a bookmark to raise: " abm-names)))
-    (if (not (length= comps 1))
-        (message "Select a single bookmark to raise")
-      (bufferlo--bookmark-raise-by-name (car comps) abms))))
+         (comp (bufferlo--bookmark-completing-read
+                "Select a bookmark to raise: " abm-names)))
+    (bufferlo--bookmark-raise-by-name comp abms)))
 
 ;; DWIM convenience functions
 
