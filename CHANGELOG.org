@@ -1,3 +1,11 @@
+* Version 1.2 (2025-09-14)
+- Added ability to persist frame name in frame bookmarks
+- Gracefully handle bookmark type changes when saving as a different type (handles changes from/to frame/tab/set)
+- Support for consult-buffer-list-function
+  https://github.com/minad/consult/pull/1009#issuecomment-3156833628
+- Commands to add and remove bookmarks to existing sets
+- Added ability to persist tab group names and explicit tab names in tab bookmarks
+
 * Version 1.1 (2025-05-03)
 - Bug fixes
 - Revamped documentation
