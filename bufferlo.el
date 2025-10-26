@@ -3240,7 +3240,8 @@ When non-nil, NO-SORT uses the natural order of the CANDIDATES list."
   "Produce an alist for FRAME pixel-level geometry.
 The alist is of the form:
 
-  ((left . pixels)
+  ((fullscreen . value) ; nil fullwidth fullheight fullboth maximized, etc.
+   (left . pixels)
    (top . pixels)
    (width . pixels)
    (height . pixels))
@@ -3248,7 +3249,8 @@ The alist is of the form:
 Return nil if no pixel-level geometry is available; for example, if the
 display is a tty."
   (if (display-graphic-p frame)
-      `((left . ,(frame-parameter frame 'left))
+      `((fullscreen . ,(frame-parameter frame 'fullscreen))
+        (left . ,(frame-parameter frame 'left))
         (top . ,(frame-parameter frame 'top))
         (width . ,(frame-text-width frame))
         (height .,(frame-text-height frame)))
@@ -3256,7 +3258,11 @@ display is a tty."
 
 (defun bufferlo-set-frame-geometry-default (frame-geometry &optional frame)
   "Set FRAME-GEOMETRY as produced by `bufferlo-frame-geometry-default'.
-Geometry set for FRAME or the current frame, if nil."
+Set geometry for FRAME or the current frame, if nil.
+
+If `frame-geometry' contains a non-nil \\='fullscreen parameter, it is
+applied after the pixelwise geometry.  This accommodates \\='fullwidth
+and \\='fullheight by first setting the respective height or width."
   ;; Some window managers need an extra display cycle for frame
   ;; changes to take effect from Emacs's perspective, so we add
   ;; needed sit-for calls.
@@ -3267,13 +3273,18 @@ Geometry set for FRAME or the current frame, if nil."
     (when (and .left .top .width .height)
       (let ((frame-resize-pixelwise t)
             (frame-inhibit-implied-resize t))
+        ;; There's a bug in Emacs where if fullscreen is non-nil and an
+        ;; explicit location and/or size is specified, fullscreen does not
+        ;; reset to nil. We do that first.
+        (set-frame-parameter frame 'fullscreen nil)
         (set-frame-position frame .left .top)
         (sleep-for bufferlo-frame-sleep-for)
-        ;; Clamp size to restore frames larger than the current display size.
+        ;; Clamp to the current display size to handle a too large frame.
         (set-frame-size frame
                         (min .width (display-pixel-width))
                         (min .height (display-pixel-height))
                         'pixelwise)
+        (set-frame-parameter frame 'fullscreen .fullscreen)
         (sleep-for bufferlo-frame-sleep-for)))))
 
 (defvar bufferlo--active-sets nil
