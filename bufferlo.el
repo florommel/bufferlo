@@ -3013,7 +3013,7 @@ Returns nil on success, non-nil on abort."
                                'restore-geometry))
                         (selected-frame))))
            (with-selected-frame frame
-             (when new-frame-p
+             (when (or new-frame-p bufferlo--bookmark-set-loading)
                ;; Restore name
                (when bufferlo-bookmark-frame-persist-frame-name
                  (when-let* ((frame-name (alist-get 'bufferlo--frame-name bookmark)))
@@ -3079,10 +3079,10 @@ Returns nil on success, non-nil on abort."
             'bufferlo-bookmark-frame-handler-functions
             bookmark-name
             fbm
-            new-frame-p
+            (or new-frame-p bufferlo--bookmark-set-loading)
             frame)))
 
-        (unless (or new-frame-p pop-up-frames)
+        (unless (or new-frame-p bufferlo--bookmark-set-loading pop-up-frames)
           ;; Switch to the to-be-selected buffer in the current frame.
           ;; This is a workaround for bookmark-jump if called with display-func
           ;; set to something like pop-to-buffer-same-window (the default).
