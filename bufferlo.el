@@ -1869,9 +1869,12 @@ argument INTERNAL-TOO is non-nil."
   (interactive)
   (bufferlo--warn)
   (setq frame (or frame (selected-frame)))
-  (when (or (not bufferlo-delete-frame-kill-buffers-prompt)
-            (y-or-n-p "Kill frame and its buffers? "))
-    (let ((fbm (frame-parameter frame 'bufferlo-bookmark-frame-name)))
+  (let ((fbm (frame-parameter frame 'bufferlo-bookmark-frame-name)))
+    (when (or (not bufferlo-delete-frame-kill-buffers-prompt)
+              (y-or-n-p (format "Kill frame%s and its buffers? "
+                                (if fbm
+                                    (format " `%s'" fbm)
+                                  ""))))
       (cl-labels
           ((save-as-current (frame)
              ;; We need this if called in a batch
@@ -1907,12 +1910,15 @@ The optional arguments KILLALL and INTERNAL-TOO are passed to
 `bufferlo-kill-buffers'."
   (interactive "P")
   (bufferlo--warn)
-  (when (or (not bufferlo-close-tab-kill-buffers-prompt)
-            (y-or-n-p "Kill tab and its buffers? "))
-    (let* ((orig-frame (selected-frame))
-           (orig-tab (bufferlo--current-tab))
-           (tbm (alist-get 'bufferlo-bookmark-tab-name orig-tab))
-           kill-buffer-closed-tab)
+  (let* ((orig-frame (selected-frame))
+         (orig-tab (bufferlo--current-tab))
+         (tbm (alist-get 'bufferlo-bookmark-tab-name orig-tab))
+         kill-buffer-closed-tab)
+    (when (or (not bufferlo-close-tab-kill-buffers-prompt)
+              (y-or-n-p (format "Kill tab%s and its buffers? "
+                                (if tbm
+                                    (format " `%s'" tbm)
+                                  ""))))
       (pcase bufferlo-bookmark-tab-save-on-close
         ((or 't 'on-kill-buffers)
          (when (y-or-n-p (format-message "Save tab bookmark `%s'? " tbm))
