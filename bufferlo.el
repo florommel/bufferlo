@@ -192,13 +192,22 @@ This overrides buffers excluded by `bufferlo-bookmark-buffers-exclude-filters'."
   :type '(repeat regexp))
 
 (defcustom bufferlo-bookmark-frame-load-make-frame nil
-  "If non-nil, create a new frame to hold a loaded frame bookmark.
-Set to \\='restore-geometry to restore the frame geometry to that
-when it was last saved."
+  "Frame bookmark loading frame and geometry policy.
+If nil, reuse the existing frame.
+
+If non-nil, create a new frame to hold a loaded frame bookmark.
+
+If \\='restore-geometry, create a new frame and restore the frame
+geometry to that when it was last saved.
+
+If \\='reuse-restore-geometry, reuse the existing frame and restore the
+frame geometry to that when it was last saved."
   :package-version '(bufferlo . "1.1")
   :type '(radio (const :tag "Make a new frame" t)
                 (const :tag "Make a new frame and restore its geometry"
                        restore-geometry)
+                (const :tag "Reuse the current frame, and restore its geometry"
+                       reuse-restore-geometry)
                 (const :tag "Reuse the current frame" nil)))
 
 (defcustom bufferlo-delete-frame-kill-buffers-prompt nil
@@ -2954,7 +2963,12 @@ Returns nil on success, non-nil on abort."
     (let* ((bookmark-name (bookmark-name-from-full-record bookmark))
            (abm (assoc bookmark-name (bufferlo--active-bookmarks)))
            (fbm (frame-parameter nil 'bufferlo-bookmark-frame-name))
-           (new-frame-p (and bufferlo-bookmark-frame-load-make-frame ; nil if set loading
+           (new-frame-p (and (not bufferlo--bookmark-set-loading)
+                             (or
+                              (eq bufferlo-bookmark-frame-load-make-frame
+                                  'restore-geometry)
+                              (eq bufferlo-bookmark-frame-load-make-frame
+                                  t))
                              ;; User make-frame suppression
                              (not (consp current-prefix-arg))
                              ;; make-frame implied by functions like
@@ -3013,17 +3027,20 @@ Returns nil on success, non-nil on abort."
                                'restore-geometry))
                         (selected-frame))))
            (with-selected-frame frame
-             (when new-frame-p
-               ;; Restore name
-               (when bufferlo-bookmark-frame-persist-frame-name
-                 (when-let* ((frame-name (alist-get 'bufferlo--frame-name bookmark)))
-                   (set-frame-name frame-name)))
-               ;; Restore geometry
-               (when (and (display-graphic-p)
-                          (eq bufferlo-bookmark-frame-load-make-frame
-                              'restore-geometry))
-                 (when-let* ((fg (alist-get 'bufferlo--frame-geometry bookmark)))
-                   (funcall bufferlo-set-frame-geometry-function fg))))
+             ;; Restore name
+             (when bufferlo-bookmark-frame-persist-frame-name
+               (when-let* ((frame-name (alist-get 'bufferlo--frame-name bookmark)))
+                 (set-frame-name frame-name)))
+             ;; Restore geometry
+             (when (and (display-graphic-p)
+                        (or (and new-frame-p
+                                 (eq bufferlo-bookmark-frame-load-make-frame
+                                     'restore-geometry))
+                            (and (not new-frame-p)
+                                 (eq bufferlo-bookmark-frame-load-make-frame
+                                     'reuse-restore-geometry))))
+               (when-let* ((fg (alist-get 'bufferlo--frame-geometry bookmark)))
+                 (funcall bufferlo-set-frame-geometry-function fg)))
 
              ;; Clear existing tabs unless merging
              (unless (eq load-policy 'merge)
@@ -3079,10 +3096,10 @@ Returns nil on success, non-nil on abort."
             'bufferlo-bookmark-frame-handler-functions
             bookmark-name
             fbm
-            new-frame-p
+            (or new-frame-p bufferlo--bookmark-set-loading)
             frame)))
 
-        (unless (or new-frame-p pop-up-frames)
+        (unless (or new-frame-p bufferlo--bookmark-set-loading pop-up-frames)
           ;; Switch to the to-be-selected buffer in the current frame.
           ;; This is a workaround for bookmark-jump if called with display-func
           ;; set to something like pop-to-buffer-same-window (the default).
@@ -3451,8 +3468,7 @@ Returns nil on success, non-nil on abort."
               (if (and ignore-already-active
                        (member fbm-name already-abm-names))
                   (delete-frame)
-                (let ((bufferlo-bookmark-frame-load-make-frame nil)
-                      (bufferlo-bookmark-frame-load-policy
+                (let ((bufferlo-bookmark-frame-load-policy
                        'replace-frame-adopt-loaded-bookmark)
                       (bufferlo--bookmark-handler-no-message t))
                   ;; NOTE: bufferlo--bookmark-frame-handler disallows raise

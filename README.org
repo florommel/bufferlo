@@ -556,9 +556,11 @@ bufferlo. Refer to each option's documentation for additional
 settings.
 
 #+begin_src emacs-lisp
-  ;; make a new frame to hold loaded frame bookmarks
+  ;; make a new frame, or reuse the current frame to hold loaded frame bookmarks
+  (setq bufferlo-bookmark-frame-load-make-frame nil) ; reuse the current frame
   (setq bufferlo-bookmark-frame-load-make-frame t) ; default is nil for backward compatibility
-  (setq bufferlo-bookmark-frame-load-make-frame 'restore-geometry)
+  (setq bufferlo-bookmark-frame-load-make-frame 'restore-geometry) ; make a new frame and restore geometry
+  (setq bufferlo-bookmark-frame-load-make-frame 'reuse-restore-geometry) ; reuse the current frame and restore geometry
 #+end_src
 #+begin_src emacs-lisp
   ;; policy when loading onto an already bookmarked frame
