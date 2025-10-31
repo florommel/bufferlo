@@ -1015,7 +1015,7 @@ string, FACE is the face for STR."
                                  #'string-equal)))
     (setq bufferlo--command-line-noload pos)
     (setq command-line-args (seq-remove-at-position command-line-args pos)))
-  (when (file-exists-p (expand-file-name "bufferlo-noload" user-emacs-directory))
+  (when (locate-user-emacs-file "bufferlo-noload")
     (message "bufferlo-noload file found; inhibiting bufferlo bookmark loading")
     (setq bufferlo--command-line-noload t)))
 
