@@ -894,6 +894,15 @@ string, FACE is the face for STR."
 
 (defvar bufferlo--active-sets) ; byte compiler
 
+(defun bufferlo--active-set-name-for-bookmark (bookmark-name)
+  "Return the active set name that BOOKMARK-NAME belongs to, or nil."
+  (unless (null bookmark-name)
+    (catch :set-name
+      (dolist (set bufferlo--active-sets)
+        (when (member bookmark-name
+                      (alist-get 'bufferlo-bookmark-names (cdr set)))
+          (throw :set-name (car set)))))))
+
 (defun bufferlo-mode-line-format ()
   "Bufferlo mode-line format to display the current active frame or tab bookmark."
   (when bufferlo-mode
@@ -921,6 +930,8 @@ string, FACE is the face for STR."
                        (bufferlo--mode-line-format-helper
                         abm
                         (concat bufferlo-mode-line-set-active-prefix
+                                (bufferlo--active-set-name-for-bookmark fbm)
+                                (bufferlo--active-set-name-for-bookmark tbm)
                                 (when (or fbm tbm) bufferlo-mode-line-delimiter))
                         'bufferlo-mode-line-set-face))
                      (when fbm
