@@ -684,9 +684,28 @@ have ~tab-bar-tab-post-open-functions~, the bookmark context will not
 be available when those functions are called.
 
 #+begin_src emacs-lisp
+  (add-hook 'bufferlo-bookmark-map-functions #'buffer-bookmark-store-fun)
+  (add-hook 'bufferlo-bookmark-buffer-handler-functions #'buffer-bookmark-restore-fun)
   (add-hook 'bufferlo-bookmark-tab-handler-functions #'tab-bookmark-fun)
   (add-hook 'bufferlo-bookmark-frame-handler-functions #'frame-bookmark-fun)
   (add-hook 'bufferlo-bookmark-set-handler-functions #'set-bookmark-fun)
+#+end_src
+
+There are buffer-bookmark convenience functions you can use to persist
+text-scale-mode-amount, and persist buffer-local variables (though you should
+prefer [[https://www.gnu.org/software/emacs/manual/html_node/emacs/File-Variables.html][file-local variables]], and directory variables [[https://www.gnu.org/software/emacs/manual/html_node/emacs/Directory-Variables.html][directory variables]] and
+take care to store buffer local variables that you consider safe to restore,
+see [[https://www.gnu.org/software/emacs/manual/html_node/elisp/File-Local-Variables.html#index-safe_002dlocal_002dvariable_002dp][risky-local-variable-p]]).
+
+#+begin_src emacs-lisp
+  ;; To persist text-scale-mode-amount
+  (add-hook 'bufferlo-bookmark-map-functions #'bufferlo-bookmark-map-function-text-scale-mode-amount)
+  (add-hook 'bufferlo-bookmark-buffer-handler-functions #'bufferlo-bookmark-buffer-handler-text-scale-mode-amount)
+
+  ;; To persist buffer-local variables
+  (setq bufferlo-bookmark-buffer-locals '(my:special-local-1 my:special-local-2))
+  (add-hook 'bufferlo-bookmark-map-functions #'bufferlo-bookmark-map-function-buffer-locals)
+  (add-hook 'bufferlo-bookmark-buffer-handler-functions #'bufferlo-bookmark-buffer-handler-buffer-locals)
 #+end_src
 
 *** Frame geometry options

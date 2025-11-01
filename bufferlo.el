@@ -191,6 +191,26 @@ This overrides buffers excluded by `bufferlo-bookmark-buffers-exclude-filters'."
   :package-version '(bufferlo . "1.1")
   :type '(repeat regexp))
 
+(defcustom bufferlo-bookmark-buffer-locals '()
+  "List of buffer-local variables to store/restore in/from buffer bookmarks.
+This is a list of symbols; e.g., \\='(my:special-local my:special-local-2).
+
+To use this, add the function
+`bufferlo-bookmark-map-function-buffer-locals` to
+`bufferlo-bookmark-map-functions` to store buffer locals, and its
+corollary function `bufferlo-bookmark-buffer-handler-buffer-locals`
+`bufferlo-bookmark-buffer-handler-functions` to restore them when a
+bufferlo buffer bookmark is restored.
+
+Note: Local file variables and directory variables are the preferred
+methods for managing buffer-local variables.  Use this facility only
+when necessary.
+
+See Info nodes `(elisp) File Local Variables' and `(elisp) Directory
+Local Variables'."
+  :package-version '(bufferlo . "1.3")
+  :type '(repeat symbol))
+
 (defcustom bufferlo-bookmark-frame-load-make-frame nil
   "If non-nil, create a new frame to hold a loaded frame bookmark.
 Set to \\='restore-geometry to restore the frame geometry to that
@@ -626,6 +646,17 @@ respective buffer is included in the frame or tab bookmark.
 These functions are also called when creating a frame bookmark, since a
 frame bookmark is a collection of tab bookmarks."
   :package-version '(bufferlo . "0.8")
+  :type 'hook)
+
+(defcustom bufferlo-bookmark-buffer-handler-functions nil
+  "Abnormal hooks to call after a bookmark buffer is handled.
+This is the corollary to `bufferlo-bookmark-map-functions` to process
+extra properties added to a buffer bookmark.
+
+Each function is called with the restored buffer current, and with the
+following arguments:
+  bookmark-record: See `bookmark-make-record-default`."
+  :package-version '(bufferlo . "1.3")
   :type 'hook)
 
 (defcustom bufferlo-bookmark-tab-handler-functions nil
@@ -2380,6 +2411,62 @@ empty (no-op) display-func."
                                       err bookmark)))
       nil)))
 
+(defun bufferlo-bookmark-map-function-buffer-locals (bookmark-record)
+  "Store buffer local variables in BOOKMARK-RECORD.
+Add this function to `bufferlo-bookmark-map-functions`, and add a list
+of symbols representing the variables you want to store in
+`bufferlo-buffer-locals`.
+
+These are restored upon buffer bookmark loading if
+`bufferlo-bookmark-buffer-handler-buffer-locals` is a member of
+`bufferlo-bookmark-buffer-handler-functions`.
+
+Note: Take care to store buffer local variables that you consider safe
+to restore, which see `risky-local-variable-p`."
+  (when-let* ((buffer-locals
+               (seq-filter
+                (lambda (x) (not (null x)))
+                (mapcar (lambda (sym)
+                          (when (local-variable-p sym)
+                            (cons sym (symbol-value sym))))
+                        bufferlo-bookmark-buffer-locals))))
+    (bookmark-prop-set bookmark-record
+                       'bufferlo-buffer-locals
+                       buffer-locals))
+  bookmark-record)
+
+(defun bufferlo-bookmark-buffer-handler-buffer-locals (bookmark-record)
+  "Restore buffer local variables from BOOKMARK-RECORD.
+See `bufferlo-bookmark-map-function-buffer-locals`."
+  (when-let*
+      ((buffer-locals
+        (bookmark-prop-get bookmark-record
+                           'bufferlo-buffer-locals)))
+    (mapc (lambda (pair)
+            (make-local-variable (car pair))
+            (set (car pair) (cdr pair)))
+          buffer-locals)))
+
+(defun bufferlo-bookmark-map-function-text-scale-mode-amount (bookmark-record)
+  "Store the buffer local `text-scale-mode-amount` in BOOKMARK-RECORD.
+Add this function to `bufferlo-bookmark-map-functions`, and its
+corollary `bufferlo-bookmark-buffer-handler-text-scale-mode-amount`
+to`bufferlo-bookmark-buffer-handler-functions`."
+  (when text-scale-mode-amount
+    (bookmark-prop-set bookmark-record
+                       'bufferlo-text-scale-mode-amount
+                       text-scale-mode-amount))
+  bookmark-record)
+
+(defun bufferlo-bookmark-buffer-handler-text-scale-mode-amount (bookmark-record)
+  "Restore `text-scale-mode-amount` from BOOKMARK-RECORD.
+See `bufferlo-bookmark-map-function-text-scale-mode-amount`."
+  (when-let*
+      ((val
+        (bookmark-prop-get bookmark-record
+                           'bufferlo-text-scale-mode-amount)))
+    (text-scale-set val)))
+
 (defun bufferlo--bookmark-get-for-buffer (buffer)
   "Get `buffer-name' and bookmark for BUFFER."
   (with-current-buffer buffer
@@ -2781,6 +2868,9 @@ Returns nil on success, non-nil on abort."
                                         (funcall (or (bookmark-get-handler record)
                                                      'bookmark-default-handler)
                                                  record)
+                                        (run-hook-with-args
+                                         'bufferlo-bookmark-buffer-handler-functions
+                                         record)
                                         (run-hooks 'bookmark-after-jump-hook)
                                         nil)
                                     (error
