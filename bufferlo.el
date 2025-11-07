@@ -192,7 +192,7 @@ This overrides buffers excluded by `bufferlo-bookmark-buffers-exclude-filters'."
   :package-version '(bufferlo . "1.1")
   :type '(repeat regexp))
 
-(defcustom bufferlo-bookmark-buffer-locals '()
+(defcustom bufferlo-bookmark-buffer-local-variables '()
   "List of buffer-local variables to store/restore in/from buffer bookmarks.
 This is a list of symbols; e.g., \\='(my:special-local my:special-local-2).
 
@@ -211,6 +211,16 @@ See Info nodes `(elisp) File Local Variables' and `(elisp) Directory
 Local Variables'."
   :package-version '(bufferlo . "1.3")
   :type '(repeat symbol))
+
+(defcustom bufferlo-bookmark-buffer-locals t
+  "If non-nil, enable bookmark buffer-local variable persistence."
+  :package-version '(bufferlo . "1.3")
+  :type 'boolean)
+
+(defcustom bufferlo-bookmark-text-scale-mode-amount t
+  "If non-nil, enable bookmark `text-scale-mode-amount` persistence."
+  :package-version '(bufferlo . "1.3")
+  :type 'boolean)
 
 (defcustom bufferlo-bookmark-frame-load-make-frame nil
   "Frame bookmark loading frame and geometry policy.
@@ -1202,6 +1212,14 @@ Otherwise it is a list of conditions for which to prompt."
         ;; bookmark hook and advice
         (add-hook 'bookmark-after-load-file-hook
                   #'bufferlo--bookmark-after-load-file-hook)
+        ;; bufferlo-bookmark-buffer-locals
+        (when bufferlo-bookmark-buffer-locals
+          (add-hook 'bufferlo-bookmark-map-functions #'bufferlo-bookmark-map-function-buffer-locals)
+          (add-hook 'bufferlo-bookmark-buffer-handler-functions #'bufferlo-bookmark-buffer-handler-buffer-locals))
+        (when bufferlo-bookmark-text-scale-mode-amount
+          (add-hook 'bufferlo-bookmark-map-functions #'bufferlo-bookmark-map-function-text-scale-mode-amount)
+          (add-hook 'bufferlo-bookmark-buffer-handler-functions #'bufferlo-bookmark-buffer-handler-text-scale-mode-amount))
+        ;; bookmark commands advice
         (advice-add #'bookmark--jump-via :around #'bufferlo--bookmark--jump-via-advice)
         (advice-add #'bookmark-rename :around #'bufferlo--bookmark-rename-advice)
         (advice-add #'bookmark-delete :around #'bufferlo--bookmark-delete-advice)
@@ -1255,6 +1273,19 @@ Otherwise it is a list of conditions for which to prompt."
     ;; bookmark hook and advice
     (remove-hook 'bookmark-after-load-file-hook
                  #'bufferlo--bookmark-after-load-file-hook)
+    ;; bufferlo-bookmark-buffer-locals
+    (progn
+      (remove-hook 'bufferlo-bookmark-map-functions
+                   #'bufferlo-bookmark-map-function-buffer-locals)
+      (remove-hook 'bufferlo-bookmark-buffer-handler-functions
+                   #'bufferlo-bookmark-buffer-handler-buffer-locals))
+    ;; bufferlo-bookmark-text-scale-mode-amount
+    (progn
+      (remove-hook 'bufferlo-bookmark-map-functions
+                   #'bufferlo-bookmark-map-function-text-scale-mode-amount)
+      (remove-hook 'bufferlo-bookmark-buffer-handler-functions
+                   #'bufferlo-bookmark-buffer-handler-text-scale-mode-amount))
+    ;; bookmark commands advice
     (advice-remove #'bookmark--jump-via #'bufferlo--bookmark--jump-via-advice)
     (advice-remove #'bookmark-rename #'bufferlo--bookmark-rename-advice)
     (advice-remove #'bookmark-delete #'bufferlo--bookmark-delete-advice)
@@ -2551,7 +2582,7 @@ to restore, which see `risky-local-variable-p`."
                 (mapcar (lambda (sym)
                           (when (local-variable-p sym)
                             (cons sym (symbol-value sym))))
-                        bufferlo-bookmark-buffer-locals))))
+                        bufferlo-bookmark-buffer-local-variables))))
     (bookmark-prop-set bookmark-record
                        'bufferlo-buffer-locals
                        buffer-locals))
