@@ -1076,11 +1076,15 @@ string, FACE is the face for STR."
                     #'bufferlo--set-buffer-predicate))
         (when (eq bufferlo-prefer-local-buffers 'tabs)
           (bufferlo--set-switch-to-prev-buffer-skip))
-        ;; Include/exclude buffers
-        (add-hook 'after-make-frame-functions
-                  #'bufferlo--include-exclude-buffers)
+        ;; Include/exclude buffers.  See the
+        ;; `bufferlo--tab-include-exclude-buffers-inhibit' comments for the
+        ;; hook strategy employed here.
         (add-hook 'tab-bar-tab-post-open-functions
                   #'bufferlo--tab-include-exclude-buffers)
+        (add-hook 'before-make-frame-hook
+                  #'bufferlo--tab-include-exclude-buffers-inhibit)
+        (add-hook 'after-make-frame-functions
+                  #'bufferlo--include-exclude-buffers)
         ;; Save/restore local buffer list
         (advice-add #'window-state-get :around #'bufferlo--window-state-get)
         (advice-add #'window-state-put :after #'bufferlo--window-state-put)
@@ -1133,10 +1137,12 @@ string, FACE is the face for STR."
       (bufferlo--reset-switch-to-prev-buffer-skip))
     (remove-hook 'after-make-frame-functions #'bufferlo--set-buffer-predicate)
     ;; Include/exclude buffers
-    (remove-hook 'after-make-frame-functions
-                 #'bufferlo--include-exclude-buffers)
     (remove-hook 'tab-bar-tab-post-open-functions
                  #'bufferlo--tab-include-exclude-buffers)
+    (remove-hook 'before-make-frame-hook
+                 #'bufferlo--tab-include-exclude-buffers-inhibit)
+    (remove-hook 'after-make-frame-functions
+                 #'bufferlo--include-exclude-buffers)
     ;; Save/restore local buffer list
     (advice-remove #'window-state-get #'bufferlo--window-state-get)
     (advice-remove #'window-state-put #'bufferlo--window-state-put)
@@ -1418,6 +1424,9 @@ buffers, treat BUFFER as local."
 
 (defun bufferlo--include-exclude-buffers (frame)
   "Include and exclude buffers from the local buffer list of FRAME."
+  ;; We know this is called from a frame hook, so lift any previous tab-hook
+  ;; inhibition.  See below to understand this strategy.
+  (bufferlo--tab-include-exclude-buffers-inhibit 'uninhibit)
   (let* ((include (bufferlo--merge-regexp-list
                    (append '("a^") bufferlo-include-buffer-filters)))
          (exclude (bufferlo--merge-regexp-list
@@ -1441,13 +1450,35 @@ buffers, treat BUFFER as local."
                                buffers))
     (set-frame-parameter frame 'buried-buffer-list nil)))
 
+;; Starting in Emacs 31, `tab-bar-tab-post-open-functions' are called for the
+;; initial tab on a frame, and prior to `after-make-frame-functions' when the
+;; `tab-bar' is being set up during frame initialization.  We ensure that
+;; `bufferlo--tab-include-exclude-buffers' is skipped until
+;; `bufferlo--include-exclude-buffers' is called after the frame is created,
+;; and our curated `buffer-list' parameter is initialized for the frame/tab.
+;; Therein after it is safe to call `bufferlo--tab-include-exclude-buffers'
+;; for each subsequent new tab.  This strategy is safe to use on Emacs < 31.
+(defvar bufferlo--tab-include-exclude-buffers-inhibit nil
+  "Set to non-nil during `make-frame'.
+This inhibits `bufferlo--tab-include-exclude-buffers' and is reset by
+`bufferlo--include-exclude-buffers'.  This cannot be let-bound unless we
+advise `make-frame'.")
+
+(defun bufferlo--tab-include-exclude-buffers-inhibit (&optional uninhibit)
+  "Inhibit `bufferlo--tab-include-exclude-buffers' in `before-make-frame-hook'.
+`bufferlo--include-exclude-buffers' which lifts this inhibition is run
+by `after-make-frame-functions'.
+If optional argument UNINHIBIT is non-nil, the inhibition is disabled."
+  (setq bufferlo--tab-include-exclude-buffers-inhibit (not uninhibit)))
+
 (defun bufferlo--tab-include-exclude-buffers (ignore)
   "Include and exclude buffers from the buffer list of the current tab's frame.
 Argument IGNORE is for compatibility with `tab-bar-tab-post-open-functions'."
   (ignore ignore)
   ;; Reset the local buffer list unless we clone the tab (tab-duplicate).
-  (unless (eq tab-bar-new-tab-choice 'clone)
-    (bufferlo--include-exclude-buffers nil)))
+  (unless bufferlo--tab-include-exclude-buffers-inhibit
+    (unless (eq tab-bar-new-tab-choice 'clone)
+      (bufferlo--include-exclude-buffers nil))))
 
 (defun bufferlo--current-buffers (frame)
   "Get the buffers of the current tab in FRAME."
