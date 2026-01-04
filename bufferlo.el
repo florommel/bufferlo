@@ -1350,9 +1350,14 @@ before calling OLDFN with ARGS.  See `bufferlo--clear-buffer-lists'."
 ;; (funcall skip window buffer bury-or-kill)
 (defun bufferlo--switch-to-prev-buffer-skip-p (_window buffer _bury-or-kill)
   "Restrict BUFFER to the current tab's locals for buffer switching.
-Affects `switch-to-prev-buffer' and `switch-to-next-buffer'.
-Includes hidden buffers."
-  (not (bufferlo-local-buffer-p buffer nil (tab-bar--current-tab-index) t)))
+Return non-nil if `switch-to-prev-buffer' (and and
+`switch-to-next-buffer') should skip BUFFER.  Includes hidden buffers.
+
+If the frame parameter \\='buffer-list is nil, hence it has no local
+buffers, do not skip."
+  (if (frame-parameter nil 'buffer-list)
+      (not (bufferlo-local-buffer-p buffer nil (tab-bar--current-tab-index) t))
+    nil))
 
 (defvar bufferlo--switch-to-prev-buffer-skip-orig)
 
@@ -1367,8 +1372,13 @@ Includes hidden buffers."
 
 (defun bufferlo--buffer-predicate (buffer)
   "Return whether BUFFER is local to the current frame/tab.
-Includes hidden buffers."
-  (bufferlo-local-buffer-p buffer nil nil t))
+Includes hidden buffers.
+
+If the frame parameter \\='buffer-list is nil, hence it has no local
+buffers, treat BUFFER as local."
+  (if (frame-parameter nil 'buffer-list)
+      (bufferlo-local-buffer-p buffer nil nil t)
+    t))
 
 (defun bufferlo--set-buffer-predicate (frame)
   "Set the buffer predicate of FRAME to `bufferlo--buffer-predicate'."
