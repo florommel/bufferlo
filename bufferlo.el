@@ -837,7 +837,7 @@ Delay is specified in seconds using `sleep-for', which see.
 GTK/GNOME seems to need 0.3 seconds.  YMMV.
 No delay seems needed on macOS."
   :package-version '(bufferlo . "1.1")
-  :type 'natnum)
+  :type 'number)
 
 (defcustom bufferlo-mode-line-prefix "Bfl"
   "Bufferlo mode-line prefix."
