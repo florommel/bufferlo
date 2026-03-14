@@ -1960,6 +1960,11 @@ argument INTERNAL-TOO is non-nil."
         ;; delete windows *and* their frame so we have to test if
         ;; the frame in question is still live.
         (when (frame-live-p frame)
+          ;; Something could go wrong while trying to delete the frame.
+          ;; Since we already killed all buffers we disconnect the bookmark.
+          ;; This prevents the auto-save feature from overwriting an existing
+          ;; bookmark with the empty buffer list.
+          (set-frame-parameter frame 'bufferlo-bookmark-frame-name nil)
           ;; TODO: Emacs 30 frame-deletable-p
           ;; account for top-level, non-child frames
           (when (= 1 (length (seq-filter
