@@ -903,14 +903,16 @@ string, FACE is the face for STR."
 
 (defvar bufferlo--active-sets) ; byte compiler
 
-(defun bufferlo--active-set-name-for-bookmark (bookmark-name)
-  "Return the active set name that BOOKMARK-NAME belongs to, or nil."
-  (unless (null bookmark-name)
-    (catch :set-name
-      (dolist (set bufferlo--active-sets)
-        (when (member bookmark-name
-                      (alist-get 'bufferlo-bookmark-names (cdr set)))
-          (throw :set-name (car set)))))))
+(defun bufferlo--active-set-names-for-bookmark (bookmark-name)
+  "Return the first active set name that BOOKMARK-NAME belongs to, or nil."
+  (let ((set-names))
+    (when bookmark-name
+      (catch :set-name
+        (dolist (set bufferlo--active-sets)
+          (when (member bookmark-name
+                        (alist-get 'bufferlo-bookmark-names (cdr set)))
+            (push (car set) set-names)))))
+    (nreverse set-names)))
 
 (defun bufferlo-mode-line-format ()
   "Bufferlo mode-line format to display the current active frame or tab bookmark."
@@ -920,8 +922,12 @@ string, FACE is the face for STR."
                            (tab-bar--current-tab-find
                             (frame-parameter nil 'tabs))))
            (set-active (> (length bufferlo--active-sets) 0))
+           (set-names (when set-active
+                        (concat
+                         (car (bufferlo--active-set-names-for-bookmark fbm))
+                         (car (bufferlo--active-set-names-for-bookmark tbm)))))
            (cache (window-parameter nil 'bufferlo--mode-line-cache)))
-      (if (equal (cdr cache) (list fbm tbm set-active))
+      (if (equal (cdr cache) (list fbm tbm set-names))
           (car cache)
         (let* ((abm (concat (when fbm (format "%s (Frame)" fbm))
                             (when (and fbm tbm) ", ")
@@ -939,8 +945,7 @@ string, FACE is the face for STR."
                        (bufferlo--mode-line-format-helper
                         abm
                         (concat bufferlo-mode-line-set-active-prefix
-                                (bufferlo--active-set-name-for-bookmark fbm)
-                                (bufferlo--active-set-name-for-bookmark tbm)
+                                set-names
                                 (when (or fbm tbm) bufferlo-mode-line-delimiter))
                         'bufferlo-mode-line-set-face))
                      (when fbm
@@ -963,7 +968,7 @@ string, FACE is the face for STR."
                         'bufferlo-mode-line-face))))
                (str (if (string-empty-p str) "" (concat " " str))))
           (set-window-parameter nil 'bufferlo--mode-line-cache
-                                (list str fbm tbm set-active))
+                                (list str fbm tbm set-names))
           str)))))
 
 (defvar bufferlo-mode-line)
@@ -988,6 +993,38 @@ string, FACE is the face for STR."
          (bufferlo--set-mode-line))
   :initialize #'custom-initialize-default
   :risky t)
+
+(defcustom bufferlo-bookmark-rename-confirmations t
+  "Which prompts to show when renaming a bookmark.
+If t, the default, you will be prompted for each condition.
+If nil, you will not be prompted to confirm potentially destructive
+bookmark renames.
+Otherwise it is a list of conditions for which to prompt."
+  :package-version '(bufferlo . "1.3")
+  :type '(choice
+          (const :tag "Do not prompt" nil)
+          (const :tag "Confirm all prompts" t)
+          (set
+           (const :tag "If a non bufferlo bookmark will replace a bufferlo bookmark" if-non-bufferlo)
+           (const :tag "If old or new bookmark is active" if-active)
+           (const :tag "If old and new are different bufferlo bookmark types" if-type-change)
+           (const :tag "If old or new appear in bookmark sets" if-in-sets)
+           (const :tag "If old will overwrite new" if-overwrite))))
+
+(defcustom bufferlo-bookmark-delete-confirmations t
+  "Which prompts to show when deleting a bookmark.
+If t, the default, you will be prompted for each condition.
+If nil, you will not be prompted to confirm potentially destructive
+bookmark deletes.
+Otherwise it is a list of conditions for which to prompt."
+  :package-version '(bufferlo . "1.3")
+  :type '(choice
+          (const :tag "Do not prompt" nil)
+          (const :tag "Confirm all prompts" t)
+          (set
+           (const :tag "If old or new bookmark is active" if-active)
+           (const :tag "If old or new appear in bookmark sets" if-in-sets)
+           (const :tag "Confirm delete" if-confirm))))
 
 (defgroup bufferlo-faces nil
   "Faces used in `bufferlo-mode'."
@@ -1043,12 +1080,18 @@ string, FACE is the face for STR."
 (defvar bufferlo-mode-map (make-sparse-keymap)
   "`bufferlo-mode' keymap.")
 
-(defvar bufferlo--bookmark-handlers
+(defconst bufferlo--bookmark-handlers
   (list
    #'bufferlo--bookmark-tab-handler
    #'bufferlo--bookmark-frame-handler
    #'bufferlo--bookmark-set-handler)
   "Bufferlo bookmark handlers.")
+
+(defconst bufferlo--bookmark-handler-types
+  '((bufferlo--bookmark-tab-handler . tbm)
+    (bufferlo--bookmark-frame-handler . fbm)
+    (bufferlo--bookmark-set-handler . sbm))
+  "Bufferlo bookmark handler type map.")
 
 (defconst bufferlo--bookmark-type-names
   '((tbm . "B-Tab")
@@ -1130,6 +1173,7 @@ string, FACE is the face for STR."
         (advice-add #'bookmark--jump-via :around #'bufferlo--bookmark--jump-via-advice)
         (advice-add #'bookmark-rename :around #'bufferlo--bookmark-rename-advice)
         (advice-add #'bookmark-delete :around #'bufferlo--bookmark-delete-advice)
+        (advice-add #'bookmark-delete-all :around #'bufferlo--bookmark-delete-all-advice)
         ;; mode line
         (bufferlo--set-mode-line))
     ;; Prefer local buffers
@@ -1181,7 +1225,8 @@ string, FACE is the face for STR."
                  #'bufferlo--bookmark-after-load-file-hook)
     (advice-remove #'bookmark--jump-via #'bufferlo--bookmark--jump-via-advice)
     (advice-remove #'bookmark-rename #'bufferlo--bookmark-rename-advice)
-    (advice-remove #'bookmark-delete #'bufferlo--bookmark-delete-advice)))
+    (advice-remove #'bookmark-delete #'bufferlo--bookmark-delete-advice)
+    (advice-remove #'bookmark-delete-all #'bufferlo--bookmark-delete-all-advice)))
 
 (defun bufferlo--current-bookmark-name ()
   "Current bufferlo bookmark name, where frame beats tab."
@@ -2534,7 +2579,7 @@ local buffer list to use.  If it is nil, the current frame is used."
               (prev-buffers (cdr prev-buffers-loc)))
     (setf (cdr prev-buffers-loc)
           (mapcar (lambda (be)
-                    (if-let ((replace (assoc (car be) replace-alist)))
+                    (if-let* ((replace (assoc (car be) replace-alist)))
                         (cons (cdr replace) (cdr be))
                       be))
                   prev-buffers))))
@@ -4038,6 +4083,14 @@ Close each set's associated bookmarks and kill their buffers."
             (or handlers bufferlo--bookmark-handlers)))
     bookmark-alist)))
 
+(defun bufferlo--bookmark-type (name)
+  "Return the bufferlo bookmark type for NAME.
+Return nil if NAME is not a member of `bookmark-alist' or is not a
+bufferlo bookmark."
+  (alist-get
+   (alist-get 'handler (assoc name bookmark-alist))
+   bufferlo--bookmark-handler-types))
+
 (defun bufferlo--current-tab ()
   "Get the current tab record."
   (tab-bar--current-tab-find))
@@ -5062,39 +5115,337 @@ OLDFN BOOKMARK-NAME-OR-RECORD DISPLAY-FUNCTION"
           (funcall oldfn bookmark-record #'ignore))
       (funcall oldfn bookmark-record display-function))))
 
+(defun bufferlo--rename-tab-bookmark (old-name new-name)
+  "Rename active tab bookmarks from OLD-NAME to NEW-NAME."
+  (dolist (frame (frame-list))
+    (dolist (tab (funcall tab-bar-tabs-function frame))
+      (when-let* ((tbm (alist-get 'bufferlo-bookmark-tab-name tab)))
+        (when (equal tbm old-name)
+          (setf (alist-get 'bufferlo-bookmark-tab-name tab) new-name))))))
+
+(defun bufferlo--rename-frame-bookmark (old-name new-name)
+  "Rename active frame bookmarks from OLD-NAME to NEW-NAME."
+  (dolist (frame (frame-list))
+    (when (equal old-name
+                 (frame-parameter frame 'bufferlo-bookmark-frame-name))
+      (set-frame-parameter frame 'bufferlo-bookmark-frame-name new-name))))
+
+(defun bufferlo--rename-or-delete-bookmark-in-sets (old-name new-name)
+  "Rename bookmark OLD-NAME to NEW-NAME in active and at-rest sets.
+If NEW-NAME is nil, delete OLD-NAME.
+Rename in `bufferlo--active-sets' and in `bookmark-alist'."
+  (let ((active-names (bufferlo--active-set-names-for-bookmark old-name))
+        (bookmark-names (bufferlo--sets-containing-bookmark old-name)))
+    ;; Rename or delete in session `bufferlo--active-sets' an alist of the
+    ;; form: (("setname" (bufferlo-bookmark-names "bm1" "bm2")))
+    (dolist (name active-names)
+      (when-let* ((entry (assoc name bufferlo--active-sets))
+                  (entry-names (alist-get 'bufferlo-bookmark-names entry)))
+        (setf (alist-get 'bufferlo-bookmark-names entry)
+              (if new-name
+                  (cons new-name (delete old-name entry-names))
+                (delete old-name entry-names)))))
+    ;; Rename or delete in `bookmark-alist' which is of the form:
+    ;; ("bookmarkname" (position . 0) (bufferlo-bookmark-names "bm1" "bm2"))
+    (dolist (name bookmark-names)
+      (when-let* ((entry (assoc name bookmark-alist))
+                  (entry-names (alist-get 'bufferlo-bookmark-names entry)))
+        (setf (alist-get 'bufferlo-bookmark-names entry)
+              (if new-name
+                  (cons new-name (delete old-name entry-names))
+                (delete old-name entry-names)))))))
+
+(defun bufferlo--rename-bookmark (old-name new-name)
+  "Rename active OLD-NAME to NEW-NAME.
+Handle change from OLD-TYPE to NEW-TYPE.
+Update OLD-SETS OLD-NAME references to NEW-NAME.
+
+This function renames active bufferlo bookmarks, active sets, and set
+`bookmark-alist' entries.
+
+`bookmark-rename' must be called separately and which can trigger
+`bookmark-save'."
+  (when (not (equal old-name new-name))
+    ;; Clear any active new-name bookmarks.
+    (bufferlo--clear-tab-bookmarks-by-name new-name)
+    (bufferlo--clear-frame-bookmarks-by-name new-name)
+    ;; Rename active set.
+    (when (assoc old-name bufferlo--active-sets)
+      (setcar (assoc old-name bufferlo--active-sets) new-name))
+    ;; Rename any active old-name bookmarks to new-name.
+    (bufferlo--rename-tab-bookmark old-name new-name)
+    (bufferlo--rename-frame-bookmark old-name new-name)
+    (bufferlo--rename-or-delete-bookmark-in-sets old-name new-name)))
+
 ;; (defun bookmark-rename (old-name &optional new-name)
 (defun bufferlo--bookmark-rename-advice (oldfn &optional old-name new-name)
-  "`bookmark-rename' advice to prevent renaming active bufferlo bookmarks.
-OLDFN OLD-NAME NEW-NAME"
-  (interactive)
-  (when (called-interactively-p 'interactive)
-    (setq old-name (bookmark-completing-read "Old bookmark name")))
-  (if-let* ((abm (assoc old-name (bufferlo--active-bookmarks))))
-      (user-error
-       "%s is an active bufferlo bookmark--close its frame/tab, or clear it before renaming"
-       old-name)
-    (if (called-interactively-p 'interactive)
-        (funcall-interactively oldfn old-name new-name)
-      (funcall oldfn old-name new-name))))
+  "`bookmark-rename' advice to handle renaming bufferlo bookmarks.
+OLDFN OLD-NAME NEW-NAME.
+Prompt to confirm overwriting existing bookmark (this is something
+`bookmark-rename' does not do on its own).
+Non bufferlo bookmarks are unaffected except for overwrite confirmation
+and attempting to rename one to an existing bufferlo bookmark."
+  ;; `called-interactively-p' will be true for direct calls to
+  ;; `bookmark-rename'.  We assume interactive if `bookmark-rename' is called
+  ;; via `bookmark-bmenu-rename' which always sets OLD-NAME but not NEW-NAME.
+  ;; We assume non-interactive if both old-name and new-name are non nil.
+  (bookmark-maybe-load-default-file)
+  ;; bm means bookmark, bbm means bufferlo, abm means active bufferlo
+  (let ((interactivep (and (or (called-interactively-p 'any)
+                               old-name)
+                           (not new-name)))
+        (abms (bufferlo--active-bookmarks))
+        (old-abm)
+        (new-abm))
+    (when (and interactivep (not old-name))
+      ;; Lifted from `bookmark-rename'.
+      (setq old-name (bookmark-completing-read "Old bookmark name")))
+    (setq old-abm (or (assoc old-name abms)
+                      (assoc old-name bufferlo--active-sets)))
+    (when interactivep
+      ;; Lifted from `bookmark-rename'.
+      (setq new-name (read-from-minibuffer
+                      (format-prompt "Rename \"%s\"%s to" nil
+                                     old-name
+                                     (if old-abm " (active bufferlo bookmark)" ""))
+                      nil
+                      (define-keymap
+                        :parent minibuffer-local-map
+                        "C-w" #'bookmark-yank-word)
+                      nil
+                      'bookmark-history)))
+    (setq new-abm (or (assoc new-name abms)
+                      (assoc new-name bufferlo--active-sets)))
+    (catch :abort
+      (cl-labels
+          ((prompt-or-abort (s)
+             (unless (y-or-n-p (format "%s; rename? " s))
+               (throw :abort t))))
+
+        (let* ((alist-bbms (bufferlo--bookmark-get-names))
+               (new-bm (assoc new-name bookmark-alist))
+               (old-bbm (member old-name alist-bbms))
+               (new-bbm (member new-name alist-bbms))
+               (old-type (bufferlo--bookmark-type old-name))
+               (new-type (bufferlo--bookmark-type new-name))
+               (old-type-name (alist-get old-type bufferlo--bookmark-type-names))
+               (new-type-name (alist-get new-type bufferlo--bookmark-type-names))
+               (old-type-name (if old-type-name (format "(%s)" old-type-name) ""))
+               (new-type-name (if new-type-name (format "(%s)" new-type-name) ""))
+               (old-sets (bufferlo--sets-containing-bookmark old-name))
+               (new-sets (bufferlo--sets-containing-bookmark new-name))
+               (old-setses (ngettext "" "s" (length old-sets)))
+               (new-setses (ngettext "" "s" (length new-sets)))
+               (old-set-names (mapconcat #'identity old-sets ", "))
+               (new-set-names (mapconcat #'identity new-sets ", ")))
+
+          ;; Skip these conditions unless one or both are bufferlo bookmarks
+          ;; or the user agrees to no confirmations.
+          (when (and (or old-bbm new-bbm)
+                     bufferlo-bookmark-rename-confirmations)
+
+            (when (or (eq t bufferlo-bookmark-rename-confirmations)
+                      (memq 'if-non-bufferlo bufferlo-bookmark-rename-confirmations))
+              ;; Old is not bufferlo, will overwrite a bufferlo bookmark.
+              (when (and (not old-type) new-type)
+                (prompt-or-abort
+                 (format-message
+                  "Non bufferlo bookmark `%s' will overwrite `%s'%s and clear it if active and remove it from sets"
+                  old-name
+                  new-name new-type-name))))
+
+            (when (or (eq t bufferlo-bookmark-rename-confirmations)
+                      (memq 'if-active bufferlo-bookmark-rename-confirmations))
+              (cond
+               ;; Old and new are active bufferlo bookmarks.
+               ((and old-abm new-abm)
+                (prompt-or-abort (format-message
+                                  "`%s' %s and `%s' %s are active; `%s' will be cleared"
+                                  old-name old-type-name
+                                  new-name new-type-name new-name)))
+               ;; Old is an active bufferlo bookmark.
+               (old-abm
+                (prompt-or-abort (format-message
+                                  "`%s' %s is an active bufferlo bookmark"
+                                  old-name old-type-name)))
+               ;; New is an active bufferlo bookmark.
+               (new-abm
+                (prompt-or-abort (format-message
+                                  "`%s' %s active and will be cleared"
+                                  new-name new-type-name)))))
+
+            ;; Old and new are bufferlo bookmarks but different bookmark types.
+            (when (or (eq t bufferlo-bookmark-rename-confirmations)
+                      (memq 'if-type-change bufferlo-bookmark-rename-confirmations))
+              (when (and old-type new-type
+                         (not (eq old-type new-type)))
+                (prompt-or-abort (format-message
+                                  "`%s' %s and `%s' %s are different bufferlo types"
+                                  old-name old-type-name new-name new-type-name))))
+
+            (when (or (eq t bufferlo-bookmark-rename-confirmations)
+                      (memq 'if-in-sets bufferlo-bookmark-rename-confirmations))
+              (cond
+               ;; Old and new are both in sets.
+               ((and old-sets new-sets)
+                (prompt-or-abort (format-message
+                                  "`%s' %s will be renamed in set%s: %s and override `%s' %s in set%s: %s"
+                                  old-name old-type-name old-setses old-set-names
+                                  new-name new-type-name new-setses new-set-names)))
+               ;; Old is in sets.
+               (old-sets
+                (prompt-or-abort (format-message
+                                  "`%s' %s will be renamed `%s' in bufferlo set%s: %s"
+                                  old-name old-type-name
+                                  new-name
+                                  old-setses old-set-names)))
+               ;; Old is not a bufferlo bookmark and new is in sets.
+               ((and (not old-bbm) new-sets)
+                (prompt-or-abort (format-message
+                                  "Non bufferlo bookmark `%s' will remove `%s' %s from set%s: %s"
+                                  old-name
+                                  new-name new-type-name new-setses new-set-names)))
+               ;; New is in sets.
+               (new-sets
+                (prompt-or-abort (format-message
+                                  "Renaming `%s' %s will override `%s' %s in set%s: %s"
+                                  old-name old-type-name
+                                  new-name new-type-name new-setses new-set-names)))))
+
+            ;; Prompt on overwrite existing new-name bookmark.
+            (when (or (eq t bufferlo-bookmark-rename-confirmations)
+                      (memq 'if-overwrite bufferlo-bookmark-rename-confirmations))
+              (when new-bm
+                (prompt-or-abort (format-message "Bookmark `%s' %s will be overwritten"
+                                                 new-name new-type-name)))))
+
+          ;; If we get here, confirmations were inhibited or they were all
+          ;; accepted.
+
+          ;; Do the bufferlo renames.
+          (when (or old-bbm new-bbm)
+            (cond
+             ;; If old is not bufferlo bookmark, and new is a bufferlo bookmark
+             ;; about to be overwritten, remove new from active and at-rest
+             ;; sets, and clear new if it is an active set.
+             ((and (not old-bbm)
+                   (or new-sets
+                       (eq new-type 'sbm)))
+              (bufferlo--rename-or-delete-bookmark-in-sets new-name nil) ; delete
+              (bufferlo--clear-set-bookmarks-by-name new-name))
+             ;; Otherwise, rename old to new in `bufferlo--active-bookmarks' and
+             ;; `bufferlo--active-sets', rename bookmarks and set embeds in
+             ;; `bookmark-alist'.
+             (t (bufferlo--rename-bookmark old-name new-name))))
+
+          ;; And then `bookmark-rename'.
+          (funcall oldfn old-name new-name))))))
 
 ;; (defun bookmark-delete (bookmark-name &optional batch)
 (defun bufferlo--bookmark-delete-advice (oldfn &optional bookmark-name batch)
-  "`bookmark-delete' advice to prevent deleting active bufferlo bookmarks.
+  "`bookmark-delete' advice to handle deleting bufferlo bookmarks.
 OLDFN BOOKMARK-NAME BATCH"
-  (interactive)
-  (when (called-interactively-p 'interactive)
-    (setq bookmark-name (bookmark-completing-read "Delete bookmark"
-                                                  bookmark-current-bookmark)))
-  (if-let* ((abm (assoc bookmark-name (bufferlo--active-bookmarks))))
-      (user-error
-       "%s is an active bufferlo bookmark--close its frame/tab, or clear it before deleting"
-       bookmark-name)
-    (if (called-interactively-p 'interactive)
-        (funcall-interactively oldfn bookmark-name batch)
-      (funcall oldfn bookmark-name batch))))
+  (bookmark-maybe-load-default-file)
+  ;; `called-interactively-p' will be true for direct calls to
+  ;; `bookmark-delete' and BOOKMARK-NAME should be nil.  Do not consider the
+  ;; call interactive if called via `bookmark-bmenu-execute-deletions' which
+  ;; is in `bookmark-bmenu-mode', BOOKMARK-NAME and BATCH are non-nil.
+  (let ((interactivep (and (called-interactively-p 'any)
+                           (not bookmark-name)))
+        (alist-bbms (bufferlo--bookmark-get-names)))
+    (when interactivep
+      ;; Lifted from `bookmark-delete'.
+      (setq bookmark-name (bookmark-completing-read "Delete bookmark"
+                                                    bookmark-current-bookmark)))
+    ;; Skip these conditions unless the bookmark is a bufferlo bookmark.
+    (when (member bookmark-name alist-bbms)
+      ;; bm means bookmark, bbm means bufferlo, abm means active bufferlo
+      (when (catch :abort
+              (cl-labels
+                  ((prompt-or-abort (s)
+                     (unless (y-or-n-p (format "%s; delete? " s))
+                       (throw :abort t))))
+
+                (let* ((abms (bufferlo--active-bookmarks))
+                       (bm-abm (or (assoc bookmark-name abms)
+                                   (assoc bookmark-name bufferlo--active-sets)))
+                       (bm-type (bufferlo--bookmark-type bookmark-name))
+                       (bm-type-name (alist-get bm-type bufferlo--bookmark-type-names))
+                       (bm-sets (bufferlo--sets-containing-bookmark bookmark-name))
+                       (bm-setses (ngettext "" "s" (length bm-sets)))
+                       (bm-set-names (mapconcat #'identity bm-sets ", ")))
+
+                  (when (or (eq t bufferlo-bookmark-delete-confirmations)
+                            (memq 'if-active bufferlo-bookmark-delete-confirmations))
+                    ;; It's an active bufferlo bookmark.
+                    (when bm-abm
+                      (prompt-or-abort (format-message
+                                        "`%s'%s is an active bufferlo bookmark"
+                                        bookmark-name bm-type-name))))
+
+                  (when (or (eq t bufferlo-bookmark-delete-confirmations)
+                            (memq 'if-in-sets bufferlo-bookmark-delete-confirmations))
+                    ;; It's in sets.
+                    (when bm-sets
+                      (prompt-or-abort (format-message
+                                        "`%s'%s will be deleted from bufferlo set%s: %s"
+                                        bookmark-name bm-type-name
+                                        bm-setses bm-set-names))))
+
+                  (when (or (eq t bufferlo-bookmark-delete-confirmations)
+                            (memq 'if-confirm bufferlo-bookmark-delete-confirmations))
+                    ;; Confirm delete.
+                    (prompt-or-abort (format-message
+                                      "Deleting `%s'%s cannot be undone"
+                                      bookmark-name bm-type-name)))
+
+                  ;; If we get here, confirmations were inhibited or they were all
+                  ;; accepted.
+
+                  ;; Clear if active.
+                  (bufferlo--clear-tab-bookmarks-by-name bookmark-name)
+                  (bufferlo--clear-frame-bookmarks-by-name bookmark-name)
+                  (bufferlo--clear-set-bookmarks-by-name bookmark-name)
+                  ;; Remove from sets.
+                  (bufferlo--rename-or-delete-bookmark-in-sets bookmark-name nil)))
+              nil)
+        (user-error "Deleting bookmarks aborted")))
+
+    ;; And then `bookmark-delete'.
+    (funcall oldfn bookmark-name batch)))
 
 ;; (defun bookmark-delete-all (&optional no-confirm)
-;; Leave this alone for now. It does prompt for confirmation.
+(defun bufferlo--bookmark-delete-all-advice (oldfn &optional no-confirm)
+  "`bookmark-delete-all' advice to handle deleting bufferlo bookmarks.
+NO-CONFIRM"
+  (let ((allow-delete t))
+    (when (and (called-interactively-p 'any)
+               (not no-confirm))
+      (bookmark-maybe-load-default-file)
+      (let* ((alist-bbms (bufferlo--bookmark-get-names))
+             (abms (bufferlo--active-bookmarks))
+             (abm-names (mapcar #'car abms))
+             (num-bbms (length alist-bbms))
+             (num-abms (length abm-names)))
+        (when (or (> num-bbms 0)
+                  (> num-abms 0))
+          (setq allow-delete
+                (y-or-n-p
+                 (format "There are %d bufferlo bookmarks and %d active; clear and delete all? "
+                         num-bbms num-abms))))))
+
+    (when allow-delete
+      ;; Clear all actives.
+      (dolist (frame (frame-list))
+        (set-frame-parameter frame 'bufferlo-bookmark-frame-name nil)
+        (let ((tabs (funcall tab-bar-tabs-function frame)))
+          (dolist (tab tabs)
+            (setf (alist-get 'bufferlo-bookmark-tab-name tab) nil))))
+      (bufferlo--set-clear-all)
+
+      ;; Do the actual damage.
+      ;; `bookmark-delete-all' will prompt if not NO-CONFIRM.
+      (funcall oldfn no-confirm))))
 
 ;;; Aliases:
 
