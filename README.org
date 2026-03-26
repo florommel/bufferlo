@@ -224,18 +224,26 @@ in combination with a package like [[https://github.com/minad/vertico][vertico]]
   bookmarks are identified as "B-Frame", tab bookmarks as "B-Tab", and
   bookmark sets as "B-Set".
 
-- ~bookmark-rename~: Invoke this command to rename a bookmark. This
-  command will refuse to rename an active bufferlo bookmark (close or
-  clear it and then rename). This function is also available via
+- ~bookmark-rename~: Invoke this command to rename a bookmark. This command
+  will advise of potential impacts to bufferlo bookmarks and prompt for
+  confirmation. See the user option ~bufferlo-bookmark-rename-confirmations~
+  for prompting options. This function is also available via
   ~bookmark-bmenu-list~.
 
-- ~bookmark-delete~: Invoke this command to delete a bookmark. This
-  command will refuse to delete an active bufferlo bookmark (close or
-  clear it and then delete). This function is also available via
+- ~bookmark-delete~: Invoke this command to delete a bookmark. This command
+  will advise of potential impacts to bufferlo bookmarks and prompt for
+  confirmation. See the user option ~bufferlo-bookmark-delete-confirmations~
+  for prompting options. This function is also available via
   ~bookmark-bmenu-list~.
 
-Note: Renaming or deleting a bufferlo tab or frame bookmark does not
-rename or delete references to those bookmarks within bookmark sets.
+- ~bookmark-delete-all~: Invoke this command to delete all your bookmarks.
+  This command will advise if there are bufferlo bookmarks or active ones and
+  prompt to confirm. This function is also available via on the
+  ~bookmark-mode~ menu bar.
+
+Note: Renaming or deleting a bufferlo bookmark contained in sets will
+rename/remove its references within those sets. Renaming or deleting active
+bookmarks will rename/clear their active bookmark names.
 
 *** Frame bookmark commands
 
@@ -1198,6 +1206,14 @@ remain in force until they are saved if this policy is set to t.
     (setq bufferlo-frameset-restore-geometry 'bufferlo)
     (setq bufferlo-frame-geometry-function #'bufferlo-frame-geometry-default)
     (setq bufferlo-frame-sleep-for 0.3)
+
+    (setq bufferlo-bookmark-rename-confirmations t) ; t all, nil none
+    ;; Or include one or more of these in a list:
+    ;; 'if-non-bufferlo 'if-active 'if-type-change 'if-in-sets 'if-overwrite
+
+    (setq bufferlo-bookmark-delete-confirmations t) ; t all, nil none
+    ;; Or include one or more of these in a list:
+    ;; 'if-active 'if-in-sets 'if-confirm
 
     (setq bookmark-bmenu-type-column-width 12) ; supported in Emacs 31 (innocuous on earlier versions)
 
