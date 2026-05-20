@@ -1413,11 +1413,11 @@ Otherwise it is a list of conditions for which to prompt."
 ;; TODO: In Emacs 31, bind expose-hidden-buffer t to allow hidden buffers.
 (defmacro bufferlo--with-temp-buffer (&rest body)
   "Execute BODY with \"*bufferlo temp buffer*\" current buffer."
-  (let ((buff-name (generate-new-buffer-name "*bufferlo temp buffer*")))
-    (with-current-buffer (get-buffer-create buff-name t)
-      (unwind-protect
-          `(progn ,@body)
-        (kill-buffer buff-name)))))
+  `(let ((buff-name (generate-new-buffer-name "*bufferlo temp buffer*")))
+     (with-current-buffer (get-buffer-create buff-name t)
+       (unwind-protect
+           (progn ,@body)
+         (kill-buffer buff-name)))))
 
 (defun bufferlo--make-frame (&optional restore-geometry)
   "Make a new frame with `fullscreen' suppressed if RESTORE-GEOMETRY is non nil."
