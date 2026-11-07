@@ -430,7 +430,9 @@ bookmark.
 Raise does not apply when restoring bookmark sets or tabs embedded
 within a frame bookmark.
 
-Note: \\='raise is considered \\='clear during `bookmark-set' loading."
+Note: \\='raise is considered \\='clear during `bookmark-set' loading.
+Undeleting or cloning a frame that contains duplicate tab bookmarks
+treat \\='ignore and \\='raise as \\='clear."
   :package-version '(bufferlo . "1.1")
   :type '(radio (const :tag "Prompt" prompt)
                 (const :tag "Allow" allow)
@@ -1702,59 +1704,94 @@ the advised functions."
 (defun bufferlo--clone-undelete-frame-advice (oldfn &rest args)
   "Activate the advice for `clone-frame' and `undelete-frame'.
 OLDFN is the original function.  ARGS is for compatibility with the
-advised functions.  Honors `bufferlo-bookmark-frame-duplicate-policy'."
+advised functions.  Honor `bufferlo-bookmark-frame-duplicate-policy' and
+`bufferlo-bookmark-tab-duplicate-policy'."
   (let ((bufferlo--desktop-advice-active t)
         (bufferlo--desktop-advice-active-force t))
     (apply oldfn args))
-  (when-let* ((bookmark-name (frame-parameter nil 'bufferlo-bookmark-frame-name))
-              (abm (assoc bookmark-name (bufferlo--active-bookmarks)))
-              (this+at-least-one-other
-               (> (seq-count (lambda (x) (equal bookmark-name (car x)))
-                             (bufferlo--active-bookmarks))
-                  1)))
-    (let ((msg nil))
-      (cl-labels
-          ((msg-append (s) (setq msg (concat msg "; " s))))
-        (when
-            (catch :abort
-              ;; `bufferlo--bookmark-get-duplicate-policy' throws :abort
-              (let ((duplicate-policy (bufferlo--bookmark-get-duplicate-policy
-                                       bookmark-name
-                                       "frame"
-                                       bufferlo-bookmark-frame-duplicate-policy
-                                       'undelete)))
-                (pcase duplicate-policy
-                  ('allow)
-                  ('clear
-                   (setq bookmark-name nil))
-                  ('clear-warn
-                   (setq bookmark-name nil)
-                   (msg-append "cleared frame bookmark"))
-                  ('ignore
-                   (throw :abort t))
-                  ('raise
-                   ;; NOTE: We throw nil here!
-                   ;; We delete the frame ourselves before raising.
-                   (delete-frame)
-                   (bufferlo--bookmark-raise abm)
-                   (throw :abort nil)))
-                (set-frame-parameter nil 'bufferlo-bookmark-frame-name
-                                     bookmark-name))
-              (when msg
-                (message "Undelete frame bufferlo bookmark%s%s"
-                         (if bookmark-name (format ": %s" bookmark-name) "")
-                         (or msg "")))
-              nil)
-          (delete-frame))))))
+  ;; If the cloned/undeleted frame has a bufferlo bookmark, honor
+  ;; `bufferlo-bookmark-frame-duplicate-policy'.
+  (if-let* ((bookmark-name (frame-parameter nil 'bufferlo-bookmark-frame-name))
+            (abm (assoc bookmark-name (bufferlo--active-bookmarks))))
+      (let ((msg nil))
+        (cl-labels
+            ((msg-append (s) (setq msg (concat msg "; " s))))
+          (when
+              (catch :abort
+                ;; `bufferlo--bookmark-get-duplicate-policy' throws :abort
+                (let ((duplicate-policy (bufferlo--bookmark-get-duplicate-policy
+                                         bookmark-name
+                                         "frame"
+                                         bufferlo-bookmark-frame-duplicate-policy
+                                         'undelete)))
+                  (pcase duplicate-policy
+                    ('allow)
+                    ('clear
+                     (setq bookmark-name nil))
+                    ('clear-warn
+                     (setq bookmark-name nil)
+                     (msg-append "cleared frame bookmark"))
+                    ('ignore
+                     (throw :abort t))
+                    ('raise
+                     ;; NOTE: We throw nil here!
+                     ;; We delete the frame ourselves before raising.
+                     (delete-frame)
+                     (bufferlo--bookmark-raise abm)
+                     (throw :abort nil)))
+                  (set-frame-parameter nil 'bufferlo-bookmark-frame-name
+                                       bookmark-name))
+                (when msg
+                  (message "Undelete frame bufferlo bookmark%s%s"
+                           (if bookmark-name (format ": %s" bookmark-name) "")
+                           (or msg "")))
+                nil)
+            (delete-frame))))
+    ;; Otherwise, if the frame has bufferlo bookmarked tabs, honor
+    ;; `bufferlo-bookmark-tab-duplicate-policy'.
+    (when-let* ((other-frames (seq-remove
+                               (lambda (x)
+                                 (or (eq x (selected-frame))
+                                     (frame-parameter x 'parent-frame)))
+                               (frame-list)))
+                (tbm-names
+                 (mapcar #'car (bufferlo--active-bookmarks
+                                (list (selected-frame)) 'tbm)))
+                (tbm-names-other-frames
+                 (mapcar #'car (bufferlo--active-bookmarks
+                                other-frames
+                                'tbm)))
+                (tbm-dupes
+                 (seq-intersection tbm-names tbm-names-other-frames)))
+      (let ((policy
+             (pcase bufferlo-bookmark-tab-duplicate-policy
+               ('prompt
+                (with-local-quit
+                  (read-answer
+                   (concat "Undeleted/cloned frame duplicate active bookmarks "
+                           (mapconcat #'identity tbm-dupes ", ")
+                           ": Allow, Clear, Quit to delete the frame ")
+                   '(("allow" ?a "Allow duplicate tab bookmarks")
+                     ("clear" ?c "Clear duplicate tab bookmarks")
+                     ("help" ?h "Help")
+                     ("quit" ?q "Quit to abort")))))
+               ('allow "allow")
+               ('clear "clear")
+               ('ignore "clear")
+               ('raise "clear"))))
+        (pcase policy
+          ("allow" (ignore))
+          ("clear" (let ((tabs (funcall tab-bar-tabs-function)))
+                     (dolist (tab tabs)
+                       (when (member (alist-get 'bufferlo-bookmark-tab-name tab)
+                                     tbm-dupes)
+                         (setf (alist-get 'bufferlo-bookmark-tab-name tab) nil)))))
+          (_ (delete-frame)))))))
 
 (defun bufferlo--tab-post-undo-close-tab-function (tab)
   "Handle `tab-bar-undo-close-tab' TAB.
 Honors `bufferlo-bookmark-tab-duplicate-policy'."
-  (when-let* ((bookmark-name (alist-get 'bufferlo-bookmark-tab-name tab))
-              (this+at-least-one-other
-               (> (seq-count (lambda (x) (equal bookmark-name (car x)))
-                             (bufferlo--active-bookmarks))
-                  1)))
+  (when-let* ((bookmark-name (alist-get 'bufferlo-bookmark-tab-name tab)))
     (let ((msg nil))
       (cl-labels
           ((msg-append (s) (setq msg (concat msg "; " s))))
@@ -2708,7 +2745,12 @@ local buffer list to use.  If it is nil, the current frame is used."
 This controls `bufferlo--bookmark-get-duplicate-policy' to inhibit raise
 and quit which are cumbersome during set loading.")
 
-(defun bufferlo--bookmark-get-duplicate-policy (bookmark-name thing default-policy mode &optional embedded-tab)
+(defun bufferlo--bookmark-get-duplicate-policy (bookmark-name
+                                                thing
+                                                default-policy
+                                                mode
+                                                &optional
+                                                embedded-tab)
   "Get the duplicate policy for THING BOOKMARK-NAME.
 THING should be either \"frame\" or \"tab\".
 Ask the user if DEFAULT-POLICY is set to \\='prompt.
@@ -2716,6 +2758,8 @@ MODE can be one of \\='load \\='save \\='undelete, depending on the
 invoking action.
 EMBEDDED-TAB is non-nil if the tab bookmark is embedded in a frame
 bookmark.  This functions throws :abort when the user quits.
+
+Note: Throw the keyword `:abort' if the user aborts the prompt.
 
 The variable `bufferlo--bookmark-set-loading' should be non-nil if the
 function is invoked as part of a bookmark set restoration.
@@ -2784,7 +2828,7 @@ In case of a duplicate frame:
                               "Clear other bookmark")
                              ('load
                               "Clear bookmark after loading")
-                             ('undelete ; invalid in bufferlo--bookmark-set-loading
+                             ('undelete ; invalid if bufferlo--bookmark-set-loading
                               "Clear bookmark after undeleting/undoing")))
                 ;; A solo tab in a set (and default: prompt):
                 ;;   allow, clear, ignore, disallow raise
@@ -4633,9 +4677,13 @@ This is intended to be used in `bufferlo-bookmarks-save-predicate-functions'."
 This is intended to be used in `bufferlo-bookmarks-load-predicate-functions'."
   t)
 
-(defun bufferlo--active-bookmark-duplicates ()
-  "Produce a list of duplicated active bookmark names."
-  (let ((abm-names (mapcar #'car (bufferlo--active-bookmarks))))
+(defun bufferlo--active-bookmark-duplicates (&optional frames type)
+  "Produce a list of duplicated active bookmark names.
+If optional FRAMES is nil, use all frames and filter by TYPE which is
+one of:
+\\='fbm frame bookmarks
+\\='tbm tab bookmarks."
+  (let ((abm-names (mapcar #'car (bufferlo--active-bookmarks frames type))))
     (seq-filter (lambda (abm)
                   (> (seq-count (lambda (x) (equal x abm)) abm-names) 1))
                 (seq-uniq abm-names))))
