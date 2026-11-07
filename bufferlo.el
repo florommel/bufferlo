@@ -963,11 +963,11 @@ string, FACE is the face for STR."
            (tbm (alist-get 'bufferlo-bookmark-tab-name
                            (tab-bar--current-tab-find
                             (frame-parameter nil 'tabs))))
-           (set-active (> (length bufferlo--active-sets) 0))
-           (set-names (when set-active
-                        (concat
-                         (car (bufferlo--active-set-names-for-bookmark fbm))
-                         (car (bufferlo--active-set-names-for-bookmark tbm)))))
+           ;; NOTE: We display only the first matching active set.
+           (fbm-set (car (bufferlo--active-set-names-for-bookmark fbm)))
+           (tbm-set (car (bufferlo--active-set-names-for-bookmark tbm)))
+           (set-names (concat fbm-set tbm-set))
+           (set-active (or fbm-set tbm-set))
            (cache (window-parameter nil 'bufferlo--mode-line-cache)))
       (if (equal (cdr cache) (list fbm tbm set-names))
           (car cache)
