@@ -1174,7 +1174,7 @@ Otherwise it is a list of conditions for which to prompt."
                   #'bufferlo--include-exclude-buffers)
         ;; Save/restore local buffer list
         (advice-add #'window-state-get :around #'bufferlo--window-state-get)
-        (advice-add #'window-state-put :after #'bufferlo--window-state-put)
+        (advice-add #'window-state-put :around #'bufferlo--window-state-put)
         ;; Desktop support
         (advice-add #'frameset--restore-frame :around #'bufferlo--activate)
         ;; Duplicate/move tabs
@@ -1663,28 +1663,39 @@ function.  WINDOW and WRITABLE are passed to the function."
           (append ws (list (list 'bufferlo-buffer-list names)))
         ws))))
 
-(defun bufferlo--window-state-put (state &optional window _ignore)
+(defun bufferlo--window-state-put (oldfn state &optional window ignore)
   "Restore the frame's buffer list from the window state.
-Used as advice after `window-state-put'.  STATE is the window state.
-WINDOW is the window in question.  IGNORE is not used and exists for
-compatibility with the advised function."
-  ;; We have to make sure that the window is live at this point.
-  ;; `frameset-restore' may pass a window with a non-existing buffer
-  ;; to `window-state-put', which in turn will delete that window
-  ;; before the advice calls us.
-  ;; This is not the case when we are called from `tab-bar-select-tab'.
-  (when (or bufferlo--desktop-advice-active-force
-            (and bufferlo--desktop-advice-active (window-live-p window)))
-    ;; FIXME: Currently there is no distinction between buffers and
-    ;;        buried buffers for desktop.el.
-    (let ((bl (car (cdr (assq 'bufferlo-buffer-list state)))))
-      (set-frame-parameter (window-frame window) 'buffer-list
-                           ;; The current buffer must be always on the list,
-                           ;; otherwise the buffer list gets replaced later.
-                           (cons (window-buffer window)
-                                 (mapcar #'get-buffer bl)))
-      (set-frame-parameter (window-frame window) 'buried-buffer-list
-                           (list (window-buffer window))))))
+Used as advice around `window-state-put'.  OLDFN is the original
+function.  STATE is the window state.  WINDOW is the window in question.
+IGNORE is passed to the function."
+  ;; When WINDOW is the internal root window of a split frame (e.g., a
+  ;; frame reused by `frameset-restore'), `window-state-put' deletes it.
+  ;; Check this before calling OLDFN, since afterwards WINDOW is dead
+  ;; and `frame-root-window' returns a different window.
+  (let* ((frame (and (window-valid-p window) (window-frame window)))
+         (root-p (and frame (not (window-live-p window))
+                      (eq window (frame-root-window frame)))))
+    (prog1 (funcall oldfn state window ignore)
+      ;; `window-state-put' replaced the root WINDOW with a new live
+      ;; window that is not accessible here, so use the frame's selected
+      ;; window, which lies within the restored state.
+      (when root-p
+        (setq window (frame-selected-window frame)))
+      ;; Skip WINDOW unless it is live, e.g., an internal window that
+      ;; is not the frame's root.  `tab-bar-select-tab' passes a nil
+      ;; WINDOW (the selected window), so it forces the restore instead.
+      (when (or bufferlo--desktop-advice-active-force
+                (and bufferlo--desktop-advice-active (window-live-p window)))
+        ;; FIXME: Currently there is no distinction between buffers and
+        ;;        buried buffers for desktop.el.
+        (let ((bl (car (cdr (assq 'bufferlo-buffer-list state)))))
+          (set-frame-parameter (window-frame window) 'buffer-list
+                               ;; The current buffer must be always on the list,
+                               ;; otherwise the buffer list gets replaced later.
+                               (cons (window-buffer window)
+                                     (mapcar #'get-buffer bl)))
+          (set-frame-parameter (window-frame window) 'buried-buffer-list
+                               (list (window-buffer window))))))))
 
 (defun bufferlo--activate (oldfn &rest args)
   "Activate the advice for `bufferlo--window-state-{get,put}'.
