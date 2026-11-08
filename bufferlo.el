@@ -1706,87 +1706,90 @@ the advised functions."
 OLDFN is the original function.  ARGS is for compatibility with the
 advised functions.  Honor `bufferlo-bookmark-frame-duplicate-policy' and
 `bufferlo-bookmark-tab-duplicate-policy'."
-  (let ((bufferlo--desktop-advice-active t)
-        (bufferlo--desktop-advice-active-force t))
-    (apply oldfn args))
-  ;; If the cloned/undeleted frame has a bufferlo bookmark, honor
-  ;; `bufferlo-bookmark-frame-duplicate-policy'.
-  (if-let* ((bookmark-name (frame-parameter nil 'bufferlo-bookmark-frame-name))
-            (abm (assoc bookmark-name (bufferlo--active-bookmarks))))
-      (let ((msg nil))
-        (cl-labels
-            ((msg-append (s) (setq msg (concat msg "; " s))))
-          (when
-              (catch :abort
-                ;; `bufferlo--bookmark-get-duplicate-policy' throws :abort
-                (let ((duplicate-policy (bufferlo--bookmark-get-duplicate-policy
-                                         bookmark-name
-                                         "frame"
-                                         bufferlo-bookmark-frame-duplicate-policy
-                                         'undelete)))
-                  (pcase duplicate-policy
-                    ('allow)
-                    ('clear
-                     (setq bookmark-name nil))
-                    ('clear-warn
-                     (setq bookmark-name nil)
-                     (msg-append "cleared frame bookmark"))
-                    ('ignore
-                     (throw :abort t))
-                    ('raise
-                     ;; NOTE: We throw nil here!
-                     ;; We delete the frame ourselves before raising.
-                     (delete-frame)
-                     (bufferlo--bookmark-raise abm)
-                     (throw :abort nil)))
-                  (set-frame-parameter nil 'bufferlo-bookmark-frame-name
-                                       bookmark-name))
-                (when msg
-                  (message "Undelete frame bufferlo bookmark%s%s"
-                           (if bookmark-name (format ": %s" bookmark-name) "")
-                           (or msg "")))
-                nil)
-            (delete-frame))))
-    ;; Otherwise, if the frame has bufferlo bookmarked tabs, honor
-    ;; `bufferlo-bookmark-tab-duplicate-policy'.
-    (when-let* ((other-frames (seq-remove
-                               (lambda (x)
-                                 (or (eq x (selected-frame))
-                                     (frame-parameter x 'parent-frame)))
-                               (frame-list)))
-                (tbm-names
-                 (mapcar #'car (bufferlo--active-bookmarks
-                                (list (selected-frame)) 'tbm)))
-                (tbm-names-other-frames
-                 (mapcar #'car (bufferlo--active-bookmarks
-                                other-frames
-                                'tbm)))
-                (tbm-dupes
-                 (seq-intersection tbm-names tbm-names-other-frames)))
-      (let ((policy
-             (pcase bufferlo-bookmark-tab-duplicate-policy
-               ('prompt
-                (with-local-quit
-                  (read-answer
-                   (concat "Undeleted/cloned frame duplicate active bookmarks "
-                           (mapconcat #'identity tbm-dupes ", ")
-                           ": Allow, Clear, Quit to delete the frame ")
-                   '(("allow" ?a "Allow duplicate tab bookmarks")
-                     ("clear" ?c "Clear duplicate tab bookmarks")
-                     ("help" ?h "Help")
-                     ("quit" ?q "Quit to abort")))))
-               ('allow "allow")
-               ('clear "clear")
-               ('ignore "clear")
-               ('raise "clear"))))
-        (pcase policy
-          ("allow" (ignore))
-          ("clear" (let ((tabs (funcall tab-bar-tabs-function)))
-                     (dolist (tab tabs)
-                       (when (member (alist-get 'bufferlo-bookmark-tab-name tab)
-                                     tbm-dupes)
-                         (setf (alist-get 'bufferlo-bookmark-tab-name tab) nil)))))
-          (_ (delete-frame)))))))
+  ;; `clone-frame' and `undelete-frame' return nil when they fail, so
+  ;; `when-let*' seems appropriate.
+  (when-let* ((bufferlo--desktop-advice-active t)
+              (bufferlo--desktop-advice-active-force t)
+              (retval (apply oldfn args)))
+    ;; If the cloned/undeleted frame has a bufferlo bookmark, honor
+    ;; `bufferlo-bookmark-frame-duplicate-policy'.
+    (if-let* ((bookmark-name (frame-parameter nil 'bufferlo-bookmark-frame-name))
+              (abm (assoc bookmark-name (bufferlo--active-bookmarks))))
+        (let ((msg nil))
+          (cl-labels
+              ((msg-append (s) (setq msg (concat msg "; " s))))
+            (when
+                (catch :abort
+                  ;; `bufferlo--bookmark-get-duplicate-policy' throws :abort
+                  (let ((duplicate-policy (bufferlo--bookmark-get-duplicate-policy
+                                           bookmark-name
+                                           "frame"
+                                           bufferlo-bookmark-frame-duplicate-policy
+                                           'undelete)))
+                    (pcase duplicate-policy
+                      ('allow)
+                      ('clear
+                       (setq bookmark-name nil))
+                      ('clear-warn
+                       (setq bookmark-name nil)
+                       (msg-append "cleared frame bookmark"))
+                      ('ignore
+                       (throw :abort t))
+                      ('raise
+                       ;; NOTE: We throw nil here!
+                       ;; We delete the frame ourselves before raising.
+                       (delete-frame)
+                       (bufferlo--bookmark-raise abm)
+                       (throw :abort nil)))
+                    (set-frame-parameter nil 'bufferlo-bookmark-frame-name
+                                         bookmark-name))
+                  (when msg
+                    (message "Undelete frame bufferlo bookmark%s%s"
+                             (if bookmark-name (format ": %s" bookmark-name) "")
+                             (or msg "")))
+                  nil)
+              (setq retval (delete-frame)))))
+      ;; Otherwise, if the frame has bufferlo bookmarked tabs, honor
+      ;; `bufferlo-bookmark-tab-duplicate-policy'.
+      (when-let* ((other-frames (seq-remove
+                                 (lambda (x)
+                                   (or (eq x (selected-frame))
+                                       (frame-parameter x 'parent-frame)))
+                                 (frame-list)))
+                  (tbm-names
+                   (mapcar #'car (bufferlo--active-bookmarks
+                                  (list (selected-frame)) 'tbm)))
+                  (tbm-names-other-frames
+                   (mapcar #'car (bufferlo--active-bookmarks
+                                  other-frames
+                                  'tbm)))
+                  (tbm-dupes
+                   (seq-intersection tbm-names tbm-names-other-frames)))
+        (let ((policy
+               (pcase bufferlo-bookmark-tab-duplicate-policy
+                 ('prompt
+                  (with-local-quit
+                    (read-answer
+                     (concat "Undeleted/cloned frame duplicate active bookmarks "
+                             (mapconcat #'identity tbm-dupes ", ")
+                             ": Allow, Clear, Quit to delete the frame ")
+                     '(("allow" ?a "Allow duplicate tab bookmarks")
+                       ("clear" ?c "Clear duplicate tab bookmarks")
+                       ("help" ?h "Help")
+                       ("quit" ?q "Quit to abort")))))
+                 ('allow "allow")
+                 ('clear "clear")
+                 ('ignore "clear")
+                 ('raise "clear"))))
+          (pcase policy
+            ("allow" (ignore))
+            ("clear" (let ((tabs (funcall tab-bar-tabs-function)))
+                       (dolist (tab tabs)
+                         (when (member (alist-get 'bufferlo-bookmark-tab-name tab)
+                                       tbm-dupes)
+                           (setf (alist-get 'bufferlo-bookmark-tab-name tab) nil)))))
+            (_ (setq retval (delete-frame)))))))
+    retval))
 
 (defun bufferlo--tab-post-undo-close-tab-function (tab)
   "Handle `tab-bar-undo-close-tab' TAB.
